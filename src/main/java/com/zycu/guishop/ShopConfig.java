@@ -11,8 +11,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,7 +24,10 @@ import java.util.Map;
 public final class ShopConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path DIRECTORY = FabricLoader.getInstance().getConfigDir().resolve("guishop");
-    private static final Path FILE = DIRECTORY.resolve("shop.json");
+    private static final Path LEGACY_FILE = DIRECTORY.resolve("shop.json");
+    private static final Path SETTINGS_FILE = DIRECTORY.resolve("settings.json");
+    private static final Path SHOPS_FILE = DIRECTORY.resolve("shops.json");
+    private static final Path ENCHANTMENTS_FILE = DIRECTORY.resolve("enchantments.json");
 
     public String currencySymbol = "$";
     public double startingBalance = 500.0;
@@ -35,9 +36,20 @@ public final class ShopConfig {
     public Boolean allowOfflinePayments = true;
 
     public Boolean autoPopulateVanillaCatalog = true;
-    public double generatedVanillaBuyPrice = 1.0;
-    public double generatedVanillaSellPrice = 0.0;
+    public Boolean purgeUnobtainableOnSync = true;
+    public Boolean balancedPricingEnabled = true;
+    public Boolean rebalanceGeneratedItems = true;
+    public double catalogSellRatio = 0.32;
+    public double minimumBuyPrice = 0.25;
     public List<String> disabledDefaultCategories = new ArrayList<>();
+
+    public String chatPrefix = "[ShopGUI]";
+    public String chatPrefixColor = "gold";
+    public String chatInfoColor = "aqua";
+    public String chatSuccessColor = "green";
+    public String chatWarningColor = "yellow";
+    public String chatErrorColor = "red";
+    public String chatAdminColor = "light_purple";
 
     public Boolean enchantmentsEnabled = true;
     public double defaultEnchantmentPricePerLevel = 100.0;
@@ -48,20 +60,29 @@ public final class ShopConfig {
     public static ShopConfig load() {
         try {
             Files.createDirectories(DIRECTORY);
-            if (Files.notExists(FILE)) {
-                try (InputStream stream = ShopConfig.class.getResourceAsStream("/default_shop.json")) {
-                    if (stream == null) throw new IOException("Missing bundled default_shop.json");
-                    Files.copy(stream, FILE, StandardCopyOption.REPLACE_EXISTING);
-                }
+            ShopConfig config;
+
+            boolean hasNewFiles = Files.exists(SETTINGS_FILE) || Files.exists(SHOPS_FILE) || Files.exists(ENCHANTMENTS_FILE);
+            if (!hasNewFiles && Files.exists(LEGACY_FILE)) {
+                LegacyConfig legacy = GSON.fromJson(Files.readString(LEGACY_FILE, StandardCharsets.UTF_8), LegacyConfig.class);
+                config = fromLegacy(legacy);
+                config.normalize();
+                config.save();
+                Path backup = DIRECTORY.resolve("shop.json.migrated-backup");
+                Files.move(LEGACY_FILE, backup, StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("[ClassicGUIShop] Migrated shop.json into settings.json, shops.json, and enchantments.json.");
+                return config;
             }
 
-            ShopConfig config = GSON.fromJson(Files.readString(FILE, StandardCharsets.UTF_8), ShopConfig.class);
-            if (config == null) throw new IOException("shop.json was empty");
+            config = new ShopConfig();
+            if (Files.exists(SETTINGS_FILE)) config.applySettings(read(SETTINGS_FILE, SettingsFile.class));
+            if (Files.exists(SHOPS_FILE)) config.applyShops(read(SHOPS_FILE, ShopsFile.class));
+            if (Files.exists(ENCHANTMENTS_FILE)) config.applyEnchantments(read(ENCHANTMENTS_FILE, EnchantmentsFile.class));
             config.normalize();
             config.save();
             return config;
         } catch (Exception exception) {
-            System.err.println("[ClassicGUIShop] Could not load shop.json. Using a minimal in-memory configuration.");
+            System.err.println("[ClassicGUIShop] Could not load configuration files. Using safe in-memory defaults.");
             exception.printStackTrace();
             ShopConfig fallback = new ShopConfig();
             fallback.normalize();
@@ -73,15 +94,11 @@ public final class ShopConfig {
         try {
             normalize();
             Files.createDirectories(DIRECTORY);
-            Path temporary = DIRECTORY.resolve("shop.json.tmp");
-            Files.writeString(temporary, GSON.toJson(this), StandardCharsets.UTF_8);
-            try {
-                Files.move(temporary, FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (Exception ignored) {
-                Files.move(temporary, FILE, StandardCopyOption.REPLACE_EXISTING);
-            }
+            atomicWrite(SETTINGS_FILE, GSON.toJson(toSettingsFile()));
+            atomicWrite(SHOPS_FILE, GSON.toJson(toShopsFile()));
+            atomicWrite(ENCHANTMENTS_FILE, GSON.toJson(toEnchantmentsFile()));
         } catch (Exception exception) {
-            System.err.println("[ClassicGUIShop] Could not save shop.json");
+            System.err.println("[ClassicGUIShop] Could not save configuration files.");
             exception.printStackTrace();
         }
     }
@@ -106,6 +123,18 @@ public final class ShopConfig {
 
     public boolean autoPopulateVanillaCatalog() {
         return !Boolean.FALSE.equals(autoPopulateVanillaCatalog);
+    }
+
+    public boolean purgeUnobtainableOnSync() {
+        return !Boolean.FALSE.equals(purgeUnobtainableOnSync);
+    }
+
+    public boolean balancedPricingEnabled() {
+        return !Boolean.FALSE.equals(balancedPricingEnabled);
+    }
+
+    public boolean rebalanceGeneratedItems() {
+        return !Boolean.FALSE.equals(rebalanceGeneratedItems);
     }
 
     public Category category(String id) {
@@ -218,6 +247,8 @@ public final class ShopConfig {
         item.name = name;
         item.buy = buy;
         item.sell = sell;
+        item.manualPrice = true;
+        item.pricingModelVersion = BalancedPricing.MODEL_VERSION;
         target.items.add(item);
         save();
         return item;
@@ -243,6 +274,8 @@ public final class ShopConfig {
         item.name = template.getHoverName().getString();
         item.buy = buy;
         item.sell = sell;
+        item.manualPrice = false;
+        item.pricingModelVersion = BalancedPricing.MODEL_VERSION;
         target.items.add(item);
         return item;
     }
@@ -273,6 +306,8 @@ public final class ShopConfig {
         for (FoundItem found : findItems(identifier)) {
             found.item.buy = buy;
             found.item.sell = sell;
+            found.item.manualPrice = true;
+            found.item.pricingModelVersion = BalancedPricing.MODEL_VERSION;
             changed = true;
         }
         if (changed) save();
@@ -371,12 +406,23 @@ public final class ShopConfig {
         if (allowCreativeTransactions == null) allowCreativeTransactions = false;
         if (allowOfflinePayments == null) allowOfflinePayments = true;
         if (autoPopulateVanillaCatalog == null) autoPopulateVanillaCatalog = true;
+        if (purgeUnobtainableOnSync == null) purgeUnobtainableOnSync = true;
+        if (balancedPricingEnabled == null) balancedPricingEnabled = true;
+        if (rebalanceGeneratedItems == null) rebalanceGeneratedItems = true;
         if (enchantmentsEnabled == null) enchantmentsEnabled = true;
         if (!Double.isFinite(startingBalance) || startingBalance < 0) startingBalance = 0;
         if (!Double.isFinite(priceMultiplier) || priceMultiplier < 0) priceMultiplier = 1;
-        if (!Double.isFinite(generatedVanillaBuyPrice) || generatedVanillaBuyPrice < 0) generatedVanillaBuyPrice = 1;
-        if (!Double.isFinite(generatedVanillaSellPrice) || generatedVanillaSellPrice < 0) generatedVanillaSellPrice = 0;
+        if (!Double.isFinite(catalogSellRatio) || catalogSellRatio < 0 || catalogSellRatio > 1) catalogSellRatio = 0.32;
+        if (!Double.isFinite(minimumBuyPrice) || minimumBuyPrice < 0) minimumBuyPrice = 0.25;
         if (!Double.isFinite(defaultEnchantmentPricePerLevel) || defaultEnchantmentPricePerLevel < 0) defaultEnchantmentPricePerLevel = 100;
+
+        if (chatPrefix == null || chatPrefix.isBlank()) chatPrefix = "[ShopGUI]";
+        if (chatPrefixColor == null) chatPrefixColor = "gold";
+        if (chatInfoColor == null) chatInfoColor = "aqua";
+        if (chatSuccessColor == null) chatSuccessColor = "green";
+        if (chatWarningColor == null) chatWarningColor = "yellow";
+        if (chatErrorColor == null) chatErrorColor = "red";
+        if (chatAdminColor == null) chatAdminColor = "light_purple";
 
         addPermissionDefault("guishop.command.shop", 0);
         addPermissionDefault("guishop.command.balance", 0);
@@ -429,6 +475,7 @@ public final class ShopConfig {
                 if (item.name == null) item.name = item.item;
                 if (!Double.isFinite(item.buy) || item.buy < 0) item.buy = 0;
                 if (!Double.isFinite(item.sell) || item.sell < 0) item.sell = 0;
+                if (item.manualPrice == null) item.manualPrice = item.listingId.contains("#");
             }
         }
     }
@@ -445,6 +492,156 @@ public final class ShopConfig {
     public static String normalizeIdentifier(String input) {
         String value = input == null ? "" : input.trim().toLowerCase(Locale.ROOT);
         return value.contains(":") ? value : "minecraft:" + value;
+    }
+
+    private static <T> T read(Path path, Class<T> type) throws Exception {
+        return GSON.fromJson(Files.readString(path, StandardCharsets.UTF_8), type);
+    }
+
+    private static void atomicWrite(Path path, String content) throws Exception {
+        Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
+        Files.writeString(temporary, content, StandardCharsets.UTF_8);
+        try {
+            Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception ignored) {
+            Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static ShopConfig fromLegacy(LegacyConfig legacy) {
+        ShopConfig config = new ShopConfig();
+        if (legacy == null) return config;
+        if (legacy.currencySymbol != null) config.currencySymbol = legacy.currencySymbol;
+        config.startingBalance = legacy.startingBalance;
+        config.priceMultiplier = legacy.priceMultiplier;
+        config.allowCreativeTransactions = legacy.allowCreativeTransactions;
+        config.allowOfflinePayments = legacy.allowOfflinePayments;
+        config.autoPopulateVanillaCatalog = legacy.autoPopulateVanillaCatalog;
+        config.disabledDefaultCategories = legacy.disabledDefaultCategories == null ? new ArrayList<>() : legacy.disabledDefaultCategories;
+        config.enchantmentsEnabled = legacy.enchantmentsEnabled;
+        config.defaultEnchantmentPricePerLevel = legacy.defaultEnchantmentPricePerLevel;
+        config.enchantments = legacy.enchantments == null ? new LinkedHashMap<>() : legacy.enchantments;
+        config.permissionDefaults = legacy.permissionDefaults == null ? new LinkedHashMap<>() : legacy.permissionDefaults;
+        config.categories = legacy.categories == null ? new ArrayList<>() : legacy.categories;
+        return config;
+    }
+
+    private void applySettings(SettingsFile file) {
+        if (file == null) return;
+        if (file.general != null) {
+            priceMultiplier = file.general.priceMultiplier;
+            allowCreativeTransactions = file.general.allowCreativeTransactions;
+            allowOfflinePayments = file.general.allowOfflinePayments;
+        }
+        if (file.economy != null) {
+            currencySymbol = file.economy.currencySymbol;
+            startingBalance = file.economy.startingBalance;
+        }
+        if (file.catalog != null) {
+            autoPopulateVanillaCatalog = file.catalog.autoPopulateVanillaCatalog;
+            purgeUnobtainableOnSync = file.catalog.purgeUnobtainableOnSync;
+            balancedPricingEnabled = file.catalog.balancedPricingEnabled;
+            rebalanceGeneratedItems = file.catalog.rebalanceGeneratedItems;
+            catalogSellRatio = file.catalog.sellRatio;
+            minimumBuyPrice = file.catalog.minimumBuyPrice;
+            disabledDefaultCategories = file.catalog.disabledDefaultCategories;
+        }
+        if (file.chat != null) {
+            chatPrefix = file.chat.prefix;
+            chatPrefixColor = file.chat.prefixColor;
+            chatInfoColor = file.chat.infoColor;
+            chatSuccessColor = file.chat.successColor;
+            chatWarningColor = file.chat.warningColor;
+            chatErrorColor = file.chat.errorColor;
+            chatAdminColor = file.chat.adminColor;
+        }
+        if (file.permissionDefaults != null) permissionDefaults = file.permissionDefaults;
+    }
+
+    private void applyShops(ShopsFile file) {
+        if (file != null && file.categories != null) categories = file.categories;
+    }
+
+    private void applyEnchantments(EnchantmentsFile file) {
+        if (file == null) return;
+        enchantmentsEnabled = file.enabled;
+        defaultEnchantmentPricePerLevel = file.defaultPricePerLevel;
+        if (file.offers != null) enchantments = file.offers;
+    }
+
+    private SettingsFile toSettingsFile() {
+        SettingsFile file = new SettingsFile();
+        file._about = about();
+        file._notes = settingsNotes();
+        file.general.priceMultiplier = priceMultiplier;
+        file.general.allowCreativeTransactions = allowCreativeTransactions;
+        file.general.allowOfflinePayments = allowOfflinePayments;
+        file.economy.currencySymbol = currencySymbol;
+        file.economy.startingBalance = startingBalance;
+        file.catalog.autoPopulateVanillaCatalog = autoPopulateVanillaCatalog;
+        file.catalog.purgeUnobtainableOnSync = purgeUnobtainableOnSync;
+        file.catalog.balancedPricingEnabled = balancedPricingEnabled;
+        file.catalog.rebalanceGeneratedItems = rebalanceGeneratedItems;
+        file.catalog.sellRatio = catalogSellRatio;
+        file.catalog.minimumBuyPrice = minimumBuyPrice;
+        file.catalog.disabledDefaultCategories = disabledDefaultCategories;
+        file.chat.prefix = chatPrefix;
+        file.chat.prefixColor = chatPrefixColor;
+        file.chat.infoColor = chatInfoColor;
+        file.chat.successColor = chatSuccessColor;
+        file.chat.warningColor = chatWarningColor;
+        file.chat.errorColor = chatErrorColor;
+        file.chat.adminColor = chatAdminColor;
+        file.permissionDefaults = permissionDefaults;
+        return file;
+    }
+
+    private ShopsFile toShopsFile() {
+        ShopsFile file = new ShopsFile();
+        file._about = about();
+        file._notes = List.of(
+            "Each category controls one menu in /shop.",
+            "Items with manualPrice=true are never changed by automatic economy balancing.",
+            "Component-rich items use stack data and a #hash listing ID so variants can have separate prices.",
+            "Use /adminshop commands whenever possible instead of editing large stack objects by hand."
+        );
+        file.categories = categories;
+        return file;
+    }
+
+    private EnchantmentsFile toEnchantmentsFile() {
+        EnchantmentsFile file = new EnchantmentsFile();
+        file._about = about();
+        file._notes = List.of(
+            "Players buy enchanted books. Enchantments are never applied directly to equipment.",
+            "pricePerLevel is multiplied by the selected enchantment level.",
+            "maxLevel=0 means the normal vanilla maximum level.",
+            "Set enabled=false to hide an enchantment from the shop."
+        );
+        file.enabled = enchantmentsEnabled;
+        file.defaultPricePerLevel = defaultEnchantmentPricePerLevel;
+        file.offers = enchantments;
+        return file;
+    }
+
+    private static List<String> about() {
+        return List.of(
+            "Thank you for using ClassicGUIShop!",
+            "ClassicGUIShop is maintained by Zycu.",
+            "Credit to the original Bukkit GUIShop creators, _Waffles_ and AlreadyCoded.",
+            "Need help? Send a Discord friend request to: zycu",
+            "Keys beginning with _ are documentation for humans and are ignored by the mod."
+        );
+    }
+
+    private static Map<String, String> settingsNotes() {
+        Map<String, String> notes = new LinkedHashMap<>();
+        notes.put("general", "Global behavior such as the all-price multiplier and creative-mode transactions.");
+        notes.put("economy", "Currency display and the balance assigned to a player the first time they are seen.");
+        notes.put("catalog", "Controls vanilla item synchronization, unobtainable-item cleanup, and automatic balanced prices.");
+        notes.put("chat", "Minecraft ChatFormatting color names are supported, such as gold, aqua, green, yellow, red, and light_purple.");
+        notes.put("permissionDefaults", "Values are fallback OP levels. 0 means everyone; 2 means normal server operators.");
+        return notes;
     }
 
     public record FoundItem(Category category, ShopItem item) {}
@@ -464,6 +661,8 @@ public final class ShopConfig {
         public String name;
         public double buy;
         public double sell;
+        public Boolean manualPrice;
+        public int pricingModelVersion;
 
         public ItemStack createStack(RegistryAccess access) {
             return ItemStackData.decode(stack, item, access);
@@ -479,5 +678,75 @@ public final class ShopConfig {
         public boolean enabled() {
             return !Boolean.FALSE.equals(enabled) && pricePerLevel > 0;
         }
+    }
+
+    private static final class SettingsFile {
+        List<String> _about = new ArrayList<>();
+        Map<String, String> _notes = new LinkedHashMap<>();
+        GeneralSection general = new GeneralSection();
+        EconomySection economy = new EconomySection();
+        CatalogSection catalog = new CatalogSection();
+        ChatSection chat = new ChatSection();
+        Map<String, Integer> permissionDefaults = new LinkedHashMap<>();
+    }
+
+    private static final class GeneralSection {
+        double priceMultiplier = 1.0;
+        Boolean allowCreativeTransactions = false;
+        Boolean allowOfflinePayments = true;
+    }
+
+    private static final class EconomySection {
+        String currencySymbol = "$";
+        double startingBalance = 500.0;
+    }
+
+    private static final class CatalogSection {
+        Boolean autoPopulateVanillaCatalog = true;
+        Boolean purgeUnobtainableOnSync = true;
+        Boolean balancedPricingEnabled = true;
+        Boolean rebalanceGeneratedItems = true;
+        double sellRatio = 0.32;
+        double minimumBuyPrice = 0.25;
+        List<String> disabledDefaultCategories = new ArrayList<>();
+    }
+
+    private static final class ChatSection {
+        String prefix = "[ShopGUI]";
+        String prefixColor = "gold";
+        String infoColor = "aqua";
+        String successColor = "green";
+        String warningColor = "yellow";
+        String errorColor = "red";
+        String adminColor = "light_purple";
+    }
+
+    private static final class ShopsFile {
+        List<String> _about = new ArrayList<>();
+        List<String> _notes = new ArrayList<>();
+        List<Category> categories = new ArrayList<>();
+    }
+
+    private static final class EnchantmentsFile {
+        List<String> _about = new ArrayList<>();
+        List<String> _notes = new ArrayList<>();
+        Boolean enabled = true;
+        double defaultPricePerLevel = 100.0;
+        Map<String, EnchantmentOffer> offers = new LinkedHashMap<>();
+    }
+
+    private static final class LegacyConfig {
+        String currencySymbol = "$";
+        double startingBalance = 500.0;
+        double priceMultiplier = 1.0;
+        Boolean allowCreativeTransactions = false;
+        Boolean allowOfflinePayments = true;
+        Boolean autoPopulateVanillaCatalog = true;
+        List<String> disabledDefaultCategories = new ArrayList<>();
+        Boolean enchantmentsEnabled = true;
+        double defaultEnchantmentPricePerLevel = 100.0;
+        Map<String, EnchantmentOffer> enchantments = new LinkedHashMap<>();
+        Map<String, Integer> permissionDefaults = new LinkedHashMap<>();
+        List<Category> categories = new ArrayList<>();
     }
 }
