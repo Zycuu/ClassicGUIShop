@@ -10,6 +10,7 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.InventoryClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -40,35 +41,54 @@ public final class ShopGui {
     }
 
     public static void openCategories(ServerPlayer player, Mode mode) {
-        ShopContainer container = new ShopContainer(54, player);
-        int slot = 10;
-
+        List<ShopConfig.Category> availableCategories = new ArrayList<>();
         for (ShopConfig.Category category : GuiShop.CONFIG.categories) {
-            if (!hasAvailableItems(category, mode)) continue;
-            if (slot == 17 || slot == 26 || slot == 35) slot += 2;
-            if (slot >= 45) break;
-
-            ItemStack icon = displayStack(category.icon, 1,
-                category.name + " | " + modeName(mode));
-            final String categoryId = category.id;
-            container.bind(slot, icon, false, quantity -> openCategory(player, categoryId, mode, 1));
-            slot++;
+            if (hasAvailableItems(category, mode)) {
+                availableCategories.add(category);
+            }
         }
 
-        container.bind(BALANCE_SLOT,
+        int rows = categoryRows(availableCategories.size());
+        int size = rows * 9;
+        ShopContainer container = new ShopContainer(size, player);
+
+        int contentRows = Math.max(1, rows - 1);
+        int maxShown = contentRows * 7;
+        int shown = Math.min(maxShown, availableCategories.size());
+        int index = 0;
+
+        for (int row = 0; row < contentRows && index < shown; row++) {
+            int remaining = shown - index;
+            int inThisRow = Math.min(7, remaining);
+            int startColumn = 1 + (7 - inThisRow) / 2;
+
+            for (int columnOffset = 0; columnOffset < inThisRow; columnOffset++) {
+                ShopConfig.Category category = availableCategories.get(index++);
+                int slot = row * 9 + startColumn + columnOffset;
+                ItemStack icon = displayStack(category.icon, 1, category.name + " | " + modeName(mode));
+                final String categoryId = category.id;
+                container.bind(slot, icon, false, quantity -> openCategory(player, categoryId, mode, 1));
+            }
+        }
+
+        int bottomRowStart = (rows - 1) * 9;
+        int categoryBalanceSlot = bottomRowStart + 4;
+        int categoryModeSlot = bottomRowStart + 8;
+
+        container.bind(categoryBalanceSlot,
             displayStack("minecraft:paper", 1, "Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
             false,
             quantity -> player.sendSystemMessage(Component.literal("Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))))
         );
 
-        container.bind(MODE_SLOT,
+        container.bind(categoryModeSlot,
             displayStack(mode == Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald", 1,
                 "Switch to " + modeName(mode.opposite())),
             false,
             quantity -> openCategories(player, mode.opposite())
         );
 
-        openMenu(player, container, Component.literal("GUIShop - " + modeName(mode)));
+        openMenu(player, container, Component.literal("ClassicGUIShop - " + modeName(mode)), rows);
     }
 
     public static void openCategory(ServerPlayer player, String categoryId, Mode mode, int requestedPage) {
@@ -93,7 +113,7 @@ public final class ShopGui {
             ShopConfig.ShopItem entry = available.get(start + slot);
             double unitPrice = price(entry, mode) * GuiShop.CONFIG.priceMultiplier;
             String label = entry.name + " | " + modeName(mode) + " " + GuiShop.CONFIG.money(unitPrice) + " each";
-            ItemStack icon = displayStack(entry.item, 64, label);
+            ItemStack icon = displayStack(entry.item, 1, label);
             container.bind(slot, icon, true, quantity -> trade(player, entry, mode, quantity));
         }
 
@@ -137,14 +157,33 @@ public final class ShopGui {
             quantity -> openCategory(player, categoryId, mode.opposite(), 1)
         );
 
-        openMenu(player, container, Component.literal(category.name + " - " + modeName(mode) + " " + page + "/" + pages));
+        openMenu(player, container, Component.literal(category.name + " - " + modeName(mode) + " " + page + "/" + pages), 6);
     }
 
-    private static void openMenu(ServerPlayer player, ShopContainer container, Component title) {
+    private static void openMenu(ServerPlayer player, ShopContainer container, Component title, int rows) {
         player.openMenu(new SimpleMenuProvider(
-            (containerId, inventory, ignored) -> new ShopMenu(containerId, inventory, container),
+            (containerId, inventory, ignored) -> new ShopMenu(containerId, inventory, container, rows),
             title
         ));
+    }
+
+    private static int categoryRows(int categoryCount) {
+        if (categoryCount <= 7) return 2;
+        if (categoryCount <= 14) return 3;
+        if (categoryCount <= 21) return 4;
+        if (categoryCount <= 28) return 5;
+        return 6;
+    }
+
+    private static MenuType<?> menuTypeForRows(int rows) {
+        return switch (rows) {
+            case 1 -> MenuType.GENERIC_9x1;
+            case 2 -> MenuType.GENERIC_9x2;
+            case 3 -> MenuType.GENERIC_9x3;
+            case 4 -> MenuType.GENERIC_9x4;
+            case 5 -> MenuType.GENERIC_9x5;
+            default -> MenuType.GENERIC_9x6;
+        };
     }
 
     private static boolean hasAvailableItems(ShopConfig.Category category, Mode mode) {
@@ -282,18 +321,20 @@ public final class ShopGui {
             bindings.put(slot, new Binding(action, trade));
         }
 
-        void activate(int slot, int rawAmount, boolean shiftClick) {
+        void activate(int slot, int quantity, boolean shiftClick) {
             Binding binding = bindings.get(slot);
             if (binding == null || processing) return;
             processing = true;
             try {
-                int quantity;
-                if (!binding.trade()) quantity = 1;
-                else if (shiftClick) quantity = 64;
-                else if (rawAmount >= 64) quantity = 1;
-                else if (rawAmount >= 16) quantity = 16;
-                else quantity = 1;
-                binding.action().run(quantity);
+                if (!binding.trade()) {
+                    binding.action().run(1);
+                } else if (shiftClick) {
+                    binding.action().run(64);
+                } else if (quantity >= 16) {
+                    binding.action().run(16);
+                } else {
+                    binding.action().run(1);
+                }
             } finally {
                 processing = false;
             }
@@ -307,7 +348,7 @@ public final class ShopGui {
 
         @Override
         public ItemStack removeItemNoUpdate(int slot) {
-            activate(slot, 64, false);
+            activate(slot, 1, false);
             return ItemStack.EMPTY;
         }
 
@@ -325,14 +366,29 @@ public final class ShopGui {
     private static final class ShopMenu extends ChestMenu {
         private final ShopContainer shop;
 
-        ShopMenu(int containerId, Inventory inventory, ShopContainer shop) {
-            super(MenuType.GENERIC_9x6, containerId, inventory, shop, 6);
+        ShopMenu(int containerId, Inventory inventory, ShopContainer shop, int rows) {
+            super(menuTypeForRows(rows), containerId, inventory, shop, rows);
             this.shop = shop;
         }
 
         @Override
+        public void clicked(int slotId, int button, InventoryClickType clickType, Player player) {
+            if (slotId >= 0 && slotId < shop.getContainerSize()) {
+                if (clickType == InventoryClickType.QUICK_MOVE) {
+                    shop.activate(slotId, 64, true);
+                    return;
+                }
+                if (clickType == InventoryClickType.PICKUP) {
+                    shop.activate(slotId, button == 1 ? 16 : 1, false);
+                    return;
+                }
+            }
+            super.clicked(slotId, button, clickType, player);
+        }
+
+        @Override
         public ItemStack quickMoveStack(Player player, int index) {
-            if (index >= 0 && index < 54) {
+            if (index >= 0 && index < shop.getContainerSize()) {
                 shop.activate(index, 64, true);
             }
             return ItemStack.EMPTY;
