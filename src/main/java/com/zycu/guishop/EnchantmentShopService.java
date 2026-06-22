@@ -3,7 +3,6 @@ package com.zycu.guishop;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,10 +18,10 @@ import java.util.Map;
 public final class EnchantmentShopService {
     private EnchantmentShopService() {}
 
-    public static List<OfferView> availableOffers(ServerPlayer player) {
+    public static List<EnchantmentView> availableEnchantments(ServerPlayer player) {
         GuiShop.CONFIG.ensureEnchantmentDefaults(player.level().getServer());
         Registry<Enchantment> registry = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
-        List<OfferView> offers = new ArrayList<>();
+        List<EnchantmentView> enchantments = new ArrayList<>();
 
         for (Map.Entry<ResourceKey<Enchantment>, Enchantment> entry : registry.entrySet()) {
             String id = entry.getKey().identifier().toString();
@@ -30,17 +29,44 @@ public final class EnchantmentShopService {
             if (configured == null || !configured.enabled()) continue;
 
             Holder<Enchantment> holder = registry.getOrThrow(entry.getKey());
-            Enchantment enchantment = holder.value();
-            int configuredMax = configured.maxLevel <= 0 ? enchantment.getMaxLevel() : configured.maxLevel;
-            int maxLevel = Math.min(configuredMax, enchantment.getMaxLevel());
-            for (int level = 1; level <= maxLevel; level++) {
-                double cost = round(configured.pricePerLevel * level * GuiShop.CONFIG.priceMultiplier);
-                offers.add(new OfferView(id, configured.name, holder, level, cost));
-            }
+            int maxLevel = maximumLevel(holder.value(), configured);
+            if (maxLevel < 1) continue;
+
+            double firstLevelCost = price(configured, 1);
+            double maximumLevelCost = price(configured, maxLevel);
+            enchantments.add(new EnchantmentView(
+                id,
+                configured.name,
+                holder,
+                maxLevel,
+                firstLevelCost,
+                maximumLevelCost
+            ));
         }
 
-        offers.sort(Comparator.comparing(OfferView::displayName, String.CASE_INSENSITIVE_ORDER)
-            .thenComparingInt(OfferView::targetLevel));
+        enchantments.sort(Comparator.comparing(EnchantmentView::displayName, String.CASE_INSENSITIVE_ORDER));
+        return enchantments;
+    }
+
+    public static List<OfferView> availableLevels(ServerPlayer player, String enchantmentId) {
+        String id = ShopConfig.normalizeIdentifier(enchantmentId);
+        ShopConfig.EnchantmentOffer configured = GuiShop.CONFIG.enchantmentOffer(id);
+        if (configured == null || !configured.enabled()) return List.of();
+
+        Registry<Enchantment> registry = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+        Holder<Enchantment> holder;
+        try {
+            ResourceKey<Enchantment> key = ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse(id));
+            holder = registry.getOrThrow(key);
+        } catch (Exception exception) {
+            return List.of();
+        }
+
+        int maxLevel = maximumLevel(holder.value(), configured);
+        List<OfferView> offers = new ArrayList<>();
+        for (int level = 1; level <= maxLevel; level++) {
+            offers.add(new OfferView(id, configured.name, holder, level, price(configured, level)));
+        }
         return offers;
     }
 
@@ -52,61 +78,53 @@ public final class EnchantmentShopService {
 
     public static boolean purchase(ServerPlayer player, String enchantmentId, int targetLevel) {
         if (!ShopPermissions.user(player, "guishop.enchant")) {
-            player.sendSystemMessage(Component.literal("You do not have permission to buy enchanted books."));
+            ShopMessages.error(player, "You do not have permission to buy enchanted books.");
             return false;
         }
         if (!GuiShop.CONFIG.enchantmentsEnabled()) {
-            player.sendSystemMessage(Component.literal("The enchanted book shop is disabled."));
+            ShopMessages.warning(player, "The enchanted book shop is disabled.");
             return false;
         }
         if (!GuiShop.CONFIG.creativeTransactionsAllowed()
             && player.getAbilities().instabuild
             && !ShopPermissions.check(player, "guishop.creative.bypass", 2)) {
-            player.sendSystemMessage(Component.literal("Shop transactions are disabled while you are in creative mode."));
+            ShopMessages.warning(player, "Shop transactions are disabled while you are in creative mode.");
             return false;
         }
 
         String id = ShopConfig.normalizeIdentifier(enchantmentId);
         ShopConfig.EnchantmentOffer configured = GuiShop.CONFIG.enchantmentOffer(id);
         if (configured == null || !configured.enabled()) {
-            player.sendSystemMessage(Component.literal("That enchanted book is not for sale."));
+            ShopMessages.error(player, "That enchanted book is not for sale.");
             return false;
         }
 
         Registry<Enchantment> registry = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
-        ResourceKey<Enchantment> key;
-        try {
-            key = ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse(id));
-        } catch (Exception exception) {
-            player.sendSystemMessage(Component.literal("Unknown enchantment: " + id));
-            return false;
-        }
-
         Holder<Enchantment> holder;
         try {
+            ResourceKey<Enchantment> key = ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse(id));
             holder = registry.getOrThrow(key);
         } catch (Exception exception) {
-            player.sendSystemMessage(Component.literal("Unknown enchantment: " + id));
+            ShopMessages.error(player, "Unknown enchantment: " + id);
             return false;
         }
 
-        int configuredMax = configured.maxLevel <= 0 ? holder.value().getMaxLevel() : configured.maxLevel;
-        int maxLevel = Math.min(configuredMax, holder.value().getMaxLevel());
+        int maxLevel = maximumLevel(holder.value(), configured);
         if (targetLevel < 1 || targetLevel > maxLevel) {
-            player.sendSystemMessage(Component.literal("That enchantment level is unavailable."));
+            ShopMessages.error(player, "That enchantment level is unavailable.");
             return false;
         }
 
-        double cost = round(configured.pricePerLevel * targetLevel * GuiShop.CONFIG.priceMultiplier);
+        double cost = price(configured, targetLevel);
         if (!GuiShop.ECONOMY.withdraw(player.getUUID(), cost)) {
-            player.sendSystemMessage(Component.literal("You cannot afford " + GuiShop.CONFIG.money(cost) + "."));
+            ShopMessages.error(player, "You cannot afford " + GuiShop.CONFIG.money(cost) + ".");
             return false;
         }
 
         ShopService.give(player, createBook(holder, targetLevel), 1);
-        player.sendSystemMessage(Component.literal("Purchased an enchanted book with " + configured.name + " " + roman(targetLevel)
+        ShopMessages.success(player, "Purchased " + configured.name + " " + roman(targetLevel)
             + " for " + GuiShop.CONFIG.money(cost) + ". Balance: "
-            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))));
+            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
         return true;
     }
 
@@ -126,9 +144,27 @@ public final class EnchantmentShopService {
         };
     }
 
+    private static int maximumLevel(Enchantment enchantment, ShopConfig.EnchantmentOffer configured) {
+        int configuredMax = configured.maxLevel <= 0 ? enchantment.getMaxLevel() : configured.maxLevel;
+        return Math.min(configuredMax, enchantment.getMaxLevel());
+    }
+
+    private static double price(ShopConfig.EnchantmentOffer configured, int level) {
+        return round(configured.pricePerLevel * level * GuiShop.CONFIG.priceMultiplier);
+    }
+
     private static double round(double value) {
         return Math.round(value * 100.0) / 100.0;
     }
+
+    public record EnchantmentView(
+        String enchantmentId,
+        String displayName,
+        Holder<Enchantment> holder,
+        int maxLevel,
+        double firstLevelCost,
+        double maximumLevelCost
+    ) {}
 
     public record OfferView(
         String enchantmentId,

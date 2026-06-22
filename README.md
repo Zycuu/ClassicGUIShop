@@ -1,15 +1,17 @@
 # ClassicGUIShop
 
-A server-side Fabric shop mod for Minecraft Java 26.1.1, inspired by the classic Bukkit GUIShop 2.1 plugin.
+A server-side Fabric shop mod for Minecraft Java 26.1.1, inspired by the original Bukkit GUIShop plugin.
 
 Clients do not need the mod. ClassicGUIShop uses vanilla chest menus and includes its own persistent economy.
 
 ## Features
 
 - Buy and sell shops through `/shop`.
-- Enchanted books sold through a dedicated menu.
+- Enchanted books organized by enchantment, then by level.
 - Exact item listings preserve enchantments, names, lore, trims, potion data, and other components.
-- Automatic catalog synchronization for vanilla obtainable items.
+- Automatic vanilla catalog synchronization with unobtainable-item cleanup.
+- Deterministic difficulty-based prices for generated vanilla listings.
+- Configurable `[ShopGUI]` chat prefix and message colors.
 - Paginated menus with left-click, right-click, and shift-click quantities.
 - Persistent balances and player payments.
 - All management commands grouped under `/adminshop`.
@@ -34,7 +36,7 @@ Clients do not need the mod. ClassicGUIShop uses vanilla chest menus and include
 /worth <item-or-listing-id> [amount]
 ```
 
-`/shop enchant` sells enchanted books. Players receive the book and may store it, trade it, or apply it themselves with an anvil.
+`/shop enchant` first displays one entry for each enchantment. Selecting an enchantment opens its available book levels. Players receive a real enchanted book and apply it themselves with an anvil.
 
 ## Item listings
 
@@ -68,7 +70,7 @@ Use that listing ID when an item type has multiple variants and only one should 
 /adminshop item list <category> [page]
 ```
 
-`item add` and `item remove` operate on the exact item held by the administrator.
+Admin-added prices are marked as manual and are not changed by automatic economy balancing.
 
 ### Categories
 
@@ -78,7 +80,7 @@ Use that listing ID when an item type has multiple variants and only one should 
 /adminshop category remove <id>
 ```
 
-Removing a category also removes every listing contained in it. Removed default categories are remembered so automatic catalog synchronization does not immediately recreate them.
+Removing a category also removes every listing contained in it. Removed default categories are remembered so synchronization does not immediately recreate them.
 
 ### Vanilla catalog
 
@@ -86,9 +88,11 @@ Removing a category also removes every listing contained in it. Removed default 
 /adminshop catalog sync
 ```
 
-The catalog also synchronizes when the server starts and when `/adminshop reload` is used. It mirrors the normal vanilla creative categories while excluding spawn eggs, operator-only blocks, technical blocks, and other unobtainable entries.
+The catalog also synchronizes when the server starts and when `/adminshop reload` is used. It mirrors normal vanilla creative inventory tabs, then removes operator-only, technical, spawn-egg, and unobtainable entries.
 
-Newly discovered vanilla items use the temporary generated prices configured in `shop.json`. Existing prices are retained, and items sharing an existing base-item listing inherit those prices where possible.
+The canonical ID universe was reviewed against the MCWorldTools Minecraft ID List. Runtime creative tabs remain the source of truth for whether an item is a normal obtainable inventory item on the active game version.
+
+Generated listings receive balanced prices based on resource rarity, crafting-material cost, dimension access, loot scarcity, equipment tier, farming ease, and special-item overrides. Manual prices are preserved.
 
 ### Enchanted books
 
@@ -115,31 +119,49 @@ Offline targets must have joined the server at least once.
 
 ## Configuration
 
+ClassicGUIShop now separates configuration by purpose:
+
 ```text
-config/guishop/shop.json
+config/guishop/settings.json
+config/guishop/shops.json
+config/guishop/enchantments.json
 config/guishop/balances.json
 config/guishop/players.json
 ```
 
-Important `shop.json` fields include:
+Every editable configuration file begins with `_about` and `_notes` documentation. These fields thank users for installing the mod, credit the original Bukkit GUIShop creators `_Waffles_` and `AlreadyCoded`, and provide Zycu's Discord contact name: `zycu`.
 
-- `autoPopulateVanillaCatalog`
-- `generatedVanillaBuyPrice`
-- `generatedVanillaSellPrice`
-- `disabledDefaultCategories`
-- `enchantmentsEnabled`
-- `defaultEnchantmentPricePerLevel`
-- `enchantments`
-- `permissionDefaults`
-- `categories`
+### settings.json
 
-Old 0.3.0 item entries remain compatible. They are treated as plain base-item listings until replaced or supplemented with exact component-rich listings.
+Contains:
 
-## Version 0.4.0
+- General behavior
+- Economy defaults
+- Catalog cleanup and pricing controls
+- Chat prefix and colors
+- Permission fallback levels
 
-- Enchantments are now sold as enchanted books rather than applied directly.
-- Admin-created listings preserve the complete held item stack.
-- Buying and selling compare exact item components.
-- Vanilla obtainable items are automatically added to appropriate default categories.
-- Category removal now deletes all contained listings.
-- Deleted default categories remain disabled until recreated manually.
+### shops.json
+
+Contains categories and item listings. Generated prices use `manualPrice: false`; administrator-entered prices use `manualPrice: true`.
+
+### enchantments.json
+
+Contains enchanted-book availability, maximum levels, and per-level prices.
+
+Existing `shop.json` files are migrated automatically. The original file is retained as:
+
+```text
+config/guishop/shop.json.migrated-backup
+```
+
+## Version 0.5.0
+
+- Organized enchanted books into enchantment categories with level selection inside.
+- Added a configurable `[ShopGUI]` prefix to every client chat message.
+- Added configurable chat colors for information, success, warnings, errors, and administration.
+- Split the monolithic configuration into documented settings, shops, and enchantment files.
+- Added thank-you, original-author credit, Discord contact, and editing notes to generated configs.
+- Added unobtainable-item purging during catalog synchronization.
+- Added deterministic difficulty-based pricing for generated vanilla items.
+- Preserved all administrator-set prices as manual overrides.

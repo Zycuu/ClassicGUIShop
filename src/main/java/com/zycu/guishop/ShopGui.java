@@ -44,7 +44,7 @@ public final class ShopGui {
         GuiShop.PLAYERS.remember(player);
         Mode mode = resolveAllowedMode(player, requestedMode);
         if (mode == null) {
-            player.sendSystemMessage(Component.literal("You do not have permission to use the shop."));
+            ShopMessages.error(player, "You do not have permission to use the shop.");
             return;
         }
 
@@ -90,7 +90,7 @@ public final class ShopGui {
         container.bind(categoryBalanceSlot,
             displayStack("minecraft:paper", 1, "Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
             false,
-            quantity -> player.sendSystemMessage(Component.literal("Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))))
+            quantity -> ShopMessages.info(player, "Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())))
         );
 
         if (ShopService.canUseMode(player, mode.opposite())) {
@@ -108,13 +108,13 @@ public final class ShopGui {
     public static void openCategory(ServerPlayer player, String categoryId, Mode requestedMode, int requestedPage) {
         Mode mode = resolveAllowedMode(player, requestedMode);
         if (mode == null) {
-            player.sendSystemMessage(Component.literal("You do not have permission to use the shop."));
+            ShopMessages.error(player, "You do not have permission to use the shop.");
             return;
         }
 
         ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
         if (category == null || !ShopPermissions.category(player, categoryId)) {
-            player.sendSystemMessage(Component.literal("That shop category is unavailable."));
+            ShopMessages.error(player, "That shop category is unavailable.");
             return;
         }
 
@@ -159,9 +159,8 @@ public final class ShopGui {
             displayStack("minecraft:paper", 1,
                 "Page " + page + "/" + pages + " | Balance " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
             false,
-            quantity -> player.sendSystemMessage(Component.literal(
-                "Page " + page + " of " + pages + ". Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))
-            ))
+            quantity -> ShopMessages.info(player,
+                "Page " + page + " of " + pages + ". Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())))
         );
 
         if (page < pages) {
@@ -187,33 +186,33 @@ public final class ShopGui {
 
     public static void openEnchantments(ServerPlayer player, int requestedPage) {
         if (!GuiShop.CONFIG.enchantmentsEnabled() || !ShopPermissions.user(player, "guishop.enchant")) {
-            player.sendSystemMessage(Component.literal("The enchanted book shop is unavailable."));
+            ShopMessages.warning(player, "The enchanted book shop is unavailable.");
             return;
         }
 
-        List<EnchantmentShopService.OfferView> offers = EnchantmentShopService.availableOffers(player);
-        if (offers.isEmpty()) {
-            player.sendSystemMessage(Component.literal("No enchanted books are currently available."));
+        List<EnchantmentShopService.EnchantmentView> enchantments = EnchantmentShopService.availableEnchantments(player);
+        if (enchantments.isEmpty()) {
+            ShopMessages.warning(player, "No enchanted books are currently available.");
             return;
         }
 
-        int pages = Math.max(1, (offers.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pages = Math.max(1, (enchantments.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         int page = Math.max(1, Math.min(requestedPage, pages));
         ShopContainer container = new ShopContainer(54, player);
         int start = (page - 1) * PAGE_SIZE;
-        int end = Math.min(start + PAGE_SIZE, offers.size());
+        int end = Math.min(start + PAGE_SIZE, enchantments.size());
 
         for (int slot = 0; start + slot < end; slot++) {
-            EnchantmentShopService.OfferView offer = offers.get(start + slot);
-            String label = offer.displayName() + " " + EnchantmentShopService.roman(offer.targetLevel())
-                + " | " + GuiShop.CONFIG.money(offer.cost());
-            ItemStack icon = EnchantmentShopService.createBook(offer.holder(), offer.targetLevel());
-            icon.set(DataComponents.CUSTOM_NAME, Component.literal(label));
-            container.bind(slot, icon, false, ignored -> {
-                if (EnchantmentShopService.purchase(player, offer.enchantmentId(), offer.targetLevel())) {
-                    openEnchantments(player, page);
-                }
-            });
+            EnchantmentShopService.EnchantmentView enchantment = enchantments.get(start + slot);
+            ItemStack icon = EnchantmentShopService.createBook(enchantment.holder(), 1);
+            String priceRange = enchantment.maxLevel() == 1
+                ? GuiShop.CONFIG.money(enchantment.firstLevelCost())
+                : GuiShop.CONFIG.money(enchantment.firstLevelCost()) + " - " + GuiShop.CONFIG.money(enchantment.maximumLevelCost());
+            icon.set(DataComponents.CUSTOM_NAME, Component.literal(
+                enchantment.displayName() + " | Levels 1-" + enchantment.maxLevel() + " | " + priceRange
+            ));
+            container.bind(slot, icon, false,
+                ignored -> openEnchantmentLevels(player, enchantment.enchantmentId(), 1, page));
         }
 
         container.bind(BACK_SLOT,
@@ -235,7 +234,7 @@ public final class ShopGui {
             displayStack("minecraft:paper", 1,
                 "Page " + page + "/" + pages + " | Balance " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
             false,
-            ignored -> player.sendSystemMessage(Component.literal("Buy enchanted books and apply them with an anvil."))
+            ignored -> ShopMessages.info(player, "Select an enchantment, then choose the book level you want.")
         );
 
         if (page < pages) {
@@ -248,6 +247,68 @@ public final class ShopGui {
         }
 
         openMenu(player, container, Component.literal("Enchanted Books " + page + "/" + pages), 6);
+    }
+
+    private static void openEnchantmentLevels(ServerPlayer player, String enchantmentId, int requestedPage, int categoryPage) {
+        List<EnchantmentShopService.OfferView> offers = EnchantmentShopService.availableLevels(player, enchantmentId);
+        if (offers.isEmpty()) {
+            ShopMessages.warning(player, "That enchanted book is no longer available.");
+            openEnchantments(player, categoryPage);
+            return;
+        }
+
+        int pages = Math.max(1, (offers.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int page = Math.max(1, Math.min(requestedPage, pages));
+        ShopContainer container = new ShopContainer(54, player);
+        int start = (page - 1) * PAGE_SIZE;
+        int end = Math.min(start + PAGE_SIZE, offers.size());
+
+        for (int slot = 0; start + slot < end; slot++) {
+            EnchantmentShopService.OfferView offer = offers.get(start + slot);
+            String label = offer.displayName() + " " + EnchantmentShopService.roman(offer.targetLevel())
+                + " | " + GuiShop.CONFIG.money(offer.cost());
+            ItemStack icon = EnchantmentShopService.createBook(offer.holder(), offer.targetLevel());
+            icon.set(DataComponents.CUSTOM_NAME, Component.literal(label));
+            container.bind(slot, icon, false, ignored -> {
+                if (EnchantmentShopService.purchase(player, offer.enchantmentId(), offer.targetLevel())) {
+                    openEnchantmentLevels(player, enchantmentId, page, categoryPage);
+                }
+            });
+        }
+
+        container.bind(BACK_SLOT,
+            displayStack("minecraft:barrier", 1, "Back to Enchantments"),
+            false,
+            ignored -> openEnchantments(player, categoryPage)
+        );
+
+        if (page > 1) {
+            int target = page - 1;
+            container.bind(PREVIOUS_SLOT,
+                displayStack("minecraft:arrow", 1, "Previous Page"),
+                false,
+                ignored -> openEnchantmentLevels(player, enchantmentId, target, categoryPage)
+            );
+        }
+
+        EnchantmentShopService.OfferView first = offers.get(0);
+        container.bind(BALANCE_SLOT,
+            displayStack("minecraft:paper", 1,
+                first.displayName() + " | Balance " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
+            false,
+            ignored -> ShopMessages.info(player, "Choose which " + first.displayName() + " level you want to purchase.")
+        );
+
+        if (page < pages) {
+            int target = page + 1;
+            container.bind(NEXT_SLOT,
+                displayStack("minecraft:arrow", 1, "Next Page"),
+                false,
+                ignored -> openEnchantmentLevels(player, enchantmentId, target, categoryPage)
+            );
+        }
+
+        openMenu(player, container, Component.literal(first.displayName() + " Levels"), 6);
     }
 
     private static Mode resolveAllowedMode(ServerPlayer player, Mode requested) {

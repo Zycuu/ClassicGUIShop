@@ -11,7 +11,11 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public final class VanillaCatalog {
@@ -57,8 +61,8 @@ public final class VanillaCatalog {
 
     private VanillaCatalog() {}
 
-    public static int sync(ShopConfig config, MinecraftServer server) {
-        if (!config.autoPopulateVanillaCatalog()) return 0;
+    public static SyncResult sync(ShopConfig config, MinecraftServer server) {
+        if (!config.autoPopulateVanillaCatalog()) return new SyncResult(0, 0, 0);
 
         Registry<CreativeModeTab> tabs = server.registryAccess().lookupOrThrow(Registries.CREATIVE_MODE_TAB);
         CreativeModeTab.ItemDisplayParameters parameters = new CreativeModeTab.ItemDisplayParameters(
@@ -67,7 +71,9 @@ public final class VanillaCatalog {
             server.registryAccess()
         );
 
-        int added = 0;
+        Map<String, CatalogEntry> entries = new LinkedHashMap<>();
+        Set<String> allowedBaseItemIds = new HashSet<>();
+
         for (TabCategory definition : DEFAULT_TABS) {
             ShopConfig.Category category = config.ensureDefaultCategory(
                 definition.categoryId(),
@@ -94,19 +100,75 @@ public final class VanillaCatalog {
             for (ItemStack displayed : tab.getDisplayItems()) {
                 ItemStack stack = displayed.copyWithCount(1);
                 if (!isCatalogItem(stack)) continue;
-                if (config.findItem(stack, server.registryAccess()) != null) continue;
 
                 String itemId = ShopService.itemId(stack);
-                ShopConfig.FoundItem similar = config.findItem(itemId);
-                double buy = similar == null ? config.generatedVanillaBuyPrice : similar.item().buy;
-                double sell = similar == null ? config.generatedVanillaSellPrice : similar.item().sell;
-                config.addGeneratedItem(category.id, stack, buy, sell, server.registryAccess());
-                added++;
+                allowedBaseItemIds.add(itemId);
+                String listingId = ItemStackData.listingId(stack, server.registryAccess());
+                entries.putIfAbsent(listingId, new CatalogEntry(category.id, stack));
             }
         }
 
-        if (added > 0) config.save();
-        return added;
+        int removed = config.purgeUnobtainableOnSync()
+            ? purgeUnobtainable(config, allowedBaseItemIds)
+            : 0;
+
+        int added = 0;
+        int repriced = 0;
+        for (CatalogEntry entry : entries.values()) {
+            ShopConfig.Category targetCategory = config.category(entry.categoryId());
+            if (targetCategory == null) continue;
+
+            BalancedPricing.PriceQuote quote = BalancedPricing.quote(entry.stack(), entry.categoryId(), config);
+            ShopConfig.FoundItem found = config.findItem(entry.stack(), server.registryAccess());
+            if (found == null) {
+                config.addGeneratedItem(
+                    entry.categoryId(),
+                    entry.stack(),
+                    quote.buy(),
+                    quote.sell(),
+                    server.registryAccess()
+                );
+                added++;
+                continue;
+            }
+
+            ShopConfig.ShopItem item = found.item();
+            boolean generated = !Boolean.TRUE.equals(item.manualPrice);
+            if (generated && found.category() != targetCategory) {
+                found.category().items.remove(item);
+                targetCategory.items.add(item);
+            }
+
+            if (generated && config.balancedPricingEnabled() && config.rebalanceGeneratedItems()) {
+                if (Double.compare(item.buy, quote.buy()) != 0
+                    || Double.compare(item.sell, quote.sell()) != 0
+                    || item.pricingModelVersion != BalancedPricing.MODEL_VERSION) {
+                    item.buy = quote.buy();
+                    item.sell = quote.sell();
+                    item.pricingModelVersion = BalancedPricing.MODEL_VERSION;
+                    repriced++;
+                }
+            }
+        }
+
+        if (added > 0 || removed > 0 || repriced > 0) config.save();
+        return new SyncResult(added, removed, repriced);
+    }
+
+    private static int purgeUnobtainable(ShopConfig config, Set<String> allowedBaseItemIds) {
+        int removed = 0;
+        for (ShopConfig.Category category : config.categories) {
+            List<ShopConfig.ShopItem> retained = new ArrayList<>();
+            for (ShopConfig.ShopItem item : category.items) {
+                String id = item.item == null ? "minecraft:air" : item.item;
+                boolean vanilla = id.startsWith("minecraft:");
+                boolean allowed = !vanilla || (allowedBaseItemIds.contains(id) && !UNOBTAINABLE_ITEMS.contains(id));
+                if (allowed) retained.add(item);
+                else removed++;
+            }
+            category.items = retained;
+        }
+        return removed;
     }
 
     private static boolean isCatalogItem(ItemStack stack) {
@@ -116,5 +178,7 @@ public final class VanillaCatalog {
         return !id.startsWith("minecraft:infested_") && !id.endsWith("_spawn_egg");
     }
 
+    public record SyncResult(int added, int removed, int repriced) {}
+    private record CatalogEntry(String categoryId, ItemStack stack) {}
     private record TabCategory(String tabId, String categoryId, String displayName, String icon) {}
 }
