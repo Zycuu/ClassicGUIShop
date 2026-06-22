@@ -20,8 +20,9 @@ public final class GuiShop implements ModInitializer {
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             CONFIG.ensureEnchantmentDefaults(server);
-            int added = VanillaCatalog.sync(CONFIG, server);
-            System.out.println("[ClassicGUIShop] Vanilla catalog synchronized. Added " + added + " missing listings.");
+            VanillaCatalog.SyncResult result = VanillaCatalog.sync(CONFIG, server);
+            System.out.println("[ClassicGUIShop] Vanilla catalog synchronized. Added " + result.added()
+                + ", removed " + result.removed() + ", repriced " + result.repriced() + ".");
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
