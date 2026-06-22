@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - second-pass-0.2.0
   pull_request:
     branches:
       - main
@@ -28,9 +27,27 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build ClassicGUIShop
-        run: gradle build
+        shell: bash
+        run: |
+          set +e
+          gradle build > build.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -n -C 4 -E "error:|FAILURE:|What went wrong|Execution failed" build.log || cat build.log
+          else
+            tail -n 40 build.log
+          fi
+          exit $status
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClassicGUIShop-build-log
+          path: build.log
 
       - name: Upload ClassicGUIShop
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ClassicGUIShop

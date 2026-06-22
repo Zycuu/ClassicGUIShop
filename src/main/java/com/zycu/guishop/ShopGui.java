@@ -10,6 +10,7 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -47,17 +48,28 @@ public final class ShopGui {
             return;
         }
 
-        List<ShopConfig.Category> availableCategories = new ArrayList<>();
+        List<MenuButton> buttons = new ArrayList<>();
         for (ShopConfig.Category category : GuiShop.CONFIG.categories) {
             if (ShopPermissions.category(player, category.id) && hasAvailableItems(category, mode)) {
-                availableCategories.add(category);
+                String categoryId = category.id;
+                buttons.add(new MenuButton(
+                    displayStack(category.icon, 1, category.name + " | " + modeName(mode)),
+                    () -> openCategory(player, categoryId, mode, 1)
+                ));
             }
         }
 
-        int rows = categoryRows(availableCategories.size());
+        if (GuiShop.CONFIG.enchantmentsEnabled() && ShopPermissions.user(player, "guishop.enchant")) {
+            buttons.add(new MenuButton(
+                displayStack("minecraft:enchanted_book", 1, "Enchant Held Item"),
+                () -> openEnchantments(player, 1)
+            ));
+        }
+
+        int rows = categoryRows(buttons.size());
         ShopContainer container = new ShopContainer(rows * 9, player);
         int contentRows = Math.max(1, rows - 1);
-        int shown = Math.min(contentRows * 7, availableCategories.size());
+        int shown = Math.min(contentRows * 7, buttons.size());
         int index = 0;
 
         for (int row = 0; row < contentRows && index < shown; row++) {
@@ -65,11 +77,9 @@ public final class ShopGui {
             int inThisRow = Math.min(7, remaining);
             int startColumn = 1 + (7 - inThisRow) / 2;
             for (int columnOffset = 0; columnOffset < inThisRow; columnOffset++) {
-                ShopConfig.Category category = availableCategories.get(index++);
+                MenuButton button = buttons.get(index++);
                 int slot = row * 9 + startColumn + columnOffset;
-                ItemStack icon = displayStack(category.icon, 1, category.name + " | " + modeName(mode));
-                final String categoryId = category.id;
-                container.bind(slot, icon, false, quantity -> openCategory(player, categoryId, mode, 1));
+                container.bind(slot, button.icon(), false, ignored -> button.action().run());
             }
         }
 
@@ -175,6 +185,80 @@ public final class ShopGui {
         openMenu(player, container, Component.literal(category.name + " - " + modeName(mode) + " " + page + "/" + pages), 6);
     }
 
+    public static void openEnchantments(ServerPlayer player, int requestedPage) {
+        if (!GuiShop.CONFIG.enchantmentsEnabled() || !ShopPermissions.user(player, "guishop.enchant")) {
+            player.sendSystemMessage(Component.literal("The enchantment shop is unavailable."));
+            return;
+        }
+
+        ItemStack held = player.getMainHandItem();
+        if (held.isEmpty()) {
+            player.sendSystemMessage(Component.literal("Hold the item you want to enchant."));
+            return;
+        }
+        if (held.getCount() != 1) {
+            player.sendSystemMessage(Component.literal("Hold exactly one item when using the enchantment shop."));
+            return;
+        }
+
+        List<EnchantmentShopService.OfferView> offers = EnchantmentShopService.availableOffers(player);
+        if (offers.isEmpty()) {
+            player.sendSystemMessage(Component.literal("No compatible enchantment upgrades are available for that item."));
+            return;
+        }
+
+        int pages = Math.max(1, (offers.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int page = Math.max(1, Math.min(requestedPage, pages));
+        ShopContainer container = new ShopContainer(54, player);
+        int start = (page - 1) * PAGE_SIZE;
+        int end = Math.min(start + PAGE_SIZE, offers.size());
+
+        for (int slot = 0; start + slot < end; slot++) {
+            EnchantmentShopService.OfferView offer = offers.get(start + slot);
+            String label = offer.displayName() + " " + EnchantmentShopService.roman(offer.targetLevel())
+                + " | " + GuiShop.CONFIG.money(offer.cost());
+            ItemStack icon = displayStack("minecraft:enchanted_book", 1, label);
+            container.bind(slot, icon, false, ignored -> {
+                if (EnchantmentShopService.purchase(player, offer.enchantmentId(), offer.targetLevel())) {
+                    openEnchantments(player, page);
+                }
+            });
+        }
+
+        container.bind(BACK_SLOT,
+            displayStack("minecraft:barrier", 1, "Back to Shop"),
+            false,
+            ignored -> openCategories(player, Mode.BUY)
+        );
+
+        if (page > 1) {
+            int target = page - 1;
+            container.bind(PREVIOUS_SLOT,
+                displayStack("minecraft:arrow", 1, "Previous Page"),
+                false,
+                ignored -> openEnchantments(player, target)
+            );
+        }
+
+        container.bind(BALANCE_SLOT,
+            displayStack("minecraft:paper", 1,
+                "Page " + page + "/" + pages + " | Balance " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
+            false,
+            ignored -> player.sendSystemMessage(Component.literal("Enchanting: " + held.getHoverName().getString()))
+        );
+
+        if (page < pages) {
+            int target = page + 1;
+            container.bind(NEXT_SLOT,
+                displayStack("minecraft:arrow", 1, "Next Page"),
+                false,
+                ignored -> openEnchantments(player, target)
+            );
+        }
+
+        openMenu(player, container, Component.literal("Enchant " + held.getHoverName().getString() + " " + page + "/" + pages), 6);
+    }
+
     private static Mode resolveAllowedMode(ServerPlayer player, Mode requested) {
         if (ShopService.canUseMode(player, requested)) return requested;
         if (ShopService.canUseMode(player, requested.opposite())) return requested.opposite();
@@ -244,6 +328,7 @@ public final class ShopGui {
         void run(int quantity);
     }
 
+    private record MenuButton(ItemStack icon, Runnable action) {}
     private record Binding(GuiAction action, boolean trade) {}
 
     private static final class ShopContainer extends SimpleContainer {
@@ -277,13 +362,11 @@ public final class ShopGui {
 
         @Override
         public ItemStack removeItem(int slot, int amount) {
-            activate(slot, 16, false);
             return ItemStack.EMPTY;
         }
 
         @Override
         public ItemStack removeItemNoUpdate(int slot) {
-            activate(slot, 1, false);
             return ItemStack.EMPTY;
         }
 
@@ -304,6 +387,19 @@ public final class ShopGui {
         ShopMenu(int containerId, Inventory inventory, ShopContainer shop, int rows) {
             super(menuTypeForRows(rows), containerId, inventory, shop, rows);
             this.shop = shop;
+        }
+
+        @Override
+        public void clicked(int slotIndex, int buttonNum, ContainerInput containerInput, Player player) {
+            if (slotIndex >= 0 && slotIndex < shop.getContainerSize()) {
+                if (containerInput == ContainerInput.PICKUP) {
+                    shop.activate(slotIndex, buttonNum == 1 ? 16 : 1, false);
+                } else if (containerInput == ContainerInput.QUICK_MOVE) {
+                    shop.activate(slotIndex, 64, true);
+                }
+                return;
+            }
+            super.clicked(slotIndex, buttonNum, containerInput, player);
         }
 
         @Override
