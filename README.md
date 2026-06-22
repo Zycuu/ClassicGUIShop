@@ -1,4 +1,4 @@
-# GUIShop Fabric Port
+# ClassicGUIShop
 
 A clean-room Fabric port of the Bukkit-era GUIShop 2.1 concept for Minecraft Java 26.1.1.
 
@@ -18,3 +18,9 @@ A clean-room Fabric port of the Bukkit-era GUIShop 2.1 concept for Minecraft Jav
 ## Notes
 
 This is a source-first MVP. The original Bukkit plugin used legacy numeric IDs and Vault. The port replaces those systems with modern namespaced item IDs and its own balance store.
+
+## 0.1.1 changes
+
+- Main category menu now sizes itself to the number of visible categories.
+- Buy and sell item icons now display as single items instead of stacks of 64.
+- Project naming updated to ClassicGUIShop.
