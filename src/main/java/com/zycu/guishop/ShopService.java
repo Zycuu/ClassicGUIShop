@@ -1,7 +1,6 @@
 package com.zycu.guishop;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
@@ -22,13 +21,13 @@ public final class ShopService {
 
     public static boolean canTransact(ServerPlayer player, ShopGui.Mode mode) {
         if (!canUseMode(player, mode)) {
-            player.sendSystemMessage(Component.literal("You do not have permission to " + mode.name().toLowerCase() + " items."));
+            ShopMessages.error(player, "You do not have permission to " + mode.name().toLowerCase() + " items.");
             return false;
         }
         if (!GuiShop.CONFIG.creativeTransactionsAllowed()
             && player.getAbilities().instabuild
             && !ShopPermissions.check(player, "guishop.creative.bypass", 2)) {
-            player.sendSystemMessage(Component.literal("Shop transactions are disabled while you are in creative mode."));
+            ShopMessages.warning(player, "Shop transactions are disabled while you are in creative mode.");
             return false;
         }
         return true;
@@ -39,13 +38,13 @@ public final class ShopService {
 
         ItemStack template = entry.createStack(player.registryAccess());
         if (template.isEmpty()) {
-            player.sendSystemMessage(Component.literal("Invalid configured item: " + entry.item));
+            ShopMessages.error(player, "Invalid configured item: " + entry.item);
             return false;
         }
 
         double unitPrice = (mode == ShopGui.Mode.BUY ? entry.buy : entry.sell) * GuiShop.CONFIG.priceMultiplier;
         if (unitPrice <= 0 || !Double.isFinite(unitPrice)) {
-            player.sendSystemMessage(Component.literal("That item is not available for " + mode.name().toLowerCase() + "."));
+            ShopMessages.warning(player, "That item is not available for " + mode.name().toLowerCase() + ".");
             return false;
         }
 
@@ -53,20 +52,20 @@ public final class ShopService {
             int quantity = Math.max(1, requestedQuantity);
             double total = round(unitPrice * quantity);
             if (!GuiShop.ECONOMY.withdraw(player.getUUID(), total)) {
-                player.sendSystemMessage(Component.literal("You cannot afford " + quantity + "x " + entry.name
-                    + " for " + GuiShop.CONFIG.money(total) + "."));
+                ShopMessages.error(player, "You cannot afford " + quantity + "x " + entry.name
+                    + " for " + GuiShop.CONFIG.money(total) + ".");
                 return false;
             }
             give(player, template, quantity);
-            player.sendSystemMessage(Component.literal("Purchased " + quantity + "x " + entry.name
+            ShopMessages.success(player, "Purchased " + quantity + "x " + entry.name
                 + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
-                + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))));
+                + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
             return true;
         }
 
         int available = count(player, template);
         if (available <= 0) {
-            player.sendSystemMessage(Component.literal("You do not have any matching " + entry.name + " to sell."));
+            ShopMessages.warning(player, "You do not have any matching " + entry.name + " to sell.");
             return false;
         }
 
@@ -74,9 +73,9 @@ public final class ShopService {
         double total = round(unitPrice * quantity);
         remove(player, template, quantity);
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
-        player.sendSystemMessage(Component.literal("Sold " + quantity + "x " + entry.name
+        ShopMessages.success(player, "Sold " + quantity + "x " + entry.name
             + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
-            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))));
+            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
         return true;
     }
 
@@ -85,13 +84,13 @@ public final class ShopService {
 
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) {
-            player.sendSystemMessage(Component.literal("You are not holding an item."));
+            ShopMessages.warning(player, "You are not holding an item.");
             return false;
         }
 
         ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
         if (found == null || found.item().sell <= 0) {
-            player.sendSystemMessage(Component.literal("That exact item does not have a sell price."));
+            ShopMessages.warning(player, "That exact item does not have a sell price.");
             return false;
         }
 
@@ -111,22 +110,22 @@ public final class ShopService {
         }
 
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
-        player.sendSystemMessage(Component.literal("Sold " + quantity + "x " + found.item().name
+        ShopMessages.success(player, "Sold " + quantity + "x " + found.item().name
             + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
-            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))));
+            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
         return true;
     }
 
     public static boolean showWorth(ServerPlayer player, boolean allInventory) {
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) {
-            player.sendSystemMessage(Component.literal("You are not holding an item."));
+            ShopMessages.warning(player, "You are not holding an item.");
             return false;
         }
 
         ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
         if (found == null) {
-            player.sendSystemMessage(Component.literal("No shop listing exists for that exact item."));
+            ShopMessages.warning(player, "No shop listing exists for that exact item.");
             return false;
         }
         ItemStack template = found.item().createStack(player.registryAccess());
@@ -137,7 +136,7 @@ public final class ShopService {
     public static boolean showWorth(ServerPlayer player, String identifier, int amount) {
         ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(identifier);
         if (found == null) {
-            player.sendSystemMessage(Component.literal("No shop listing exists for " + identifier + "."));
+            ShopMessages.warning(player, "No shop listing exists for " + identifier + ".");
             return false;
         }
         return showWorth(player, found, amount);
@@ -150,10 +149,10 @@ public final class ShopService {
         int quantity = Math.max(1, amount);
         String buyText = buy > 0 ? GuiShop.CONFIG.money(buy) + " each / " + GuiShop.CONFIG.money(round(buy * quantity)) + " total" : "not purchasable";
         String sellText = sell > 0 ? GuiShop.CONFIG.money(sell) + " each / " + GuiShop.CONFIG.money(round(sell * quantity)) + " total" : "not sellable";
-        player.sendSystemMessage(Component.literal(item.name + " [" + item.listingId + "]"));
-        player.sendSystemMessage(Component.literal("Buy: " + buyText));
-        player.sendSystemMessage(Component.literal("Sell: " + sellText));
-        player.sendSystemMessage(Component.literal("Category: " + found.category().name + " | Quantity checked: " + quantity));
+        ShopMessages.info(player, item.name + " [" + item.listingId + "]");
+        ShopMessages.info(player, "Buy: " + buyText);
+        ShopMessages.info(player, "Sell: " + sellText);
+        ShopMessages.info(player, "Category: " + found.category().name + " | Quantity checked: " + quantity);
         return true;
     }
 
