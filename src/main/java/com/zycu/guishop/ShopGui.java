@@ -39,28 +39,31 @@ public final class ShopGui {
         }
     }
 
-    public static void openCategories(ServerPlayer player, Mode mode) {
+    public static void openCategories(ServerPlayer player, Mode requestedMode) {
+        GuiShop.PLAYERS.remember(player);
+        Mode mode = resolveAllowedMode(player, requestedMode);
+        if (mode == null) {
+            player.sendSystemMessage(Component.literal("You do not have permission to use the shop."));
+            return;
+        }
+
         List<ShopConfig.Category> availableCategories = new ArrayList<>();
         for (ShopConfig.Category category : GuiShop.CONFIG.categories) {
-            if (hasAvailableItems(category, mode)) {
+            if (ShopPermissions.category(player, category.id) && hasAvailableItems(category, mode)) {
                 availableCategories.add(category);
             }
         }
 
         int rows = categoryRows(availableCategories.size());
-        int size = rows * 9;
-        ShopContainer container = new ShopContainer(size, player);
-
+        ShopContainer container = new ShopContainer(rows * 9, player);
         int contentRows = Math.max(1, rows - 1);
-        int maxShown = contentRows * 7;
-        int shown = Math.min(maxShown, availableCategories.size());
+        int shown = Math.min(contentRows * 7, availableCategories.size());
         int index = 0;
 
         for (int row = 0; row < contentRows && index < shown; row++) {
             int remaining = shown - index;
             int inThisRow = Math.min(7, remaining);
             int startColumn = 1 + (7 - inThisRow) / 2;
-
             for (int columnOffset = 0; columnOffset < inThisRow; columnOffset++) {
                 ShopConfig.Category category = availableCategories.get(index++);
                 int slot = row * 9 + startColumn + columnOffset;
@@ -80,20 +83,28 @@ public final class ShopGui {
             quantity -> player.sendSystemMessage(Component.literal("Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))))
         );
 
-        container.bind(categoryModeSlot,
-            displayStack(mode == Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald", 1,
-                "Switch to " + modeName(mode.opposite())),
-            false,
-            quantity -> openCategories(player, mode.opposite())
-        );
+        if (ShopService.canUseMode(player, mode.opposite())) {
+            container.bind(categoryModeSlot,
+                displayStack(mode == Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald", 1,
+                    "Switch to " + modeName(mode.opposite())),
+                false,
+                quantity -> openCategories(player, mode.opposite())
+            );
+        }
 
         openMenu(player, container, Component.literal("ClassicGUIShop - " + modeName(mode)), rows);
     }
 
-    public static void openCategory(ServerPlayer player, String categoryId, Mode mode, int requestedPage) {
+    public static void openCategory(ServerPlayer player, String categoryId, Mode requestedMode, int requestedPage) {
+        Mode mode = resolveAllowedMode(player, requestedMode);
+        if (mode == null) {
+            player.sendSystemMessage(Component.literal("You do not have permission to use the shop."));
+            return;
+        }
+
         ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
-        if (category == null) {
-            player.sendSystemMessage(Component.literal("That shop category no longer exists."));
+        if (category == null || !ShopPermissions.category(player, categoryId)) {
+            player.sendSystemMessage(Component.literal("That shop category is unavailable."));
             return;
         }
 
@@ -113,7 +124,10 @@ public final class ShopGui {
             double unitPrice = price(entry, mode) * GuiShop.CONFIG.priceMultiplier;
             String label = entry.name + " | " + modeName(mode) + " " + GuiShop.CONFIG.money(unitPrice) + " each";
             ItemStack icon = displayStack(entry.item, 1, label);
-            container.bind(slot, icon, true, quantity -> trade(player, entry, mode, quantity));
+            container.bind(slot, icon, true, quantity -> {
+                int requested = mode == Mode.SELL && quantity == 64 ? ShopService.SELL_ALL : quantity;
+                ShopService.trade(player, entry, mode, requested);
+            });
         }
 
         container.bind(BACK_SLOT,
@@ -149,14 +163,22 @@ public final class ShopGui {
             );
         }
 
-        container.bind(MODE_SLOT,
-            displayStack(mode == Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald", 1,
-                "Switch to " + modeName(mode.opposite())),
-            false,
-            quantity -> openCategory(player, categoryId, mode.opposite(), 1)
-        );
+        if (ShopService.canUseMode(player, mode.opposite())) {
+            container.bind(MODE_SLOT,
+                displayStack(mode == Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald", 1,
+                    "Switch to " + modeName(mode.opposite())),
+                false,
+                quantity -> openCategory(player, categoryId, mode.opposite(), 1)
+            );
+        }
 
         openMenu(player, container, Component.literal(category.name + " - " + modeName(mode) + " " + page + "/" + pages), 6);
+    }
+
+    private static Mode resolveAllowedMode(ServerPlayer player, Mode requested) {
+        if (ShopService.canUseMode(player, requested)) return requested;
+        if (ShopService.canUseMode(player, requested.opposite())) return requested.opposite();
+        return null;
     }
 
     private static void openMenu(ServerPlayer player, ShopContainer container, Component title, int rows) {
@@ -198,87 +220,6 @@ public final class ShopGui {
 
     private static String modeName(Mode mode) {
         return mode == Mode.BUY ? "Buy" : "Sell";
-    }
-
-    private static void trade(ServerPlayer player, ShopConfig.ShopItem entry, Mode mode, int quantity) {
-        Item item = resolveItem(entry.item);
-        if (item == Items.AIR) {
-            player.sendSystemMessage(Component.literal("Invalid configured item: " + entry.item));
-            return;
-        }
-
-        quantity = switch (quantity) {
-            case 16 -> 16;
-            case 64 -> 64;
-            default -> 1;
-        };
-
-        double unitPrice = price(entry, mode) * GuiShop.CONFIG.priceMultiplier;
-        double total = Math.round(unitPrice * quantity * 100.0) / 100.0;
-        if (unitPrice <= 0 || total <= 0) return;
-
-        if (mode == Mode.BUY) {
-            if (!GuiShop.ECONOMY.withdraw(player.getUUID(), total)) {
-                player.sendSystemMessage(Component.literal("You cannot afford " + quantity + "x " + entry.name
-                    + " for " + GuiShop.CONFIG.money(total) + "."));
-                return;
-            }
-
-            give(player, item, quantity);
-            player.sendSystemMessage(Component.literal("Purchased " + quantity + "x " + entry.name
-                + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
-                + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))));
-        } else {
-            int available = count(player, item);
-            if (available < quantity) {
-                player.sendSystemMessage(Component.literal("You need " + quantity + "x " + entry.name
-                    + " but only have " + available + "."));
-                return;
-            }
-
-            remove(player, item, quantity);
-            GuiShop.ECONOMY.deposit(player.getUUID(), total);
-            player.sendSystemMessage(Component.literal("Sold " + quantity + "x " + entry.name
-                + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
-                + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))));
-        }
-    }
-
-    private static void give(ServerPlayer player, Item item, int quantity) {
-        int remaining = quantity;
-        while (remaining > 0) {
-            ItemStack probe = new ItemStack(item);
-            int batch = Math.min(remaining, probe.getMaxStackSize());
-            ItemStack stack = new ItemStack(item, batch);
-            remaining -= batch;
-            if (!player.getInventory().add(stack) && !stack.isEmpty()) {
-                player.drop(stack, false);
-            }
-        }
-    }
-
-    private static int count(ServerPlayer player, Item item) {
-        int count = 0;
-        Inventory inventory = player.getInventory();
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (stack.is(item)) count += stack.getCount();
-        }
-        return count;
-    }
-
-    private static void remove(ServerPlayer player, Item item, int quantity) {
-        int remaining = quantity;
-        Inventory inventory = player.getInventory();
-        for (int slot = 0; slot < inventory.getContainerSize() && remaining > 0; slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (!stack.is(item)) continue;
-            int removed = Math.min(stack.getCount(), remaining);
-            stack.shrink(removed);
-            remaining -= removed;
-            if (stack.isEmpty()) inventory.setItem(slot, ItemStack.EMPTY);
-        }
-        inventory.setChanged();
     }
 
     private static ItemStack displayStack(String identifier, int count, String name) {
@@ -325,15 +266,10 @@ public final class ShopGui {
             if (binding == null || processing) return;
             processing = true;
             try {
-                if (!binding.trade()) {
-                    binding.action().run(1);
-                } else if (shiftClick) {
-                    binding.action().run(64);
-                } else if (quantity >= 16) {
-                    binding.action().run(16);
-                } else {
-                    binding.action().run(1);
-                }
+                if (!binding.trade()) binding.action().run(1);
+                else if (shiftClick) binding.action().run(64);
+                else if (quantity >= 16) binding.action().run(16);
+                else binding.action().run(1);
             } finally {
                 processing = false;
             }
@@ -341,7 +277,6 @@ public final class ShopGui {
 
         @Override
         public ItemStack removeItem(int slot, int amount) {
-            // Vanilla routes right-click removal through this method.
             activate(slot, 16, false);
             return ItemStack.EMPTY;
         }
@@ -354,7 +289,7 @@ public final class ShopGui {
 
         @Override
         public void setItem(int slot, ItemStack stack) {
-            // The GUI is a read-only server menu. Player clicks never replace its display stacks.
+            // Read-only server menu.
         }
 
         @Override
@@ -373,9 +308,7 @@ public final class ShopGui {
 
         @Override
         public ItemStack quickMoveStack(Player player, int index) {
-            if (index >= 0 && index < shop.getContainerSize()) {
-                shop.activate(index, 64, true);
-            }
+            if (index >= 0 && index < shop.getContainerSize()) shop.activate(index, 64, true);
             return ItemStack.EMPTY;
         }
     }
