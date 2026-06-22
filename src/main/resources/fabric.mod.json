@@ -3,7 +3,7 @@
   "id": "guishop",
   "version": "${version}",
   "name": "ClassicGUIShop",
-  "description": "A server-side chest GUI shop with a built-in persistent economy, ported from the classic 2013 GUIShop.",
+  "description": "A server-side chest GUI shop with a built-in persistent economy, dynamic pricing, permissions, and administration commands.",
   "authors": ["Zycu", "Original GUIShop authors: _Waffles_ and AlreadyCoded"],
   "license": "All-Rights-Reserved",
   "environment": "*",
@@ -14,6 +14,7 @@
     "fabricloader": ">=0.19.3",
     "minecraft": "=26.1.1",
     "java": ">=25",
-    "fabric-api": "*"
+    "fabric-api": "*",
+    "fabric-permissions-api-v0": ">=0.7.0"
   }
 }
