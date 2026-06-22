@@ -6,7 +6,12 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
-base { archivesName = project.archives_base_name }
+base { archivesName = "ClassicGUIShop" }
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    archiveBaseName.set("ClassicGUIShop")
+    archiveVersion.set("${project.minecraft_version}-v${project.mod_version}")
+}
 
 repositories {
     mavenCentral()
