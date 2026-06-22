@@ -61,7 +61,7 @@ public final class ShopGui {
 
         if (GuiShop.CONFIG.enchantmentsEnabled() && ShopPermissions.user(player, "guishop.enchant")) {
             buttons.add(new MenuButton(
-                displayStack("minecraft:enchanted_book", 1, "Enchant Held Item"),
+                displayStack("minecraft:enchanted_book", 1, "Enchanted Books"),
                 () -> openEnchantments(player, 1)
             ));
         }
@@ -133,7 +133,7 @@ public final class ShopGui {
             ShopConfig.ShopItem entry = available.get(start + slot);
             double unitPrice = price(entry, mode) * GuiShop.CONFIG.priceMultiplier;
             String label = entry.name + " | " + modeName(mode) + " " + GuiShop.CONFIG.money(unitPrice) + " each";
-            ItemStack icon = displayStack(entry.item, 1, label);
+            ItemStack icon = displayListingStack(entry, player, label);
             container.bind(slot, icon, true, quantity -> {
                 int requested = mode == Mode.SELL && quantity == 64 ? ShopService.SELL_ALL : quantity;
                 ShopService.trade(player, entry, mode, requested);
@@ -187,23 +187,13 @@ public final class ShopGui {
 
     public static void openEnchantments(ServerPlayer player, int requestedPage) {
         if (!GuiShop.CONFIG.enchantmentsEnabled() || !ShopPermissions.user(player, "guishop.enchant")) {
-            player.sendSystemMessage(Component.literal("The enchantment shop is unavailable."));
-            return;
-        }
-
-        ItemStack held = player.getMainHandItem();
-        if (held.isEmpty()) {
-            player.sendSystemMessage(Component.literal("Hold the item you want to enchant."));
-            return;
-        }
-        if (held.getCount() != 1) {
-            player.sendSystemMessage(Component.literal("Hold exactly one item when using the enchantment shop."));
+            player.sendSystemMessage(Component.literal("The enchanted book shop is unavailable."));
             return;
         }
 
         List<EnchantmentShopService.OfferView> offers = EnchantmentShopService.availableOffers(player);
         if (offers.isEmpty()) {
-            player.sendSystemMessage(Component.literal("No compatible enchantment upgrades are available for that item."));
+            player.sendSystemMessage(Component.literal("No enchanted books are currently available."));
             return;
         }
 
@@ -217,7 +207,8 @@ public final class ShopGui {
             EnchantmentShopService.OfferView offer = offers.get(start + slot);
             String label = offer.displayName() + " " + EnchantmentShopService.roman(offer.targetLevel())
                 + " | " + GuiShop.CONFIG.money(offer.cost());
-            ItemStack icon = displayStack("minecraft:enchanted_book", 1, label);
+            ItemStack icon = EnchantmentShopService.createBook(offer.holder(), offer.targetLevel());
+            icon.set(DataComponents.CUSTOM_NAME, Component.literal(label));
             container.bind(slot, icon, false, ignored -> {
                 if (EnchantmentShopService.purchase(player, offer.enchantmentId(), offer.targetLevel())) {
                     openEnchantments(player, page);
@@ -244,7 +235,7 @@ public final class ShopGui {
             displayStack("minecraft:paper", 1,
                 "Page " + page + "/" + pages + " | Balance " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
             false,
-            ignored -> player.sendSystemMessage(Component.literal("Enchanting: " + held.getHoverName().getString()))
+            ignored -> player.sendSystemMessage(Component.literal("Buy enchanted books and apply them with an anvil."))
         );
 
         if (page < pages) {
@@ -256,7 +247,7 @@ public final class ShopGui {
             );
         }
 
-        openMenu(player, container, Component.literal("Enchant " + held.getHoverName().getString() + " " + page + "/" + pages), 6);
+        openMenu(player, container, Component.literal("Enchanted Books " + page + "/" + pages), 6);
     }
 
     private static Mode resolveAllowedMode(ServerPlayer player, Mode requested) {
@@ -304,6 +295,14 @@ public final class ShopGui {
 
     private static String modeName(Mode mode) {
         return mode == Mode.BUY ? "Buy" : "Sell";
+    }
+
+    private static ItemStack displayListingStack(ShopConfig.ShopItem entry, ServerPlayer player, String label) {
+        ItemStack stack = entry.createStack(player.registryAccess());
+        if (stack.isEmpty()) stack = new ItemStack(Items.BARRIER);
+        else stack = stack.copyWithCount(1);
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(label));
+        return stack;
     }
 
     private static ItemStack displayStack(String identifier, int count, String name) {

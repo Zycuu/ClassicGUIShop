@@ -20,7 +20,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -74,6 +73,9 @@ public final class ShopCommands {
                 .requires(source -> ShopPermissions.admin(source, "multiplier"))
                 .then(Commands.argument("value", DoubleArgumentType.doubleArg(0))
                     .executes(ShopCommands::setMultiplier)))
+            .then(Commands.literal("catalog")
+                .requires(source -> ShopPermissions.admin(source, "reload"))
+                .then(Commands.literal("sync").executes(ShopCommands::syncCatalog)))
             .then(Commands.literal("item")
                 .then(Commands.literal("add")
                     .requires(source -> ShopPermissions.admin(source, "item.add"))
@@ -225,7 +227,7 @@ public final class ShopCommands {
     private static int worthItem(CommandContext<CommandSourceStack> context, int amount) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         remember(player);
-        String item = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "item"));
+        String item = StringArgumentType.getString(context, "item");
         return ShopService.showWorth(player, item, amount) ? 1 : 0;
     }
 
@@ -234,7 +236,7 @@ public final class ShopCommands {
         context.getSource().sendSuccess(() -> Component.literal("/adminshop category <add|remove|list>"), false);
         context.getSource().sendSuccess(() -> Component.literal("/adminshop enchant <set|remove|list|defaultprice|enabled>"), false);
         context.getSource().sendSuccess(() -> Component.literal("/adminshop economy <get|set|add|take>"), false);
-        context.getSource().sendSuccess(() -> Component.literal("/adminshop multiplier <value> | /adminshop reload"), false);
+        context.getSource().sendSuccess(() -> Component.literal("/adminshop catalog sync | /adminshop multiplier <value> | /adminshop reload"), false);
         return 1;
     }
 
@@ -242,22 +244,28 @@ public final class ShopCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) {
-            context.getSource().sendFailure(Component.literal("Hold the item you want to add."));
+            context.getSource().sendFailure(Component.literal("Hold the exact item you want to add."));
             return 0;
         }
 
         String category = StringArgumentType.getString(context, "category");
         double buy = DoubleArgumentType.getDouble(context, "buy");
         double sell = DoubleArgumentType.getDouble(context, "sell");
-        String itemId = ShopService.itemId(held);
         String displayName = held.getHoverName().getString();
-        ShopConfig.ShopItem item = GuiShop.CONFIG.addOrUpdateItem(category, itemId, displayName, buy, sell);
+        ShopConfig.ShopItem item = GuiShop.CONFIG.addOrUpdateItem(
+            category,
+            held,
+            displayName,
+            buy,
+            sell,
+            player.registryAccess()
+        );
         if (item == null) {
             context.getSource().sendFailure(Component.literal("Unknown category: " + category));
             return 0;
         }
 
-        context.getSource().sendSuccess(() -> Component.literal("Added/updated " + itemId + " in " + category
+        context.getSource().sendSuccess(() -> Component.literal("Added/updated " + item.listingId + " in " + category
             + " with buy " + GuiShop.CONFIG.money(buy) + " and sell " + GuiShop.CONFIG.money(sell) + "."), true);
         return 1;
     }
@@ -266,16 +274,16 @@ public final class ShopCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) {
-            context.getSource().sendFailure(Component.literal("Hold the item you want to remove."));
+            context.getSource().sendFailure(Component.literal("Hold the exact item you want to remove."));
             return 0;
         }
-        String itemId = ShopService.itemId(held);
-        int removed = GuiShop.CONFIG.removeItemEverywhere(itemId);
+        String listingId = ItemStackData.listingId(held.copyWithCount(1), player.registryAccess());
+        int removed = GuiShop.CONFIG.removeItemEverywhere(held, player.registryAccess());
         if (removed == 0) {
-            context.getSource().sendFailure(Component.literal(itemId + " is not listed."));
+            context.getSource().sendFailure(Component.literal(listingId + " is not listed."));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal("Removed " + itemId + " from " + removed + " listing(s)."), true);
+        context.getSource().sendSuccess(() -> Component.literal("Removed " + listingId + " from " + removed + " listing(s)."), true);
         return 1;
     }
 
@@ -301,7 +309,7 @@ public final class ShopCommands {
         context.getSource().sendSuccess(() -> Component.literal(category.name + " items, page " + page + "/" + pages + ":"), false);
         for (int i = start; i < end; i++) {
             ShopConfig.ShopItem item = category.items.get(i);
-            context.getSource().sendSuccess(() -> Component.literal("- " + item.item + " | buy "
+            context.getSource().sendSuccess(() -> Component.literal("- " + item.listingId + " | " + item.name + " | buy "
                 + GuiShop.CONFIG.money(item.buy) + " | sell " + GuiShop.CONFIG.money(item.sell)), false);
         }
         return 1;
@@ -310,8 +318,15 @@ public final class ShopCommands {
     private static int reload(CommandContext<CommandSourceStack> context) {
         GuiShop.CONFIG = ShopConfig.load();
         GuiShop.CONFIG.ensureEnchantmentDefaults(context.getSource().getServer());
+        int added = VanillaCatalog.sync(GuiShop.CONFIG, context.getSource().getServer());
         GuiShop.ECONOMY.updateConfig(GuiShop.CONFIG);
-        context.getSource().sendSuccess(() -> Component.literal("ClassicGUIShop configuration reloaded."), true);
+        context.getSource().sendSuccess(() -> Component.literal("ClassicGUIShop configuration reloaded. Added " + added + " missing vanilla listings."), true);
+        return 1;
+    }
+
+    private static int syncCatalog(CommandContext<CommandSourceStack> context) {
+        int added = VanillaCatalog.sync(GuiShop.CONFIG, context.getSource().getServer());
+        context.getSource().sendSuccess(() -> Component.literal("Vanilla catalog synchronized. Added " + added + " missing listings."), true);
         return 1;
     }
 
@@ -324,26 +339,26 @@ public final class ShopCommands {
     }
 
     private static int setPrice(CommandContext<CommandSourceStack> context) {
-        String itemId = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "item"));
+        String identifier = StringArgumentType.getString(context, "item");
         double buy = DoubleArgumentType.getDouble(context, "buy");
         double sell = DoubleArgumentType.getDouble(context, "sell");
-        if (!GuiShop.CONFIG.updatePrices(itemId, buy, sell)) {
-            context.getSource().sendFailure(Component.literal("No listing exists for " + itemId + "."));
+        if (!GuiShop.CONFIG.updatePrices(identifier, buy, sell)) {
+            context.getSource().sendFailure(Component.literal("No listing exists for " + identifier + "."));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal("Updated " + itemId + " to buy "
+        context.getSource().sendSuccess(() -> Component.literal("Updated " + identifier + " to buy "
             + GuiShop.CONFIG.money(buy) + " and sell " + GuiShop.CONFIG.money(sell) + "."), true);
         return 1;
     }
 
     private static int setCategory(CommandContext<CommandSourceStack> context) {
-        String itemId = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "item"));
+        String identifier = StringArgumentType.getString(context, "item");
         String category = StringArgumentType.getString(context, "category");
-        if (!GuiShop.CONFIG.moveItem(itemId, category)) {
-            context.getSource().sendFailure(Component.literal("Could not move item. Check the item ID and category."));
+        if (!GuiShop.CONFIG.moveItem(identifier, category)) {
+            context.getSource().sendFailure(Component.literal("Could not move item. Check the listing ID/item ID and category."));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal("Moved " + itemId + " to " + category + "."), true);
+        context.getSource().sendSuccess(() -> Component.literal("Moved " + identifier + " to " + category + "."), true);
         return 1;
     }
 
@@ -362,11 +377,13 @@ public final class ShopCommands {
 
     private static int removeCategory(CommandContext<CommandSourceStack> context) {
         String id = StringArgumentType.getString(context, "id");
-        if (!GuiShop.CONFIG.removeEmptyCategory(id)) {
-            context.getSource().sendFailure(Component.literal("Category not found or it still contains items."));
+        ShopConfig.RemovedCategory removed = GuiShop.CONFIG.removeCategoryAndContents(id);
+        if (removed == null) {
+            context.getSource().sendFailure(Component.literal("Category not found: " + id));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal("Removed empty category " + id + "."), true);
+        context.getSource().sendSuccess(() -> Component.literal("Removed category " + removed.id() + " and all "
+            + removed.removedListings() + " contained listings."), true);
         return 1;
     }
 
@@ -378,7 +395,7 @@ public final class ShopCommands {
         int page = Math.max(1, Math.min(requestedPage, pages));
         int start = (page - 1) * LIST_PAGE_SIZE;
         int end = Math.min(start + LIST_PAGE_SIZE, entries.size());
-        context.getSource().sendSuccess(() -> Component.literal("Enchantments, page " + page + "/" + pages + ":"), false);
+        context.getSource().sendSuccess(() -> Component.literal("Enchanted books, page " + page + "/" + pages + ":"), false);
         for (int i = start; i < end; i++) {
             Map.Entry<String, ShopConfig.EnchantmentOffer> entry = entries.get(i);
             ShopConfig.EnchantmentOffer offer = entry.getValue();
@@ -392,10 +409,9 @@ public final class ShopCommands {
         String id = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "enchantment"));
         double price = DoubleArgumentType.getDouble(context, "pricePerLevel");
         Registry<Enchantment> registry = context.getSource().getServer().registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
-        ResourceKey<Enchantment> key;
         Holder<Enchantment> holder;
         try {
-            key = ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse(id));
+            ResourceKey<Enchantment> key = ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse(id));
             holder = registry.getOrThrow(key);
         } catch (Exception exception) {
             context.getSource().sendFailure(Component.literal("Unknown enchantment: " + id));
@@ -406,7 +422,7 @@ public final class ShopCommands {
         int maxLevel = requestedMaxLevel <= 0 ? registryMax : Math.min(requestedMaxLevel, registryMax);
         String displayName = holder.value().description().getString();
         GuiShop.CONFIG.setEnchantmentOffer(id, displayName, price, maxLevel);
-        context.getSource().sendSuccess(() -> Component.literal("Enabled " + id + " at "
+        context.getSource().sendSuccess(() -> Component.literal("Enabled enchanted books for " + id + " at "
             + GuiShop.CONFIG.money(price) + " per level, maximum level " + maxLevel + "."), true);
         return 1;
     }
@@ -417,7 +433,7 @@ public final class ShopCommands {
             context.getSource().sendFailure(Component.literal("Unknown enchantment listing: " + id));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal("Disabled enchantment listing " + id + "."), true);
+        context.getSource().sendSuccess(() -> Component.literal("Disabled enchanted books for " + id + "."), true);
         return 1;
     }
 
@@ -425,7 +441,7 @@ public final class ShopCommands {
         double price = DoubleArgumentType.getDouble(context, "pricePerLevel");
         GuiShop.CONFIG.defaultEnchantmentPricePerLevel = price;
         GuiShop.CONFIG.save();
-        context.getSource().sendSuccess(() -> Component.literal("Default enchantment price set to "
+        context.getSource().sendSuccess(() -> Component.literal("Default enchanted book price set to "
             + GuiShop.CONFIG.money(price) + " per level for newly discovered enchantments."), true);
         return 1;
     }
@@ -434,7 +450,7 @@ public final class ShopCommands {
         boolean enabled = BoolArgumentType.getBool(context, "value");
         GuiShop.CONFIG.enchantmentsEnabled = enabled;
         GuiShop.CONFIG.save();
-        context.getSource().sendSuccess(() -> Component.literal("Enchantment shop " + (enabled ? "enabled" : "disabled") + "."), true);
+        context.getSource().sendSuccess(() -> Component.literal("Enchanted book shop " + (enabled ? "enabled" : "disabled") + "."), true);
         return 1;
     }
 
