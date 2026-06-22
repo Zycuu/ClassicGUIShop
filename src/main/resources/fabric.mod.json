@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "guishop",
+  "version": "${version}",
+  "name": "GUIShop Fabric Port",
+  "description": "A server-side chest GUI shop with a built-in persistent economy, ported from GUIShop 2.1.",
+  "authors": ["Zycu", "Original GUIShop authors: _Waffles_ and AlreadyCoded"],
+  "license": "All-Rights-Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.zycu.guishop.GuiShop"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "=26.1.1",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
