@@ -10,7 +10,6 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.InventoryClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -342,7 +341,8 @@ public final class ShopGui {
 
         @Override
         public ItemStack removeItem(int slot, int amount) {
-            activate(slot, amount, false);
+            // Vanilla routes right-click removal through this method.
+            activate(slot, 16, false);
             return ItemStack.EMPTY;
         }
 
@@ -369,21 +369,6 @@ public final class ShopGui {
         ShopMenu(int containerId, Inventory inventory, ShopContainer shop, int rows) {
             super(menuTypeForRows(rows), containerId, inventory, shop, rows);
             this.shop = shop;
-        }
-
-        @Override
-        public void clicked(int slotId, int button, InventoryClickType clickType, Player player) {
-            if (slotId >= 0 && slotId < shop.getContainerSize()) {
-                if (clickType == InventoryClickType.QUICK_MOVE) {
-                    shop.activate(slotId, 64, true);
-                    return;
-                }
-                if (clickType == InventoryClickType.PICKUP) {
-                    shop.activate(slotId, button == 1 ? 16 : 1, false);
-                    return;
-                }
-            }
-            super.clicked(slotId, button, clickType, player);
         }
 
         @Override
