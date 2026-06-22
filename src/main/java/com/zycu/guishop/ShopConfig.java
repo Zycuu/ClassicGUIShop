@@ -3,6 +3,10 @@ package com.zycu.guishop;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.item.enchantment.Enchantment;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +30,9 @@ public final class ShopConfig {
     public double priceMultiplier = 1.0;
     public Boolean allowCreativeTransactions = false;
     public Boolean allowOfflinePayments = true;
+    public Boolean enchantmentsEnabled = true;
+    public double defaultEnchantmentPricePerLevel = 100.0;
+    public Map<String, EnchantmentOffer> enchantments = new LinkedHashMap<>();
     public Map<String, Integer> permissionDefaults = new LinkedHashMap<>();
     public List<Category> categories = new ArrayList<>();
 
@@ -68,6 +75,24 @@ public final class ShopConfig {
             System.err.println("[ClassicGUIShop] Could not save shop.json");
             exception.printStackTrace();
         }
+    }
+
+    public synchronized void ensureEnchantmentDefaults(MinecraftServer server) {
+        Registry<Enchantment> registry = server.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+        boolean changed = false;
+        for (Map.Entry<net.minecraft.resources.ResourceKey<Enchantment>, Enchantment> entry : registry.entrySet()) {
+            String id = entry.getKey().identifier().toString();
+            if (!enchantments.containsKey(id)) {
+                EnchantmentOffer offer = new EnchantmentOffer();
+                offer.name = entry.getValue().description().getString();
+                offer.pricePerLevel = defaultEnchantmentPricePerLevel;
+                offer.maxLevel = entry.getValue().getMaxLevel();
+                offer.enabled = true;
+                enchantments.put(id, offer);
+                changed = true;
+            }
+        }
+        if (changed) save();
     }
 
     public Category category(String id) {
@@ -171,6 +196,30 @@ public final class ShopConfig {
         return true;
     }
 
+    public EnchantmentOffer enchantmentOffer(String enchantmentId) {
+        if (enchantmentId == null) return null;
+        return enchantments.get(normalizeIdentifier(enchantmentId));
+    }
+
+    public synchronized EnchantmentOffer setEnchantmentOffer(String enchantmentId, String displayName, double pricePerLevel, int maxLevel) {
+        String id = normalizeIdentifier(enchantmentId);
+        EnchantmentOffer offer = enchantments.computeIfAbsent(id, ignored -> new EnchantmentOffer());
+        if (displayName != null && !displayName.isBlank()) offer.name = displayName;
+        offer.pricePerLevel = pricePerLevel;
+        offer.maxLevel = maxLevel;
+        offer.enabled = true;
+        save();
+        return offer;
+    }
+
+    public synchronized boolean disableEnchantment(String enchantmentId) {
+        EnchantmentOffer offer = enchantmentOffer(enchantmentId);
+        if (offer == null) return false;
+        offer.enabled = false;
+        save();
+        return true;
+    }
+
     public int permissionLevel(String node, int fallback) {
         if (permissionDefaults == null) return fallback;
         return permissionDefaults.getOrDefault(node, fallback);
@@ -188,14 +237,21 @@ public final class ShopConfig {
         return !Boolean.FALSE.equals(allowOfflinePayments);
     }
 
+    public boolean enchantmentsEnabled() {
+        return !Boolean.FALSE.equals(enchantmentsEnabled);
+    }
+
     private void normalize() {
         if (currencySymbol == null) currencySymbol = "$";
         if (categories == null) categories = new ArrayList<>();
         if (permissionDefaults == null) permissionDefaults = new LinkedHashMap<>();
+        if (enchantments == null) enchantments = new LinkedHashMap<>();
         if (allowCreativeTransactions == null) allowCreativeTransactions = false;
         if (allowOfflinePayments == null) allowOfflinePayments = true;
+        if (enchantmentsEnabled == null) enchantmentsEnabled = true;
         if (!Double.isFinite(startingBalance) || startingBalance < 0) startingBalance = 0;
         if (!Double.isFinite(priceMultiplier) || priceMultiplier < 0) priceMultiplier = 1;
+        if (!Double.isFinite(defaultEnchantmentPricePerLevel) || defaultEnchantmentPricePerLevel < 0) defaultEnchantmentPricePerLevel = 100;
 
         addPermissionDefault("guishop.command.shop", 0);
         addPermissionDefault("guishop.command.balance", 0);
@@ -204,6 +260,7 @@ public final class ShopConfig {
         addPermissionDefault("guishop.command.worth", 0);
         addPermissionDefault("guishop.buy", 0);
         addPermissionDefault("guishop.sell", 0);
+        addPermissionDefault("guishop.enchant", 0);
         addPermissionDefault("guishop.creative.bypass", 2);
         addPermissionDefault("guishop.admin", 2);
         addPermissionDefault("guishop.admin.item.add", 2);
@@ -212,9 +269,26 @@ public final class ShopConfig {
         addPermissionDefault("guishop.admin.item.price", 2);
         addPermissionDefault("guishop.admin.item.category", 2);
         addPermissionDefault("guishop.admin.category", 2);
+        addPermissionDefault("guishop.admin.enchant", 2);
         addPermissionDefault("guishop.admin.reload", 2);
         addPermissionDefault("guishop.admin.multiplier", 2);
         addPermissionDefault("guishop.admin.balance", 2);
+
+        for (Map.Entry<String, EnchantmentOffer> entry : new ArrayList<>(enchantments.entrySet())) {
+            String normalizedId = normalizeIdentifier(entry.getKey());
+            EnchantmentOffer offer = entry.getValue();
+            if (offer == null) offer = new EnchantmentOffer();
+            if (offer.name == null || offer.name.isBlank()) offer.name = normalizedId;
+            if (!Double.isFinite(offer.pricePerLevel) || offer.pricePerLevel < 0) offer.pricePerLevel = defaultEnchantmentPricePerLevel;
+            if (offer.maxLevel < 0) offer.maxLevel = 0;
+            if (offer.enabled == null) offer.enabled = true;
+            if (!normalizedId.equals(entry.getKey())) {
+                enchantments.remove(entry.getKey());
+                enchantments.put(normalizedId, offer);
+            } else {
+                enchantments.put(normalizedId, offer);
+            }
+        }
 
         for (Category category : categories) {
             if (category.id == null || category.id.isBlank()) category.id = "category";
@@ -241,6 +315,11 @@ public final class ShopConfig {
         return value.isBlank() ? "category" : value;
     }
 
+    public static String normalizeIdentifier(String input) {
+        String value = input == null ? "" : input.trim().toLowerCase(Locale.ROOT);
+        return value.contains(":") ? value : "minecraft:" + value;
+    }
+
     public record FoundItem(Category category, ShopItem item) {}
 
     public static final class Category {
@@ -255,5 +334,16 @@ public final class ShopConfig {
         public String name;
         public double buy;
         public double sell;
+    }
+
+    public static final class EnchantmentOffer {
+        public String name;
+        public double pricePerLevel = 100.0;
+        public int maxLevel = 0;
+        public Boolean enabled = true;
+
+        public boolean enabled() {
+            return !Boolean.FALSE.equals(enabled) && pricePerLevel > 0;
+        }
     }
 }
