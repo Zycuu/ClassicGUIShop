@@ -8,6 +8,7 @@ Clients do not need the mod. ClassicGUIShop uses vanilla chest menus and include
 
 - Buy and sell shops through `/shop`.
 - Enchanted books organized by enchantment, then by level.
+- Colored blocks organized by block type, then by color.
 - Exact item listings preserve enchantments, names, lore, trims, potion data, and other components.
 - Automatic vanilla catalog synchronization with unobtainable-item cleanup.
 - Deterministic difficulty-based prices for generated vanilla listings.
@@ -37,6 +38,8 @@ Clients do not need the mod. ClassicGUIShop uses vanilla chest menus and include
 ```
 
 `/shop enchant` first displays one entry for each enchantment. Selecting an enchantment opens its available book levels. Players receive a real enchanted book and apply it themselves with an anvil.
+
+The `colored_blocks` category first displays block types such as Wool, Carpet, Concrete, Terracotta, Stained Glass, Beds, Candles, Banners, and Shulker Boxes. Selecting a type opens its available colors.
 
 ## Item listings
 
@@ -119,7 +122,7 @@ Offline targets must have joined the server at least once.
 
 ## Configuration
 
-ClassicGUIShop now separates configuration by purpose:
+ClassicGUIShop separates configuration by purpose:
 
 ```text
 config/guishop/settings.json
@@ -129,7 +132,7 @@ config/guishop/balances.json
 config/guishop/players.json
 ```
 
-Every editable configuration file begins with `_about` and `_notes` documentation. These fields thank users for installing the mod, credit the original Bukkit GUIShop creators `_Waffles_` and `AlreadyCoded`, and provide Zycu's Discord contact name: `zycu`.
+Every editable configuration file begins with `_about` and `_notes` documentation. `_notes` explains each configurable value and what changing it does.
 
 ### settings.json
 
@@ -155,13 +158,9 @@ Existing `shop.json` files are migrated automatically. The original file is reta
 config/guishop/shop.json.migrated-backup
 ```
 
-## Version 0.5.0
+## ClassicGUIShop v1.0.0 Release Candidate
 
-- Organized enchanted books into enchantment categories with level selection inside.
-- Added a configurable `[ShopGUI]` prefix to every client chat message.
-- Added configurable chat colors for information, success, warnings, errors, and administration.
-- Split the monolithic configuration into documented settings, shops, and enchantment files.
-- Added thank-you, original-author credit, Discord contact, and editing notes to generated configs.
-- Added unobtainable-item purging during catalog synchronization.
-- Added deterministic difficulty-based pricing for generated vanilla items.
-- Preserved all administrator-set prices as manual overrides.
+- Added colored-block type subcategories before color selection.
+- Reworked `_notes` so every config value explains its purpose and the effect of changing it.
+- Replaced the final `_about` line with Zycu's Bukkit-era ShopGUI message.
+- Kept existing shops, balances, permissions, exact item listings, economy pricing, and enchantment settings compatible with 0.5.0.
