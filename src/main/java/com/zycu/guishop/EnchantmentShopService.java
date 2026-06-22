@@ -22,7 +22,7 @@ public final class EnchantmentShopService {
     private EnchantmentShopService() {}
 
     public static List<OfferView> availableOffers(ServerPlayer player) {
-        GuiShop.CONFIG.ensureEnchantmentDefaults(player.getServer());
+        GuiShop.CONFIG.ensureEnchantmentDefaults(player.level().getServer());
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) return List.of();
 
