@@ -50,13 +50,15 @@ public final class ShopGui {
 
         List<MenuButton> buttons = new ArrayList<>();
         for (ShopConfig.Category category : GuiShop.CONFIG.categories) {
-            if (ShopPermissions.category(player, category.id) && hasAvailableItems(category, mode)) {
-                String categoryId = category.id;
-                buttons.add(new MenuButton(
-                    displayStack(category.icon, 1, category.name + " | " + modeName(mode)),
-                    () -> openCategory(player, categoryId, mode, 1)
-                ));
-            }
+            if (!ShopPermissions.category(player, category.id) || !hasAvailableItems(category, mode)) continue;
+            String categoryId = category.id;
+            Runnable action = isColoredBlocks(category)
+                ? () -> openColoredBlockGroups(player, mode, 1)
+                : () -> openCategory(player, categoryId, mode, 1);
+            buttons.add(new MenuButton(
+                displayStack(category.icon, 1, category.name + " | " + modeName(mode)),
+                action
+            ));
         }
 
         if (GuiShop.CONFIG.enchantmentsEnabled() && ShopPermissions.user(player, "guishop.enchant")) {
@@ -106,6 +108,11 @@ public final class ShopGui {
     }
 
     public static void openCategory(ServerPlayer player, String categoryId, Mode requestedMode, int requestedPage) {
+        if ("colored_blocks".equalsIgnoreCase(categoryId)) {
+            openColoredBlockGroups(player, requestedMode, requestedPage);
+            return;
+        }
+
         Mode mode = resolveAllowedMode(player, requestedMode);
         if (mode == null) {
             ShopMessages.error(player, "You do not have permission to use the shop.");
@@ -118,11 +125,165 @@ public final class ShopGui {
             return;
         }
 
-        List<ShopConfig.ShopItem> available = new ArrayList<>();
-        for (ShopConfig.ShopItem entry : category.items) {
-            if (price(entry, mode) > 0) available.add(entry);
+        List<ShopConfig.ShopItem> available = availableItems(category, mode);
+        openItemPage(
+            player,
+            category.name,
+            available,
+            mode,
+            requestedPage,
+            quantity -> openCategories(player, mode),
+            targetPage -> openCategory(player, categoryId, mode, targetPage),
+            targetMode -> openCategory(player, categoryId, targetMode, 1)
+        );
+    }
+
+    public static void openColoredBlockGroups(ServerPlayer player, Mode requestedMode, int requestedPage) {
+        Mode mode = resolveAllowedMode(player, requestedMode);
+        if (mode == null) {
+            ShopMessages.error(player, "You do not have permission to use the shop.");
+            return;
         }
 
+        ShopConfig.Category category = GuiShop.CONFIG.category("colored_blocks");
+        if (category == null || !ShopPermissions.category(player, category.id)) {
+            ShopMessages.error(player, "The Colored Blocks category is unavailable.");
+            return;
+        }
+
+        List<ColoredGroupView> groups = new ArrayList<>();
+        for (ColoredBlockGroups.Group group : ColoredBlockGroups.definitions()) {
+            int available = countGroupItems(category, group, mode);
+            if (available > 0) groups.add(new ColoredGroupView(group, available));
+        }
+
+        if (groups.isEmpty()) {
+            ShopMessages.warning(player, "No colored blocks are available for " + modeName(mode).toLowerCase() + ".");
+            openCategories(player, mode);
+            return;
+        }
+
+        int pages = Math.max(1, (groups.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int page = Math.max(1, Math.min(requestedPage, pages));
+        ShopContainer container = new ShopContainer(54, player);
+        int start = (page - 1) * PAGE_SIZE;
+        int end = Math.min(start + PAGE_SIZE, groups.size());
+
+        for (int slot = 0; start + slot < end; slot++) {
+            ColoredGroupView view = groups.get(start + slot);
+            ColoredBlockGroups.Group group = view.group();
+            container.bind(
+                slot,
+                displayStack(group.icon(), 1, group.name() + " | " + view.availableItems() + " listings"),
+                false,
+                ignored -> openColoredBlockGroup(player, mode, group.id(), 1, page)
+            );
+        }
+
+        container.bind(BACK_SLOT,
+            displayStack("minecraft:barrier", 1, "Back to Categories"),
+            false,
+            ignored -> openCategories(player, mode)
+        );
+
+        if (page > 1) {
+            int target = page - 1;
+            container.bind(PREVIOUS_SLOT,
+                displayStack("minecraft:arrow", 1, "Previous Page"),
+                false,
+                ignored -> openColoredBlockGroups(player, mode, target)
+            );
+        }
+
+        container.bind(BALANCE_SLOT,
+            displayStack("minecraft:paper", 1,
+                "Page " + page + "/" + pages + " | Balance " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
+            false,
+            ignored -> ShopMessages.info(player, "Select a colored block type, then choose the color you want.")
+        );
+
+        if (page < pages) {
+            int target = page + 1;
+            container.bind(NEXT_SLOT,
+                displayStack("minecraft:arrow", 1, "Next Page"),
+                false,
+                ignored -> openColoredBlockGroups(player, mode, target)
+            );
+        }
+
+        if (ShopService.canUseMode(player, mode.opposite())) {
+            container.bind(MODE_SLOT,
+                displayStack(mode == Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald", 1,
+                    "Switch to " + modeName(mode.opposite())),
+                false,
+                ignored -> openColoredBlockGroups(player, mode.opposite(), 1)
+            );
+        }
+
+        openMenu(player, container, Component.literal("Colored Blocks - " + modeName(mode) + " " + page + "/" + pages), 6);
+    }
+
+    private static void openColoredBlockGroup(
+        ServerPlayer player,
+        Mode requestedMode,
+        String groupId,
+        int requestedPage,
+        int groupMenuPage
+    ) {
+        Mode mode = resolveAllowedMode(player, requestedMode);
+        if (mode == null) {
+            ShopMessages.error(player, "You do not have permission to use the shop.");
+            return;
+        }
+
+        ShopConfig.Category category = GuiShop.CONFIG.category("colored_blocks");
+        if (category == null || !ShopPermissions.category(player, category.id)) {
+            ShopMessages.error(player, "The Colored Blocks category is unavailable.");
+            return;
+        }
+
+        ColoredBlockGroups.Group group = ColoredBlockGroups.byId(groupId);
+        List<ShopConfig.ShopItem> available = new ArrayList<>();
+        for (ShopConfig.ShopItem item : category.items) {
+            if (ColoredBlockGroups.groupFor(item).id().equalsIgnoreCase(group.id()) && price(item, mode) > 0) {
+                available.add(item);
+            }
+        }
+
+        if (available.isEmpty()) {
+            ShopMessages.warning(player, group.name() + " has no listings available for " + modeName(mode).toLowerCase() + ".");
+            openColoredBlockGroups(player, mode, groupMenuPage);
+            return;
+        }
+
+        openItemPage(
+            player,
+            group.name(),
+            available,
+            mode,
+            requestedPage,
+            quantity -> openColoredBlockGroups(player, mode, groupMenuPage),
+            targetPage -> openColoredBlockGroup(player, mode, group.id(), targetPage, groupMenuPage),
+            targetMode -> {
+                if (countGroupItems(category, group, targetMode) > 0) {
+                    openColoredBlockGroup(player, targetMode, group.id(), 1, groupMenuPage);
+                } else {
+                    openColoredBlockGroups(player, targetMode, 1);
+                }
+            }
+        );
+    }
+
+    private static void openItemPage(
+        ServerPlayer player,
+        String title,
+        List<ShopConfig.ShopItem> available,
+        Mode mode,
+        int requestedPage,
+        GuiAction backAction,
+        PageAction pageAction,
+        ModeAction modeAction
+    ) {
         int pages = Math.max(1, (available.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         int page = Math.max(1, Math.min(requestedPage, pages));
         ShopContainer container = new ShopContainer(54, player);
@@ -141,9 +302,9 @@ public final class ShopGui {
         }
 
         container.bind(BACK_SLOT,
-            displayStack("minecraft:barrier", 1, "Back to Categories"),
+            displayStack("minecraft:barrier", 1, "Back"),
             false,
-            quantity -> openCategories(player, mode)
+            backAction
         );
 
         if (page > 1) {
@@ -151,7 +312,7 @@ public final class ShopGui {
             container.bind(PREVIOUS_SLOT,
                 displayStack("minecraft:arrow", 1, "Previous Page"),
                 false,
-                quantity -> openCategory(player, categoryId, mode, target)
+                ignored -> pageAction.open(target)
             );
         }
 
@@ -159,7 +320,7 @@ public final class ShopGui {
             displayStack("minecraft:paper", 1,
                 "Page " + page + "/" + pages + " | Balance " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))),
             false,
-            quantity -> ShopMessages.info(player,
+            ignored -> ShopMessages.info(player,
                 "Page " + page + " of " + pages + ". Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())))
         );
 
@@ -168,7 +329,7 @@ public final class ShopGui {
             container.bind(NEXT_SLOT,
                 displayStack("minecraft:arrow", 1, "Next Page"),
                 false,
-                quantity -> openCategory(player, categoryId, mode, target)
+                ignored -> pageAction.open(target)
             );
         }
 
@@ -177,11 +338,11 @@ public final class ShopGui {
                 displayStack(mode == Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald", 1,
                     "Switch to " + modeName(mode.opposite())),
                 false,
-                quantity -> openCategory(player, categoryId, mode.opposite(), 1)
+                ignored -> modeAction.open(mode.opposite())
             );
         }
 
-        openMenu(player, container, Component.literal(category.name + " - " + modeName(mode) + " " + page + "/" + pages), 6);
+        openMenu(player, container, Component.literal(title + " - " + modeName(mode) + " " + page + "/" + pages), 6);
     }
 
     public static void openEnchantments(ServerPlayer player, int requestedPage) {
@@ -343,11 +504,31 @@ public final class ShopGui {
         };
     }
 
+    private static List<ShopConfig.ShopItem> availableItems(ShopConfig.Category category, Mode mode) {
+        List<ShopConfig.ShopItem> available = new ArrayList<>();
+        for (ShopConfig.ShopItem entry : category.items) {
+            if (price(entry, mode) > 0) available.add(entry);
+        }
+        return available;
+    }
+
     private static boolean hasAvailableItems(ShopConfig.Category category, Mode mode) {
         for (ShopConfig.ShopItem item : category.items) {
             if (price(item, mode) > 0) return true;
         }
         return false;
+    }
+
+    private static int countGroupItems(ShopConfig.Category category, ColoredBlockGroups.Group group, Mode mode) {
+        int count = 0;
+        for (ShopConfig.ShopItem item : category.items) {
+            if (ColoredBlockGroups.groupFor(item).id().equalsIgnoreCase(group.id()) && price(item, mode) > 0) count++;
+        }
+        return count;
+    }
+
+    private static boolean isColoredBlocks(ShopConfig.Category category) {
+        return category != null && "colored_blocks".equalsIgnoreCase(category.id);
     }
 
     private static double price(ShopConfig.ShopItem item, Mode mode) {
@@ -388,8 +569,19 @@ public final class ShopGui {
         void run(int quantity);
     }
 
+    @FunctionalInterface
+    private interface PageAction {
+        void open(int page);
+    }
+
+    @FunctionalInterface
+    private interface ModeAction {
+        void open(Mode mode);
+    }
+
     private record MenuButton(ItemStack icon, Runnable action) {}
     private record Binding(GuiAction action, boolean trade) {}
+    private record ColoredGroupView(ColoredBlockGroups.Group group, int availableItems) {}
 
     private static final class ShopContainer extends SimpleContainer {
         private final Map<Integer, Binding> bindings = new HashMap<>();
