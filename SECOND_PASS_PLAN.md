@@ -1,3 +1,3 @@
-# ClassicGUIShop second pass
+# ClassicGUIShop 0.2.0
 
-This temporary marker starts the 0.2.0 command, permissions, economy administration, and dynamic shop-management pass.
+Second-pass implementation is complete. See README.md for features and commands.
