@@ -19,12 +19,16 @@ public final class EconomyStore {
     private static final Type MAP_TYPE = new TypeToken<Map<String, Double>>() {}.getType();
     private final Path directory = FabricLoader.getInstance().getConfigDir().resolve("guishop");
     private final Path file = directory.resolve("balances.json");
-    private final ShopConfig config;
+    private ShopConfig config;
     private final Map<String, Double> balances = new HashMap<>();
 
     public EconomyStore(ShopConfig config) {
         this.config = config;
         load();
+    }
+
+    public synchronized void updateConfig(ShopConfig config) {
+        this.config = config;
     }
 
     public synchronized double balance(UUID player) {
@@ -44,6 +48,12 @@ public final class EconomyStore {
     public synchronized void deposit(UUID player, double amount) {
         if (!validAmount(amount)) return;
         balances.put(player.toString(), round(balance(player) + amount));
+        save();
+    }
+
+    public synchronized void setBalance(UUID player, double amount) {
+        if (!Double.isFinite(amount) || amount < 0) return;
+        balances.put(player.toString(), round(amount));
         save();
     }
 
@@ -72,13 +82,11 @@ public final class EconomyStore {
             Map<String, Double> loaded = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), MAP_TYPE);
             if (loaded != null) {
                 loaded.forEach((key, value) -> {
-                    if (value != null && Double.isFinite(value) && value >= 0) {
-                        balances.put(key, round(value));
-                    }
+                    if (value != null && Double.isFinite(value) && value >= 0) balances.put(key, round(value));
                 });
             }
         } catch (Exception exception) {
-            System.err.println("[GUIShop] Could not load balances.json");
+            System.err.println("[ClassicGUIShop] Could not load balances.json");
             exception.printStackTrace();
         }
     }
@@ -94,7 +102,7 @@ public final class EconomyStore {
                 Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (Exception exception) {
-            System.err.println("[GUIShop] Could not save balances.json");
+            System.err.println("[ClassicGUIShop] Could not save balances.json");
             exception.printStackTrace();
         }
     }
