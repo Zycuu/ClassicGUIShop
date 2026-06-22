@@ -4,7 +4,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 public final class ShopService {
@@ -38,8 +37,8 @@ public final class ShopService {
     public static boolean trade(ServerPlayer player, ShopConfig.ShopItem entry, ShopGui.Mode mode, int requestedQuantity) {
         if (!canTransact(player, mode)) return false;
 
-        Item item = resolveItem(entry.item);
-        if (item == null) {
+        ItemStack template = entry.createStack(player.registryAccess());
+        if (template.isEmpty()) {
             player.sendSystemMessage(Component.literal("Invalid configured item: " + entry.item));
             return false;
         }
@@ -58,22 +57,22 @@ public final class ShopService {
                     + " for " + GuiShop.CONFIG.money(total) + "."));
                 return false;
             }
-            give(player, item, quantity);
+            give(player, template, quantity);
             player.sendSystemMessage(Component.literal("Purchased " + quantity + "x " + entry.name
                 + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
                 + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID()))));
             return true;
         }
 
-        int available = count(player, item);
+        int available = count(player, template);
         if (available <= 0) {
-            player.sendSystemMessage(Component.literal("You do not have any " + entry.name + " to sell."));
+            player.sendSystemMessage(Component.literal("You do not have any matching " + entry.name + " to sell."));
             return false;
         }
 
         int quantity = requestedQuantity == SELL_ALL ? available : Math.min(Math.max(1, requestedQuantity), available);
         double total = round(unitPrice * quantity);
-        remove(player, item, quantity);
+        remove(player, template, quantity);
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
         player.sendSystemMessage(Component.literal("Sold " + quantity + "x " + entry.name
             + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
@@ -90,14 +89,14 @@ public final class ShopService {
             return false;
         }
 
-        String itemId = itemId(held);
-        ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(itemId);
+        ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
         if (found == null || found.item().sell <= 0) {
-            player.sendSystemMessage(Component.literal("That item does not have a sell price."));
+            player.sendSystemMessage(Component.literal("That exact item does not have a sell price."));
             return false;
         }
 
-        int available = allInventory ? count(player, held.getItem()) : held.getCount();
+        ItemStack template = found.item().createStack(player.registryAccess());
+        int available = allInventory ? count(player, template) : held.getCount();
         int quantity = requestedQuantity == SELL_ALL ? available : Math.min(Math.max(1, requestedQuantity), available);
         if (quantity <= 0) return false;
 
@@ -105,7 +104,7 @@ public final class ShopService {
         double total = round(unitPrice * quantity);
 
         if (allInventory) {
-            remove(player, held.getItem(), quantity);
+            remove(player, template, quantity);
         } else {
             held.shrink(quantity);
             player.getInventory().setChanged();
@@ -124,45 +123,56 @@ public final class ShopService {
             player.sendSystemMessage(Component.literal("You are not holding an item."));
             return false;
         }
-        return showWorth(player, itemId(held), allInventory ? count(player, held.getItem()) : held.getCount());
-    }
 
-    public static boolean showWorth(ServerPlayer player, String itemId, int amount) {
-        ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(itemId);
+        ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
         if (found == null) {
-            player.sendSystemMessage(Component.literal("No shop listing exists for " + itemId + "."));
+            player.sendSystemMessage(Component.literal("No shop listing exists for that exact item."));
             return false;
         }
+        ItemStack template = found.item().createStack(player.registryAccess());
+        int amount = allInventory ? count(player, template) : held.getCount();
+        return showWorth(player, found, amount);
+    }
 
+    public static boolean showWorth(ServerPlayer player, String identifier, int amount) {
+        ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(identifier);
+        if (found == null) {
+            player.sendSystemMessage(Component.literal("No shop listing exists for " + identifier + "."));
+            return false;
+        }
+        return showWorth(player, found, amount);
+    }
+
+    private static boolean showWorth(ServerPlayer player, ShopConfig.FoundItem found, int amount) {
         ShopConfig.ShopItem item = found.item();
         double buy = item.buy * GuiShop.CONFIG.priceMultiplier;
         double sell = item.sell * GuiShop.CONFIG.priceMultiplier;
         int quantity = Math.max(1, amount);
         String buyText = buy > 0 ? GuiShop.CONFIG.money(buy) + " each / " + GuiShop.CONFIG.money(round(buy * quantity)) + " total" : "not purchasable";
         String sellText = sell > 0 ? GuiShop.CONFIG.money(sell) + " each / " + GuiShop.CONFIG.money(round(sell * quantity)) + " total" : "not sellable";
-        player.sendSystemMessage(Component.literal(item.name + " [" + item.item + "]"));
+        player.sendSystemMessage(Component.literal(item.name + " [" + item.listingId + "]"));
         player.sendSystemMessage(Component.literal("Buy: " + buyText));
         player.sendSystemMessage(Component.literal("Sell: " + sellText));
         player.sendSystemMessage(Component.literal("Category: " + found.category().name + " | Quantity checked: " + quantity));
         return true;
     }
 
-    public static int count(ServerPlayer player, Item item) {
+    public static int count(ServerPlayer player, ItemStack template) {
         int count = 0;
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (!stack.isEmpty() && stack.is(item)) count += stack.getCount();
+            if (ItemStackData.same(stack, template)) count += stack.getCount();
         }
         return count;
     }
 
-    public static void remove(ServerPlayer player, Item item, int quantity) {
+    public static void remove(ServerPlayer player, ItemStack template, int quantity) {
         int remaining = quantity;
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < inventory.getContainerSize() && remaining > 0; slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (stack.isEmpty() || !stack.is(item)) continue;
+            if (!ItemStackData.same(stack, template)) continue;
             int removed = Math.min(stack.getCount(), remaining);
             stack.shrink(removed);
             remaining -= removed;
@@ -171,23 +181,13 @@ public final class ShopService {
         inventory.setChanged();
     }
 
-    public static void give(ServerPlayer player, Item item, int quantity) {
+    public static void give(ServerPlayer player, ItemStack template, int quantity) {
         int remaining = quantity;
         while (remaining > 0) {
-            ItemStack probe = new ItemStack(item);
-            int batch = Math.min(remaining, probe.getMaxStackSize());
-            ItemStack stack = new ItemStack(item, batch);
+            int batch = Math.min(remaining, template.getMaxStackSize());
+            ItemStack stack = template.copyWithCount(batch);
             remaining -= batch;
             if (!player.getInventory().add(stack) && !stack.isEmpty()) player.drop(stack, false);
-        }
-    }
-
-    private static Item resolveItem(String itemId) {
-        try {
-            Item item = BuiltInRegistries.ITEM.getValue(net.minecraft.resources.Identifier.parse(itemId));
-            return item == null || BuiltInRegistries.ITEM.getKey(item).toString().equals("minecraft:air") ? null : item;
-        } catch (Exception ignored) {
-            return null;
         }
     }
 
