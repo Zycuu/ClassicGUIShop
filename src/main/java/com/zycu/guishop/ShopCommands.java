@@ -1,6 +1,7 @@
 package com.zycu.guishop;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -8,9 +9,20 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
 public final class ShopCommands {
     private static final int LIST_PAGE_SIZE = 10;
@@ -23,18 +35,15 @@ public final class ShopCommands {
             .executes(context -> openShop(context, ShopGui.Mode.BUY))
             .then(Commands.literal("buy").executes(context -> openShop(context, ShopGui.Mode.BUY)))
             .then(Commands.literal("sell").executes(context -> openShop(context, ShopGui.Mode.SELL)))
-        );
-
-        dispatcher.register(Commands.literal("balance")
-            .requires(source -> ShopPermissions.user(source, "guishop.command.balance"))
-            .executes(ShopCommands::balance)
-        );
-
-        dispatcher.register(Commands.literal("pay")
-            .requires(source -> ShopPermissions.user(source, "guishop.command.pay"))
-            .then(Commands.argument("player", StringArgumentType.word())
-                .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0.01))
-                    .executes(ShopCommands::pay)))
+            .then(Commands.literal("enchant").executes(ShopCommands::openEnchantments))
+            .then(Commands.literal("balance")
+                .requires(source -> ShopPermissions.user(source, "guishop.command.balance"))
+                .executes(ShopCommands::balance))
+            .then(Commands.literal("pay")
+                .requires(source -> ShopPermissions.user(source, "guishop.command.pay"))
+                .then(Commands.argument("player", StringArgumentType.word())
+                    .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0.01))
+                        .executes(ShopCommands::pay))))
         );
 
         dispatcher.register(Commands.literal("sellhand")
@@ -55,30 +64,9 @@ public final class ShopCommands {
                     .executes(context -> worthItem(context, IntegerArgumentType.getInteger(context, "amount")))))
         );
 
-        dispatcher.register(Commands.literal("addopitem")
-            .requires(source -> ShopPermissions.admin(source, "item.add"))
-            .then(Commands.argument("category", StringArgumentType.word())
-                .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
-                    .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
-                        .executes(ShopCommands::addHeldItem))))
-        );
-
-        dispatcher.register(Commands.literal("removeopitem")
-            .requires(source -> ShopPermissions.admin(source, "item.remove"))
-            .executes(ShopCommands::removeHeldItem)
-        );
-
-        dispatcher.register(Commands.literal("opitemlist")
-            .requires(source -> ShopPermissions.admin(source, "item.list"))
-            .executes(ShopCommands::listCategories)
-            .then(Commands.argument("category", StringArgumentType.word())
-                .executes(context -> listItems(context, 1))
-                .then(Commands.argument("page", IntegerArgumentType.integer(1))
-                    .executes(context -> listItems(context, IntegerArgumentType.getInteger(context, "page")))))
-        );
-
-        dispatcher.register(Commands.literal("shopadmin")
+        dispatcher.register(Commands.literal("adminshop")
             .requires(source -> ShopPermissions.admin(source, "root"))
+            .executes(ShopCommands::adminHelp)
             .then(Commands.literal("reload")
                 .requires(source -> ShopPermissions.admin(source, "reload"))
                 .executes(ShopCommands::reload))
@@ -86,28 +74,70 @@ public final class ShopCommands {
                 .requires(source -> ShopPermissions.admin(source, "multiplier"))
                 .then(Commands.argument("value", DoubleArgumentType.doubleArg(0))
                     .executes(ShopCommands::setMultiplier)))
-            .then(Commands.literal("setprice")
-                .requires(source -> ShopPermissions.admin(source, "item.price"))
-                .then(Commands.argument("item", StringArgumentType.word())
-                    .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
-                        .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
-                            .executes(ShopCommands::setPrice)))))
-            .then(Commands.literal("setcategory")
-                .requires(source -> ShopPermissions.admin(source, "item.category"))
-                .then(Commands.argument("item", StringArgumentType.word())
+            .then(Commands.literal("item")
+                .then(Commands.literal("add")
+                    .requires(source -> ShopPermissions.admin(source, "item.add"))
                     .then(Commands.argument("category", StringArgumentType.word())
-                        .executes(ShopCommands::setCategory))))
-            .then(Commands.literal("addcategory")
+                        .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
+                            .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
+                                .executes(ShopCommands::addHeldItem)))))
+                .then(Commands.literal("remove")
+                    .requires(source -> ShopPermissions.admin(source, "item.remove"))
+                    .executes(ShopCommands::removeHeldItem))
+                .then(Commands.literal("price")
+                    .requires(source -> ShopPermissions.admin(source, "item.price"))
+                    .then(Commands.argument("item", StringArgumentType.word())
+                        .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
+                            .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
+                                .executes(ShopCommands::setPrice)))))
+                .then(Commands.literal("move")
+                    .requires(source -> ShopPermissions.admin(source, "item.category"))
+                    .then(Commands.argument("item", StringArgumentType.word())
+                        .then(Commands.argument("category", StringArgumentType.word())
+                            .executes(ShopCommands::setCategory))))
+                .then(Commands.literal("list")
+                    .requires(source -> ShopPermissions.admin(source, "item.list"))
+                    .executes(ShopCommands::listCategories)
+                    .then(Commands.argument("category", StringArgumentType.word())
+                        .executes(context -> listItems(context, 1))
+                        .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                            .executes(context -> listItems(context, IntegerArgumentType.getInteger(context, "page"))))))
+            )
+            .then(Commands.literal("category")
                 .requires(source -> ShopPermissions.admin(source, "category"))
-                .then(Commands.argument("id", StringArgumentType.word())
-                    .then(Commands.argument("icon", StringArgumentType.word())
-                        .then(Commands.argument("name", StringArgumentType.greedyString())
-                            .executes(ShopCommands::addCategory)))))
-            .then(Commands.literal("removecategory")
-                .requires(source -> ShopPermissions.admin(source, "category"))
-                .then(Commands.argument("id", StringArgumentType.word())
-                    .executes(ShopCommands::removeCategory)))
-            .then(Commands.literal("balance")
+                .then(Commands.literal("list").executes(ShopCommands::listCategories))
+                .then(Commands.literal("add")
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("icon", StringArgumentType.word())
+                            .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(ShopCommands::addCategory)))))
+                .then(Commands.literal("remove")
+                    .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(ShopCommands::removeCategory)))
+            )
+            .then(Commands.literal("enchant")
+                .requires(source -> ShopPermissions.admin(source, "enchant"))
+                .then(Commands.literal("list")
+                    .executes(context -> listEnchantments(context, 1))
+                    .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                        .executes(context -> listEnchantments(context, IntegerArgumentType.getInteger(context, "page")))))
+                .then(Commands.literal("set")
+                    .then(Commands.argument("enchantment", StringArgumentType.word())
+                        .then(Commands.argument("pricePerLevel", DoubleArgumentType.doubleArg(0.01))
+                            .executes(context -> setEnchantment(context, 0))
+                            .then(Commands.argument("maxLevel", IntegerArgumentType.integer(1, 255))
+                                .executes(context -> setEnchantment(context, IntegerArgumentType.getInteger(context, "maxLevel")))))))
+                .then(Commands.literal("remove")
+                    .then(Commands.argument("enchantment", StringArgumentType.word())
+                        .executes(ShopCommands::removeEnchantment)))
+                .then(Commands.literal("defaultprice")
+                    .then(Commands.argument("pricePerLevel", DoubleArgumentType.doubleArg(0.01))
+                        .executes(ShopCommands::setDefaultEnchantmentPrice)))
+                .then(Commands.literal("enabled")
+                    .then(Commands.argument("value", BoolArgumentType.bool())
+                        .executes(ShopCommands::setEnchantmentsEnabled)))
+            )
+            .then(Commands.literal("economy")
                 .requires(source -> ShopPermissions.admin(source, "balance"))
                 .then(Commands.literal("get")
                     .then(Commands.argument("player", StringArgumentType.word())
@@ -132,6 +162,13 @@ public final class ShopCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         remember(player);
         ShopGui.openCategories(player, mode);
+        return 1;
+    }
+
+    private static int openEnchantments(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        remember(player);
+        ShopGui.openEnchantments(player, 1);
         return 1;
     }
 
@@ -188,8 +225,17 @@ public final class ShopCommands {
     private static int worthItem(CommandContext<CommandSourceStack> context, int amount) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         remember(player);
-        String item = normalizeItemId(StringArgumentType.getString(context, "item"));
+        String item = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "item"));
         return ShopService.showWorth(player, item, amount) ? 1 : 0;
+    }
+
+    private static int adminHelp(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendSuccess(() -> Component.literal("/adminshop item <add|remove|price|move|list>"), false);
+        context.getSource().sendSuccess(() -> Component.literal("/adminshop category <add|remove|list>"), false);
+        context.getSource().sendSuccess(() -> Component.literal("/adminshop enchant <set|remove|list|defaultprice|enabled>"), false);
+        context.getSource().sendSuccess(() -> Component.literal("/adminshop economy <get|set|add|take>"), false);
+        context.getSource().sendSuccess(() -> Component.literal("/adminshop multiplier <value> | /adminshop reload"), false);
+        return 1;
     }
 
     private static int addHeldItem(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -229,7 +275,7 @@ public final class ShopCommands {
             context.getSource().sendFailure(Component.literal(itemId + " is not listed."));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal("Removed " + itemId + " from " + removed + " shop listing(s)."), true);
+        context.getSource().sendSuccess(() -> Component.literal("Removed " + itemId + " from " + removed + " listing(s)."), true);
         return 1;
     }
 
@@ -263,6 +309,7 @@ public final class ShopCommands {
 
     private static int reload(CommandContext<CommandSourceStack> context) {
         GuiShop.CONFIG = ShopConfig.load();
+        GuiShop.CONFIG.ensureEnchantmentDefaults(context.getSource().getServer());
         GuiShop.ECONOMY.updateConfig(GuiShop.CONFIG);
         context.getSource().sendSuccess(() -> Component.literal("ClassicGUIShop configuration reloaded."), true);
         return 1;
@@ -277,7 +324,7 @@ public final class ShopCommands {
     }
 
     private static int setPrice(CommandContext<CommandSourceStack> context) {
-        String itemId = normalizeItemId(StringArgumentType.getString(context, "item"));
+        String itemId = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "item"));
         double buy = DoubleArgumentType.getDouble(context, "buy");
         double sell = DoubleArgumentType.getDouble(context, "sell");
         if (!GuiShop.CONFIG.updatePrices(itemId, buy, sell)) {
@@ -290,7 +337,7 @@ public final class ShopCommands {
     }
 
     private static int setCategory(CommandContext<CommandSourceStack> context) {
-        String itemId = normalizeItemId(StringArgumentType.getString(context, "item"));
+        String itemId = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "item"));
         String category = StringArgumentType.getString(context, "category");
         if (!GuiShop.CONFIG.moveItem(itemId, category)) {
             context.getSource().sendFailure(Component.literal("Could not move item. Check the item ID and category."));
@@ -302,7 +349,7 @@ public final class ShopCommands {
 
     private static int addCategory(CommandContext<CommandSourceStack> context) {
         String id = StringArgumentType.getString(context, "id");
-        String icon = normalizeItemId(StringArgumentType.getString(context, "icon"));
+        String icon = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "icon"));
         String name = StringArgumentType.getString(context, "name");
         ShopConfig.Category category = GuiShop.CONFIG.createCategory(id, name, icon);
         if (category == null) {
@@ -316,10 +363,78 @@ public final class ShopCommands {
     private static int removeCategory(CommandContext<CommandSourceStack> context) {
         String id = StringArgumentType.getString(context, "id");
         if (!GuiShop.CONFIG.removeEmptyCategory(id)) {
-            context.getSource().sendFailure(Component.literal("Category not found or it still contains items. Move/remove its items first."));
+            context.getSource().sendFailure(Component.literal("Category not found or it still contains items."));
             return 0;
         }
         context.getSource().sendSuccess(() -> Component.literal("Removed empty category " + id + "."), true);
+        return 1;
+    }
+
+    private static int listEnchantments(CommandContext<CommandSourceStack> context, int requestedPage) {
+        GuiShop.CONFIG.ensureEnchantmentDefaults(context.getSource().getServer());
+        List<Map.Entry<String, ShopConfig.EnchantmentOffer>> entries = new ArrayList<>(GuiShop.CONFIG.enchantments.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+        int pages = Math.max(1, (entries.size() + LIST_PAGE_SIZE - 1) / LIST_PAGE_SIZE);
+        int page = Math.max(1, Math.min(requestedPage, pages));
+        int start = (page - 1) * LIST_PAGE_SIZE;
+        int end = Math.min(start + LIST_PAGE_SIZE, entries.size());
+        context.getSource().sendSuccess(() -> Component.literal("Enchantments, page " + page + "/" + pages + ":"), false);
+        for (int i = start; i < end; i++) {
+            Map.Entry<String, ShopConfig.EnchantmentOffer> entry = entries.get(i);
+            ShopConfig.EnchantmentOffer offer = entry.getValue();
+            context.getSource().sendSuccess(() -> Component.literal("- " + entry.getKey() + " | "
+                + (offer.enabled() ? GuiShop.CONFIG.money(offer.pricePerLevel) + "/level | max " + offer.maxLevel : "disabled")), false);
+        }
+        return 1;
+    }
+
+    private static int setEnchantment(CommandContext<CommandSourceStack> context, int requestedMaxLevel) {
+        String id = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "enchantment"));
+        double price = DoubleArgumentType.getDouble(context, "pricePerLevel");
+        Registry<Enchantment> registry = context.getSource().getServer().registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+        ResourceKey<Enchantment> key;
+        Holder<Enchantment> holder;
+        try {
+            key = ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse(id));
+            holder = registry.getOrThrow(key);
+        } catch (Exception exception) {
+            context.getSource().sendFailure(Component.literal("Unknown enchantment: " + id));
+            return 0;
+        }
+
+        int registryMax = holder.value().getMaxLevel();
+        int maxLevel = requestedMaxLevel <= 0 ? registryMax : Math.min(requestedMaxLevel, registryMax);
+        String displayName = holder.value().description().getString();
+        GuiShop.CONFIG.setEnchantmentOffer(id, displayName, price, maxLevel);
+        context.getSource().sendSuccess(() -> Component.literal("Enabled " + id + " at "
+            + GuiShop.CONFIG.money(price) + " per level, maximum level " + maxLevel + "."), true);
+        return 1;
+    }
+
+    private static int removeEnchantment(CommandContext<CommandSourceStack> context) {
+        String id = ShopConfig.normalizeIdentifier(StringArgumentType.getString(context, "enchantment"));
+        if (!GuiShop.CONFIG.disableEnchantment(id)) {
+            context.getSource().sendFailure(Component.literal("Unknown enchantment listing: " + id));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal("Disabled enchantment listing " + id + "."), true);
+        return 1;
+    }
+
+    private static int setDefaultEnchantmentPrice(CommandContext<CommandSourceStack> context) {
+        double price = DoubleArgumentType.getDouble(context, "pricePerLevel");
+        GuiShop.CONFIG.defaultEnchantmentPricePerLevel = price;
+        GuiShop.CONFIG.save();
+        context.getSource().sendSuccess(() -> Component.literal("Default enchantment price set to "
+            + GuiShop.CONFIG.money(price) + " per level for newly discovered enchantments."), true);
+        return 1;
+    }
+
+    private static int setEnchantmentsEnabled(CommandContext<CommandSourceStack> context) {
+        boolean enabled = BoolArgumentType.getBool(context, "value");
+        GuiShop.CONFIG.enchantmentsEnabled = enabled;
+        GuiShop.CONFIG.save();
+        context.getSource().sendSuccess(() -> Component.literal("Enchantment shop " + (enabled ? "enabled" : "disabled") + "."), true);
         return 1;
     }
 
@@ -378,9 +493,5 @@ public final class ShopCommands {
     private static void remember(ServerPlayer player) {
         GuiShop.PLAYERS.remember(player);
         GuiShop.ECONOMY.balance(player.getUUID());
-    }
-
-    private static String normalizeItemId(String input) {
-        return input.contains(":") ? input : "minecraft:" + input;
     }
 }
