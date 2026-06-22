@@ -6,4 +6,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = 'GUIShop-Fabric'
+rootProject.name = 'ClassicGUIShop'
