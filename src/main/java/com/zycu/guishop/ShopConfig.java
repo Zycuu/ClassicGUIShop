@@ -599,12 +599,7 @@ public final class ShopConfig {
     private ShopsFile toShopsFile() {
         ShopsFile file = new ShopsFile();
         file._about = about();
-        file._notes = List.of(
-            "Each category controls one menu in /shop.",
-            "Items with manualPrice=true are never changed by automatic economy balancing.",
-            "Component-rich items use stack data and a #hash listing ID so variants can have separate prices.",
-            "Use /adminshop commands whenever possible instead of editing large stack objects by hand."
-        );
+        file._notes = shopNotes();
         file.categories = categories;
         return file;
     }
@@ -612,12 +607,7 @@ public final class ShopConfig {
     private EnchantmentsFile toEnchantmentsFile() {
         EnchantmentsFile file = new EnchantmentsFile();
         file._about = about();
-        file._notes = List.of(
-            "Players buy enchanted books. Enchantments are never applied directly to equipment.",
-            "pricePerLevel is multiplied by the selected enchantment level.",
-            "maxLevel=0 means the normal vanilla maximum level.",
-            "Set enabled=false to hide an enchantment from the shop."
-        );
+        file._notes = enchantmentNotes();
         file.enabled = enchantmentsEnabled;
         file.defaultPricePerLevel = defaultEnchantmentPricePerLevel;
         file.offers = enchantments;
@@ -630,17 +620,62 @@ public final class ShopConfig {
             "ClassicGUIShop is maintained by Zycu.",
             "Credit to the original Bukkit GUIShop creators, _Waffles_ and AlreadyCoded.",
             "Need help? Send a Discord friend request to: zycu",
-            "Keys beginning with _ are documentation for humans and are ignored by the mod."
+            "It's been to long since we had a ShopGUI like the one from the bukkit era, hopefully this helps helps make your server economies awesome!"
         );
     }
 
     private static Map<String, String> settingsNotes() {
         Map<String, String> notes = new LinkedHashMap<>();
-        notes.put("general", "Global behavior such as the all-price multiplier and creative-mode transactions.");
-        notes.put("economy", "Currency display and the balance assigned to a player the first time they are seen.");
-        notes.put("catalog", "Controls vanilla item synchronization, unobtainable-item cleanup, and automatic balanced prices.");
-        notes.put("chat", "Minecraft ChatFormatting color names are supported, such as gold, aqua, green, yellow, red, and light_purple.");
-        notes.put("permissionDefaults", "Values are fallback OP levels. 0 means everyone; 2 means normal server operators.");
+        notes.put("general.priceMultiplier", "Multiplies every buy and sell price. 1.0 keeps listed prices unchanged, 2.0 doubles them, and 0.5 halves them.");
+        notes.put("general.allowCreativeTransactions", "When true, players in Creative mode may buy and sell. When false, Creative transactions require the guishop.creative.bypass permission.");
+        notes.put("general.allowOfflinePayments", "When true, /shop pay may send money to a player who is offline but has joined before. When false, the recipient must be online.");
+        notes.put("economy.currencySymbol", "Text displayed before money values, such as $, €, or Coins: . This changes display only.");
+        notes.put("economy.startingBalance", "Balance assigned when ClassicGUIShop first creates a balance record for a player. Changing it does not alter existing balances.");
+        notes.put("catalog.autoPopulateVanillaCatalog", "When true, server startup and catalog sync add missing vanilla items to the default categories.");
+        notes.put("catalog.purgeUnobtainableOnSync", "When true, catalog sync removes vanilla technical, operator-only, spawn-egg, and other blocked listings.");
+        notes.put("catalog.balancedPricingEnabled", "When true, automatically generated vanilla listings use the built-in difficulty-based pricing model.");
+        notes.put("catalog.rebalanceGeneratedItems", "When true, generated listings are updated when the built-in pricing model changes. Listings marked manualPrice=true are never changed.");
+        notes.put("catalog.sellRatio", "Sets the base sell price as a fraction of the buy price. 0.32 means roughly 32 percent before item-specific rarity and farming adjustments.");
+        notes.put("catalog.minimumBuyPrice", "Lowest buy price the automatic pricing model may assign to a generated listing.");
+        notes.put("catalog.disabledDefaultCategories", "Category IDs listed here will not be recreated by catalog sync. Removing an ID allows that default category to return.");
+        notes.put("chat.prefix", "Text placed at the start of every ClassicGUIShop chat message.");
+        notes.put("chat.prefixColor", "Minecraft color name used for the chat prefix, such as gold, aqua, green, yellow, red, or light_purple.");
+        notes.put("chat.infoColor", "Color used for informational messages such as balances and worth checks.");
+        notes.put("chat.successColor", "Color used for successful purchases, sales, payments, and other completed actions.");
+        notes.put("chat.warningColor", "Color used for non-fatal warnings, unavailable listings, and disabled features.");
+        notes.put("chat.errorColor", "Color used when an action fails or the player lacks permission or money.");
+        notes.put("chat.adminColor", "Color used for administrator command output.");
+        notes.put("permissionDefaults", "Each entry is a fallback Minecraft permission level. 0 allows everyone, 2 allows normal operators, and 4 requires the highest operator level. Permission mods may override these values.");
+        return notes;
+    }
+
+    private static Map<String, String> shopNotes() {
+        Map<String, String> notes = new LinkedHashMap<>();
+        notes.put("categories", "List of shop categories shown in /shop. Their order here controls their menu order.");
+        notes.put("categories[].id", "Internal category ID used by commands and permissions. Keep it lowercase and unique.");
+        notes.put("categories[].name", "Name players see in the shop menu.");
+        notes.put("categories[].icon", "Minecraft item ID used as the category icon, for example minecraft:bricks.");
+        notes.put("categories[].items", "Listings contained in the category. The colored_blocks category is automatically divided into block-type submenus in the GUI.");
+        notes.put("categories[].items[].item", "Base Minecraft item ID for the listing.");
+        notes.put("categories[].items[].listingId", "Unique listing identifier. Component-rich variants include a #hash so multiple versions of the same base item can coexist.");
+        notes.put("categories[].items[].stack", "Serialized exact ItemStack data. It preserves enchantments, names, lore, trims, potion contents, and other components. Prefer /adminshop commands instead of editing this by hand.");
+        notes.put("categories[].items[].name", "Display name used in the shop GUI and chat messages.");
+        notes.put("categories[].items[].buy", "Price for one item. Set to 0 to hide the listing from buy menus.");
+        notes.put("categories[].items[].sell", "Amount paid for one matching item. Set to 0 to prevent players from selling it.");
+        notes.put("categories[].items[].manualPrice", "When true, automatic economy balancing will not change buy or sell. /adminshop item add and item price set this to true.");
+        notes.put("categories[].items[].pricingModelVersion", "Internal version of the automatic pricing model last applied. Normally this should not be edited.");
+        return notes;
+    }
+
+    private static Map<String, String> enchantmentNotes() {
+        Map<String, String> notes = new LinkedHashMap<>();
+        notes.put("enabled", "Master switch for the enchanted-book shop. False hides it from players without deleting individual offers.");
+        notes.put("defaultPricePerLevel", "Price per enchantment level assigned when the mod discovers a new enchantment that is not already listed.");
+        notes.put("offers", "Map of enchantment IDs to the books offered by the shop.");
+        notes.put("offers.<enchantment>.name", "Display name shown to players for that enchantment.");
+        notes.put("offers.<enchantment>.pricePerLevel", "Base cost multiplied by the selected level. For example, 100.0 makes level III cost 300.0 before the global price multiplier.");
+        notes.put("offers.<enchantment>.maxLevel", "Highest level the shop offers. 0 uses the enchantment's normal registered maximum.");
+        notes.put("offers.<enchantment>.enabled", "When false, this enchantment is hidden from the shop. When true, players may select its available levels.");
         return notes;
     }
 
@@ -682,7 +717,7 @@ public final class ShopConfig {
 
     private static final class SettingsFile {
         List<String> _about = new ArrayList<>();
-        Map<String, String> _notes = new LinkedHashMap<>();
+        Object _notes = new LinkedHashMap<String, String>();
         GeneralSection general = new GeneralSection();
         EconomySection economy = new EconomySection();
         CatalogSection catalog = new CatalogSection();
@@ -723,13 +758,13 @@ public final class ShopConfig {
 
     private static final class ShopsFile {
         List<String> _about = new ArrayList<>();
-        List<String> _notes = new ArrayList<>();
+        Object _notes = new LinkedHashMap<String, String>();
         List<Category> categories = new ArrayList<>();
     }
 
     private static final class EnchantmentsFile {
         List<String> _about = new ArrayList<>();
-        List<String> _notes = new ArrayList<>();
+        Object _notes = new LinkedHashMap<String, String>();
         Boolean enabled = true;
         double defaultPricePerLevel = 100.0;
         Map<String, EnchantmentOffer> offers = new LinkedHashMap<>();
