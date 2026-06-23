@@ -13,6 +13,9 @@ public final class GuiShop implements ModInitializer {
     @Override
     public void onInitialize() {
         CONFIG = ShopConfig.load();
+        CONFIG.permissionDefaults.putIfAbsent("guishop.command.ident", 0);
+        CONFIG.permissionDefaults.putIfAbsent("guishop.admin.import", 2);
+        CONFIG.save();
         ECONOMY = new EconomyStore(CONFIG);
         PLAYERS = new PlayerDirectory();
 
