@@ -55,6 +55,10 @@ public final class ShopMessages {
         source.sendSuccess(() -> success(text), broadcast);
     }
 
+    public static void warning(CommandSourceStack source, String text) {
+        source.sendSuccess(() -> warning(text), false);
+    }
+
     public static void admin(CommandSourceStack source, String text, boolean broadcast) {
         source.sendSuccess(() -> admin(text), broadcast);
     }

@@ -16,13 +16,20 @@ public final class GuiShop implements ModInitializer {
         ECONOMY = new EconomyStore(CONFIG);
         PLAYERS = new PlayerDirectory();
 
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> ShopCommands.register(dispatcher));
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            ShopCommands.register(dispatcher);
+            EconomyCommands.register(dispatcher);
+        });
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             CONFIG.ensureEnchantmentDefaults(server);
-            VanillaCatalog.SyncResult result = VanillaCatalog.sync(CONFIG, server);
-            System.out.println("[ClassicGUIShop] Vanilla catalog synchronized. Added " + result.added()
-                + ", removed " + result.removed() + ", repriced " + result.repriced() + ".");
+            VanillaCatalog.SyncResult catalog = VanillaCatalog.sync(CONFIG, server);
+            EconomyExploitScanner.FixReport economy = EconomyExploitScanner.fixGeneratedExploits(server);
+            System.out.println("[ClassicGUIShop] Vanilla catalog synchronized. Added " + catalog.added()
+                + ", removed " + catalog.removed() + ", repriced " + catalog.repriced() + ".");
+            System.out.println("[ClassicGUIShop] Economy audit checked " + economy.after().recipesChecked()
+                + " recipes, corrected " + economy.changedListings() + " generated sell prices, and found "
+                + economy.after().exploits().size() + " remaining pricing issue(s).");
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
