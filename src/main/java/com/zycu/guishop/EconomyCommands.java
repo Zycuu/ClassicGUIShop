@@ -17,8 +17,15 @@ public final class EconomyCommands {
             .requires(source -> ShopPermissions.user(source, "guishop.command.balance"))
             .executes(EconomyCommands::balance));
 
+        // Registered after ShopCommands so catalog sync and reload always finish with a pricing safety pass.
         dispatcher.register(Commands.literal("adminshop")
             .requires(source -> ShopPermissions.admin(source, "root"))
+            .then(Commands.literal("reload")
+                .requires(source -> ShopPermissions.admin(source, "reload"))
+                .executes(EconomyCommands::reload))
+            .then(Commands.literal("catalog")
+                .requires(source -> ShopPermissions.admin(source, "reload"))
+                .then(Commands.literal("sync").executes(EconomyCommands::syncCatalog)))
             .then(Commands.literal("economy")
                 .requires(source -> ShopPermissions.admin(source, "balance"))
                 .executes(EconomyCommands::economyHelp)
@@ -42,16 +49,37 @@ public final class EconomyCommands {
         return 1;
     }
 
+    private static int reload(CommandContext<CommandSourceStack> context) {
+        GuiShop.CONFIG = ShopConfig.load();
+        GuiShop.CONFIG.ensureEnchantmentDefaults(context.getSource().getServer());
+        VanillaCatalog.SyncResult catalog = VanillaCatalog.sync(GuiShop.CONFIG, context.getSource().getServer());
+        EconomyExploitScanner.FixReport economy = EconomyExploitScanner.fixGeneratedExploits(context.getSource().getServer());
+        GuiShop.ECONOMY.updateConfig(GuiShop.CONFIG);
+        ShopMessages.admin(context.getSource(), "Configuration reloaded. Catalog added " + catalog.added()
+            + ", removed " + catalog.removed() + ", repriced " + catalog.repriced()
+            + "; pricing protection corrected " + economy.changedListings() + " generated sell price(s).", true);
+        return 1;
+    }
+
+    private static int syncCatalog(CommandContext<CommandSourceStack> context) {
+        VanillaCatalog.SyncResult catalog = VanillaCatalog.sync(GuiShop.CONFIG, context.getSource().getServer());
+        EconomyExploitScanner.FixReport economy = EconomyExploitScanner.fixGeneratedExploits(context.getSource().getServer());
+        ShopMessages.admin(context.getSource(), "Catalog synchronized. Added " + catalog.added()
+            + ", removed " + catalog.removed() + ", repriced " + catalog.repriced()
+            + "; pricing protection corrected " + economy.changedListings() + " generated sell price(s).", true);
+        return 1;
+    }
+
     private static int audit(CommandContext<CommandSourceStack> context) {
         EconomyExploitScanner.AuditReport report = EconomyExploitScanner.audit(context.getSource().getServer());
         if (report.exploits().isEmpty()) {
             ShopMessages.admin(context.getSource(), "Economy audit checked " + report.recipesChecked()
-                + " recipes. No buy-craft-sell exploits were detected.", false);
+                + " recipes. No buy-craft-sell pricing issues were detected.", false);
             return 1;
         }
 
         ShopMessages.error(context.getSource(), "Economy audit found " + report.exploits().size()
-            + " exploit(s): " + report.generatedExploitCount() + " generated and "
+            + " pricing issue(s): " + report.generatedExploitCount() + " generated and "
             + report.manualExploitCount() + " manual.");
         showExploits(context.getSource(), report);
         return report.exploits().size();
@@ -59,16 +87,16 @@ public final class EconomyCommands {
 
     private static int fix(CommandContext<CommandSourceStack> context) {
         EconomyExploitScanner.FixReport report = EconomyExploitScanner.fixGeneratedExploits(context.getSource().getServer());
-        ShopMessages.admin(context.getSource(), "Economy exploit protection lowered " + report.changedListings()
+        ShopMessages.admin(context.getSource(), "Economy protection lowered " + report.changedListings()
             + " generated sell price(s).", true);
 
         if (report.after().exploits().isEmpty()) {
-            ShopMessages.admin(context.getSource(), "No recipe-based economy exploits remain.", false);
+            ShopMessages.admin(context.getSource(), "No recipe-based pricing issues remain.", false);
             return Math.max(1, report.changedListings());
         }
 
         ShopMessages.error(context.getSource(), report.after().exploits().size()
-            + " exploit(s) remain. These normally involve manual prices, which are never changed automatically.");
+            + " pricing issue(s) remain. These normally involve manual prices, which are never changed automatically.");
         showExploits(context.getSource(), report.after());
         return report.changedListings();
     }
@@ -82,7 +110,7 @@ public final class EconomyCommands {
         }
         int hidden = report.exploits().size() - shown;
         if (hidden > 0) {
-            ShopMessages.warning(source, hidden + " additional exploit(s) were not printed to avoid flooding chat.");
+            ShopMessages.warning(source, hidden + " additional pricing issue(s) were not printed to avoid flooding chat.");
         }
     }
 }
