@@ -2,6 +2,7 @@ package com.zycu.guishop;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -26,28 +27,28 @@ public final class IntegrationCommands {
                 .then(Commands.literal("scan").executes(IntegrationCommands::scan))
                 .then(Commands.literal("mod")
                     .then(Commands.argument("namespace", StringArgumentType.word())
-                        .suggests(ShopSuggestions.ITEM_NAMESPACES)
+                        .suggests(ShopSuggestions.EXTERNAL_ITEM_NAMESPACES)
                         .executes(context -> importNamespace(context, null))
                         .then(Commands.argument("category", StringArgumentType.word())
-                            .suggests(ShopSuggestions.CATEGORIES)
+                            .suggests(ShopSuggestions.IMPORT_CATEGORIES)
                             .executes(context -> importNamespace(context, StringArgumentType.getString(context, "category"))))))
                 .then(Commands.literal("namespace")
                     .then(Commands.argument("namespace", StringArgumentType.word())
-                        .suggests(ShopSuggestions.ITEM_NAMESPACES)
+                        .suggests(ShopSuggestions.EXTERNAL_ITEM_NAMESPACES)
                         .executes(context -> importNamespace(context, null))
                         .then(Commands.argument("category", StringArgumentType.word())
-                            .suggests(ShopSuggestions.CATEGORIES)
+                            .suggests(ShopSuggestions.IMPORT_CATEGORIES)
                             .executes(context -> importNamespace(context, StringArgumentType.getString(context, "category"))))))
                 .then(Commands.literal("datapack")
                     .then(Commands.argument("namespace", StringArgumentType.word())
                         .suggests(ShopSuggestions.RECIPE_NAMESPACES)
                         .executes(context -> importDataPack(context, null))
                         .then(Commands.argument("category", StringArgumentType.word())
-                            .suggests(ShopSuggestions.CATEGORIES)
+                            .suggests(ShopSuggestions.IMPORT_CATEGORIES)
                             .executes(context -> importDataPack(context, StringArgumentType.getString(context, "category"))))))
                 .then(Commands.literal("held")
                     .then(Commands.argument("category", StringArgumentType.word())
-                        .suggests(ShopSuggestions.CATEGORIES)
+                        .suggests(ShopSuggestions.IMPORT_CATEGORIES)
                         .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
                             .suggests(ShopSuggestions.PRICES)
                             .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
@@ -55,12 +56,27 @@ public final class IntegrationCommands {
                                 .executes(IntegrationCommands::importHeld)))))
                 .then(Commands.literal("resourcepack")
                     .then(Commands.argument("category", StringArgumentType.word())
-                        .suggests(ShopSuggestions.CATEGORIES)
+                        .suggests(ShopSuggestions.IMPORT_CATEGORIES)
                         .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
                             .suggests(ShopSuggestions.PRICES)
                             .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
                                 .suggests(ShopSuggestions.PRICES)
                                 .executes(IntegrationCommands::importHeld)))))
+                .then(Commands.literal("preview")
+                    .then(Commands.argument("category", StringArgumentType.word())
+                        .suggests(ShopSuggestions.CATEGORIES)
+                        .executes(context -> preview(context, 1))
+                        .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                            .suggests(ShopSuggestions.PAGES)
+                            .executes(context -> preview(context, IntegerArgumentType.getInteger(context, "page"))))))
+                .then(Commands.literal("price")
+                    .then(Commands.argument("category", StringArgumentType.word())
+                        .suggests(ShopSuggestions.CATEGORIES)
+                        .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
+                            .suggests(ShopSuggestions.PRICES)
+                            .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
+                                .suggests(ShopSuggestions.PRICES)
+                                .executes(IntegrationCommands::priceCategory)))))
             ));
     }
 
@@ -90,7 +106,9 @@ public final class IntegrationCommands {
         ShopMessages.admin(context.getSource(), "/adminshop import datapack <recipe-namespace> [category]", false);
         ShopMessages.admin(context.getSource(), "/adminshop import held <category> <buy> <sell>", false);
         ShopMessages.admin(context.getSource(), "/adminshop import resourcepack <category> <buy> <sell>", false);
-        ShopMessages.warning(context.getSource(), "Bulk imported mod and data-pack listings start with buy 0 and sell 0. ClassicGUIShop does not balance external content automatically.");
+        ShopMessages.admin(context.getSource(), "/adminshop import preview <category> [page]", false);
+        ShopMessages.admin(context.getSource(), "/adminshop import price <category> <buy> <sell>", false);
+        ShopMessages.warning(context.getSource(), "Bulk imported mod and data-pack listings start hidden with buy 0 and sell 0. Preview them, then assign prices before players can see the category.");
         return 1;
     }
 
@@ -114,10 +132,7 @@ public final class IntegrationCommands {
             ShopMessages.error(context.getSource(), "No registered items were found in namespace " + namespace + ".");
             return 0;
         }
-        ShopMessages.admin(context.getSource(), "Imported " + result.imported() + " item(s) from " + result.source()
-            + " into category " + result.categoryId() + "; " + result.existing() + " already existed and "
-            + result.skipped() + " were skipped.", true);
-        ShopMessages.warning(context.getSource(), "Imported listings are disabled with buy 0 and sell 0 until you assign manual prices.");
+        reportImport(context, result, "item(s)");
         return result.imported();
     }
 
@@ -130,11 +145,21 @@ public final class IntegrationCommands {
             ShopMessages.error(context.getSource(), "No importable recipe outputs were found in namespace " + namespace + ".");
             return 0;
         }
-        ShopMessages.admin(context.getSource(), "Imported " + result.imported() + " recipe output(s) from "
-            + result.source() + " into category " + result.categoryId() + "; " + result.existing()
-            + " already existed.", true);
-        ShopMessages.warning(context.getSource(), "Imported listings are disabled with buy 0 and sell 0 until you assign manual prices.");
+        reportImport(context, result, "recipe output(s)");
         return result.imported();
+    }
+
+    private static void reportImport(
+        CommandContext<CommandSourceStack> context,
+        IntegrationImportService.ImportResult result,
+        String noun
+    ) {
+        ShopMessages.admin(context.getSource(), "Imported " + result.imported() + " " + noun + " from "
+            + result.source() + " into category " + result.categoryId() + "; " + result.existing()
+            + " already existed and " + result.skipped() + " were skipped.", true);
+        ShopMessages.warning(context.getSource(), "The category is hidden from the normal player shop because its imported listings currently have buy 0 and sell 0.");
+        ShopMessages.info(context.getSource(), "Preview it with /adminshop import preview " + result.categoryId(), false);
+        ShopMessages.info(context.getSource(), "Enable all listings with /adminshop import price " + result.categoryId() + " <buy> <sell>, or price individual listing IDs.", false);
     }
 
     private static int importHeld(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -172,8 +197,47 @@ public final class IntegrationCommands {
 
         ShopMessages.admin(context.getSource(), "Imported exact listing " + imported.listingId + " into "
             + category.id + " with buy " + GuiShop.CONFIG.money(buy) + " and sell " + GuiShop.CONFIG.money(sell) + ".", true);
+        if (buy <= 0 && sell <= 0) {
+            ShopMessages.warning(context.getSource(), "This listing is hidden from normal player shops until either buy or sell is greater than 0.");
+        }
         ShopMessages.warning(context.getSource(), "External and resource-pack-backed item prices are manual and are not automatically balanced.");
         return 1;
+    }
+
+    private static int preview(CommandContext<CommandSourceStack> context, int page) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        String category = StringArgumentType.getString(context, "category");
+        return ImportPreviewGui.open(player, category, page) ? 1 : 0;
+    }
+
+    private static int priceCategory(CommandContext<CommandSourceStack> context) {
+        String categoryId = StringArgumentType.getString(context, "category");
+        double buy = DoubleArgumentType.getDouble(context, "buy");
+        double sell = DoubleArgumentType.getDouble(context, "sell");
+        ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
+        if (category == null) {
+            ShopMessages.error(context.getSource(), "Unknown category: " + categoryId);
+            return 0;
+        }
+
+        int changed = 0;
+        for (ShopConfig.ShopItem listing : category.items) {
+            listing.buy = buy;
+            listing.sell = sell;
+            listing.manualPrice = true;
+            changed++;
+        }
+        GuiShop.CONFIG.save();
+
+        ShopMessages.admin(context.getSource(), "Set " + changed + " listing(s) in " + category.id
+            + " to buy " + GuiShop.CONFIG.money(buy) + " and sell " + GuiShop.CONFIG.money(sell) + ".", true);
+        if (buy > 0 || sell > 0) {
+            ShopMessages.success(context.getSource(), "The category can now appear in the normal shop for the enabled mode(s).", false);
+        } else {
+            ShopMessages.warning(context.getSource(), "Both values are 0, so the category remains hidden from normal player shops.");
+        }
+        ShopMessages.warning(context.getSource(), "Bulk pricing applies one value to every listing. Review individual items and run the economy audit before publishing the shop.");
+        return changed;
     }
 
     private static String display(java.util.List<String> values) {
