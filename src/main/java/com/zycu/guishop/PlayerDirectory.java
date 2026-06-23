@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -69,6 +70,10 @@ public final class PlayerDirectory {
             if (target.equals(entry.getValue())) return entry.getKey();
         }
         return target;
+    }
+
+    public synchronized List<String> knownNames() {
+        return names.keySet().stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
     }
 
     private synchronized void load() {
