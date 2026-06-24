@@ -20,7 +20,7 @@ public final class GuiShop implements ModInitializer {
         CONFIG.save();
         ECONOMY = new EconomyStore(CONFIG);
         PLAYERS = new PlayerDirectory();
-        FOLDERS = ShopFolderStore.load();
+        FOLDERS = SafeShopFolderLoader.load();
         FOLDERS.sync(CONFIG);
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
