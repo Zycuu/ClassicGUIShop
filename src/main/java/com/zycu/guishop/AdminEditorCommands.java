@@ -38,7 +38,7 @@ public final class AdminEditorCommands {
 
     private static int openEditor(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        AdminShopEditorGui.open(player);
+        AdminShopEditorGuiV2.open(player);
         return 1;
     }
 
