@@ -29,8 +29,7 @@ public final class AdminEditorCommands {
         );
 
         // Registered after the original shop tree. Brigadier merges duplicate literal nodes
-        // and replaces the executable handlers, giving the player shop folder support without
-        // breaking existing subcommands such as /shop pay and /shop balance.
+        // and replaces the executable handlers without removing existing child commands.
         dispatcher.register(Commands.literal("shop")
             .requires(source -> ShopPermissions.user(source, "guishop.command.shop"))
             .executes(context -> openShop(context, ShopGui.Mode.BUY))
@@ -75,13 +74,13 @@ public final class AdminEditorCommands {
 
     private static int openShop(CommandContext<CommandSourceStack> context, ShopGui.Mode mode) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        FolderAwareShopGui.openCategories(player, mode);
+        CursorStableShopGui.openCategories(player, mode);
         return 1;
     }
 
     private static int openEnchantments(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        FolderAwareShopGui.openEnchantments(player, 1);
+        CursorStableShopGui.openEnchantments(player, 1);
         return 1;
     }
 }
