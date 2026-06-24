@@ -2,13 +2,15 @@
 
 A server-side Fabric shop mod for Minecraft Java 26.1.1, inspired by the original Bukkit GUIShop plugin.
 
-Clients do not need the mod. ClassicGUIShop uses vanilla chest menus and includes its own persistent economy.
+Clients do not need the mod. ClassicGUIShop uses vanilla chest and anvil menus and includes its own persistent economy.
 
 ## Features
 
 - Buy and sell shops through `/shop`.
 - Enchanted books organized by enchantment, then by level.
 - Colored blocks organized by block type, then by color.
+- Administrator-created folders inside any normal shop category.
+- Full visual administrator editor that reveals hidden and unpriced listings.
 - Exact item listings preserve enchantments, names, lore, trims, potion data, and other components.
 - Automatic vanilla catalog synchronization with unobtainable-item cleanup.
 - Deterministic difficulty-based prices for generated vanilla listings.
@@ -44,6 +46,55 @@ Clients do not need the mod. ClassicGUIShop uses vanilla chest menus and include
 
 `/ident` reports the held item's base item ID, exact listing ID, namespace, and whether custom components are present. The exact listing ID can distinguish enchanted, renamed, trimmed, potion, or custom-model variants that share the same base item.
 
+## Visual administrator editor
+
+```text
+/adminshop edit
+/adminshop gui-edit
+/adminshop editor
+```
+
+All three commands open the same visual editor. The editor is designed for large mod and data-pack imports where administrators may not know the item IDs.
+
+The editor shows:
+
+- Every category, including categories hidden from the player shop
+- Every listing, including items with both buy and sell set to `0`
+- Current buy and sell values
+- Whether the listing is active or hidden
+- The exact item and listing IDs when the item is clicked
+
+Selecting an item opens its listing editor. The administrator can:
+
+- Click **Set Buy Price** and type the exact value into a vanilla anvil text prompt
+- Click **Set Sell Price** and type the exact value into a vanilla anvil text prompt
+- Disable buying or selling by setting that side to `0`
+- Move the listing into a folder
+- Create a new folder while assigning the item
+
+Prices changed through the editor are marked as manual and are never overwritten by automatic balancing.
+
+## Shop folders
+
+Folders work like the built-in colored-block type menus, but can be created for any normal category.
+
+From `/adminshop edit`:
+
+1. Open a category.
+2. Click **Create Folder**.
+3. Enter the folder name in the anvil prompt.
+4. Open an item and choose **Move to Folder**.
+
+Items with no folder assignment appear under **Unsorted**. Empty folders and fully unpriced folders are hidden from the normal player shop, but remain visible in the administrator editor.
+
+Folder layout is stored separately in:
+
+```text
+config/guishop/folders.json
+```
+
+This keeps pricing and exact ItemStack data in `shops.json` while allowing folders to be reorganized without rewriting item listings.
+
 ## Predictive command suggestions
 
 ClassicGUIShop uses Minecraft's Brigadier command suggestion system. While typing commands, the client can suggest:
@@ -70,6 +121,8 @@ ClassicGUIShop checks for non-vanilla item namespaces, recipe namespaces, instal
 /adminshop import datapack <recipe-namespace> [category]
 /adminshop import held <category> <buy> <sell>
 /adminshop import resourcepack <category> <buy> <sell>
+/adminshop import preview <category> [page]
+/adminshop import price <category> <buy> <sell>
 ```
 
 ### Mod and namespace imports
@@ -84,7 +137,7 @@ sell: 0
 manualPrice: true
 ```
 
-They remain hidden from player buy and sell menus until an administrator reviews and assigns prices. ClassicGUIShop never automatically balances external content.
+They remain hidden from player buy and sell menus until an administrator reviews and assigns prices. They are still fully visible in `/adminshop edit`.
 
 ### Data-pack imports
 
@@ -165,18 +218,20 @@ The economy audit follows loaded crafting, cooking, stonecutting, smithing, data
 config/guishop/settings.json
 config/guishop/shops.json
 config/guishop/enchantments.json
+config/guishop/folders.json
 config/guishop/balances.json
 config/guishop/players.json
 ```
 
 Generated configuration files include `_about` and `_notes` documentation. Existing `shop.json` files are migrated automatically and retained as `shop.json.migrated-backup`.
 
-## ClassicGUIShop v1.1.0
+## ClassicGUIShop v1.2.0
 
-- Added predictive command suggestions throughout ClassicGUIShop commands.
-- Added `/ident` for base and exact held-item IDs.
-- Added mod item namespace detection and bulk imports.
-- Added data-pack recipe-output detection and imports.
-- Added exact held-stack imports for resource-pack-backed and custom component items.
-- Added startup, console, and administrator warnings for external content.
-- External imports are always manual and start unpriced unless the held-item command receives explicit prices.
+- Added `/adminshop edit`, `/adminshop gui-edit`, and `/adminshop editor`.
+- Added a full category and listing browser that reveals hidden and unpriced items.
+- Added exact buy and sell price entry through a vanilla anvil prompt.
+- Added persistent custom folders for normal shop categories.
+- Added item-to-folder assignment, folder creation, folder renaming, and folder deletion.
+- Added folder-aware player shop navigation.
+- Added `folders.json` for folder definitions and exact listing assignments.
+- Preserved existing category, listing, balance, economy, import, and permission files.
