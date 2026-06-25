@@ -1,8 +1,10 @@
 package com.zycu.guishop;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.tree.CommandNode;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
@@ -11,18 +13,27 @@ public final class AdminEditorCommands {
     private AdminEditorCommands() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        CommandNode<CommandSourceStack> existingAdmin = dispatcher.getRoot().getChild("adminshop");
+
+        LiteralArgumentBuilder<CommandSourceStack> advanced = Commands.literal("advanced")
+            .requires(source -> ShopPermissions.admin(source, "root"))
+            .executes(AdminEditorCommands::advancedHelp);
+
+        redirectExisting(advanced, existingAdmin, "item");
+        redirectExisting(advanced, existingAdmin, "category");
+        redirectExisting(advanced, existingAdmin, "enchant");
+        redirectExisting(advanced, existingAdmin, "economy");
+        redirectExisting(advanced, existingAdmin, "catalog");
+        redirectExisting(advanced, existingAdmin, "multiplier");
+
         dispatcher.register(Commands.literal("adminshop")
             .requires(source -> ShopPermissions.admin(source, "root"))
-            .executes(AdminEditorCommands::adminHelp)
+            .executes(AdminEditorCommands::openDashboard)
             .then(Commands.literal("edit")
                 .requires(source -> ShopPermissions.admin(source, "editor"))
                 .executes(AdminEditorCommands::openEditor))
-            .then(Commands.literal("gui-edit")
-                .requires(source -> ShopPermissions.admin(source, "editor"))
-                .executes(AdminEditorCommands::openEditor))
-            .then(Commands.literal("editor")
-                .requires(source -> ShopPermissions.admin(source, "editor"))
-                .executes(AdminEditorCommands::openEditor))
+            .then(Commands.literal("help").executes(AdminEditorCommands::advancedHelp))
+            .then(advanced)
             .then(Commands.literal("reload")
                 .requires(source -> ShopPermissions.admin(source, "reload"))
                 .executes(AdminEditorCommands::reload))
@@ -39,15 +50,29 @@ public final class AdminEditorCommands {
         );
     }
 
-    private static int adminHelp(CommandContext<CommandSourceStack> context) {
+    private static void redirectExisting(
+        LiteralArgumentBuilder<CommandSourceStack> advanced,
+        CommandNode<CommandSourceStack> adminRoot,
+        String childName
+    ) {
+        if (adminRoot == null) return;
+        CommandNode<CommandSourceStack> target = adminRoot.getChild(childName);
+        if (target != null) advanced.then(Commands.literal(childName).redirect(target));
+    }
+
+    private static int openDashboard(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        AdminShopDialogs.open(player);
+        return 1;
+    }
+
+    private static int advancedHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        ShopMessages.admin(source, "/adminshop edit | Open the visual shop editor", false);
-        ShopMessages.admin(source, "/adminshop item <add|remove|price|move|list>", false);
-        ShopMessages.admin(source, "/adminshop category <add|remove|list>", false);
-        ShopMessages.admin(source, "/adminshop enchant <set|remove|list|defaultprice|enabled>", false);
-        ShopMessages.admin(source, "/adminshop economy <get|set|add|take>", false);
-        ShopMessages.admin(source, "/adminshop import <scan|mod|datapack|held|resourcepack|preview|price>", false);
-        ShopMessages.admin(source, "/adminshop catalog sync | /adminshop multiplier <value> | /adminshop reload", false);
+        ShopMessages.admin(source, "/adminshop | Open the admin control center", false);
+        ShopMessages.admin(source, "/adminshop edit | Open the visual listing editor", false);
+        ShopMessages.admin(source, "/adminshop import | Import external content", false);
+        ShopMessages.admin(source, "/adminshop reload | Reload configuration and folders", false);
+        ShopMessages.admin(source, "/adminshop advanced <item|category|enchant|economy|catalog|multiplier>", false);
         return 1;
     }
 
@@ -74,13 +99,13 @@ public final class AdminEditorCommands {
 
     private static int openShop(CommandContext<CommandSourceStack> context, ShopGui.Mode mode) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        CursorStableShopGui.openCategories(player, mode);
+        FolderAwareShopGui.openCategories(player, mode);
         return 1;
     }
 
     private static int openEnchantments(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        CursorStableShopGui.openEnchantments(player, 1);
+        FolderAwareShopGui.openEnchantments(player, 1);
         return 1;
     }
 }
