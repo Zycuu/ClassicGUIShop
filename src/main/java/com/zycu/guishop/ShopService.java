@@ -94,6 +94,7 @@ public final class ShopService {
 
         ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
         if (found == null || found.item().sell <= 0) {
+            if (EnchantmentShopService.sellHeld(player, held, requestedQuantity, allInventory)) return true;
             ShopMessages.warning(player, "That exact item does not have a sell price.");
             return false;
         }
@@ -133,6 +134,7 @@ public final class ShopService {
 
         ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
         if (found == null) {
+            if (EnchantmentShopService.showWorth(player, held, held.getCount())) return true;
             ShopMessages.warning(player, "No shop listing exists for that exact item.");
             return false;
         }
