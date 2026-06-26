@@ -53,14 +53,6 @@ public final class IntegrationCommands {
                             .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
                                 .suggests(ShopSuggestions.PRICES)
                                 .executes(IntegrationCommands::importHeld)))))
-                .then(Commands.literal("resourcepack")
-                    .then(Commands.argument("category", StringArgumentType.word())
-                        .suggests(ShopSuggestions.IMPORT_CATEGORIES)
-                        .then(Commands.argument("buy", DoubleArgumentType.doubleArg(0))
-                            .suggests(ShopSuggestions.PRICES)
-                            .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
-                                .suggests(ShopSuggestions.PRICES)
-                                .executes(IntegrationCommands::importHeld)))))
                 .then(Commands.literal("price")
                     .then(Commands.argument("category", StringArgumentType.word())
                         .suggests(ShopSuggestions.CATEGORIES)
@@ -97,8 +89,8 @@ public final class IntegrationCommands {
         ShopMessages.admin(context.getSource(), "/adminshop import mod <namespace> [category]", false);
         ShopMessages.admin(context.getSource(), "/adminshop import datapack <recipe-namespace> [category]", false);
         ShopMessages.admin(context.getSource(), "/adminshop import held <category> <buy> <sell>", false);
-        ShopMessages.admin(context.getSource(), "/adminshop import resourcepack <category> <buy> <sell>", false);
         ShopMessages.admin(context.getSource(), "/adminshop import price <category> <buy> <sell>", false);
+        ShopMessages.warning(context.getSource(), "Data-pack imports use resolved recipe outputs only. Resource packs do not register server-side items and must be represented by a real held ItemStack or recipe output.");
         ShopMessages.warning(context.getSource(), "Bulk imported mod and data-pack listings start hidden with buy 0 and sell 0. Open /adminshop to review them, then assign prices before players can see the category.");
         return 1;
     }
@@ -110,7 +102,7 @@ public final class IntegrationCommands {
         ShopMessages.admin(context.getSource(), "Enabled non-vanilla data packs: " + display(scan.dataPacks()), false);
         ShopMessages.admin(context.getSource(), "Installed content mods: " + display(scan.installedMods()), false);
         ShopMessages.warning(context.getSource(), "External content is never automatically priced. Review every imported listing before enabling buy or sell values.");
-        ShopMessages.info(context.getSource(), "Resource packs cannot register new item IDs by themselves. Hold a resource-pack-backed custom item and use /adminshop import resourcepack.", false);
+        ShopMessages.info(context.getSource(), "Data-pack import reads actual recipe outputs. If a resource pack only changes client visuals, ClassicGUIShop cannot infer those as separate shop items.", false);
         return scan.hasExternalContent() ? 1 : 0;
     }
 
@@ -123,7 +115,7 @@ public final class IntegrationCommands {
             ShopMessages.error(context.getSource(), "No registered items were found in namespace " + namespace + ".");
             return 0;
         }
-        reportImport(context, result, "item(s)");
+        reportImport(context, result, "registered item(s)");
         return result.imported();
     }
 
@@ -137,6 +129,7 @@ public final class IntegrationCommands {
             return 0;
         }
         reportImport(context, result, "recipe output(s)");
+        ShopMessages.info(context.getSource(), "Only recipe outputs were imported. Ingredients and resource-pack-only visuals were ignored.", false);
         return result.imported();
     }
 
@@ -157,7 +150,7 @@ public final class IntegrationCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) {
-            ShopMessages.error(context.getSource(), "Hold the exact modded, data-pack, or resource-pack-backed item you want to import.");
+            ShopMessages.error(context.getSource(), "Hold the exact modded or data-pack-backed item you want to import.");
             return 0;
         }
 
@@ -191,7 +184,7 @@ public final class IntegrationCommands {
         if (buy <= 0 && sell <= 0) {
             ShopMessages.warning(context.getSource(), "This listing is hidden from normal player shops until either buy or sell is greater than 0.");
         }
-        ShopMessages.warning(context.getSource(), "External and resource-pack-backed item prices are manual and are not automatically balanced.");
+        ShopMessages.warning(context.getSource(), "External item prices are manual and are not automatically balanced.");
         return 1;
     }
 
