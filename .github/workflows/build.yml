@@ -145,6 +145,9 @@ jobs:
           - "26.2"
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Set up Java 25
         uses: actions/setup-java@v4
         with:
@@ -157,112 +160,19 @@ jobs:
           name: ClassicGUIShop
           path: universal
 
-      - name: Resolve and download Fabric server dependencies
-        id: runtime
+      - name: Prepare Fabric server for Minecraft ${{ matrix.minecraft }}
         shell: bash
-        env:
-          MC_VERSION: ${{ matrix.minecraft }}
         run: |
-          mkdir -p server/mods
-          python - <<'PY'
-          import json
-          import os
-          import urllib.request
-          import xml.etree.ElementTree as ET
-
-          mc = os.environ["MC_VERSION"]
-
-          def read_json(url):
-              with urllib.request.urlopen(url, timeout=60) as response:
-                  return json.load(response)
-
-          installers = read_json("https://meta.fabricmc.net/v2/versions/installer")
-          installer = next((entry for entry in installers if entry.get("stable")), installers[0])
-
-          loaders = read_json(f"https://meta.fabricmc.net/v2/versions/loader/{mc}")
-          if not loaders:
-              raise SystemExit(f"No Fabric Loader release found for Minecraft {mc}")
-          loader_entry = next(
-              (entry for entry in loaders if entry.get("loader", {}).get("stable")),
-              loaders[0]
-          )
-          loader = loader_entry["loader"]["version"]
-
-          metadata_url = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml"
-          with urllib.request.urlopen(metadata_url, timeout=60) as response:
-              root = ET.fromstring(response.read())
-          api_versions = [
-              node.text for node in root.findall("./versioning/versions/version")
-              if node.text and node.text.endswith("+" + mc) and "SNAPSHOT" not in node.text.upper()
-          ]
-          if not api_versions:
-              raise SystemExit(f"No Fabric API release found for Minecraft {mc}")
-          fabric_api = api_versions[-1]
-
-          urllib.request.urlretrieve(installer["url"], "server/fabric-installer.jar")
-          api_url = (
-              "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/"
-              f"{fabric_api}/fabric-api-{fabric_api}.jar"
-          )
-          urllib.request.urlretrieve(api_url, "server/mods/fabric-api.jar")
-
-          print(f"Minecraft {mc}; Loader {loader}; Installer {installer['version']}; Fabric API {fabric_api}")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"loader={loader}\n")
-          PY
-
-      - name: Install Fabric server for Minecraft ${{ matrix.minecraft }}
-        shell: bash
-        env:
-          MC_VERSION: ${{ matrix.minecraft }}
-          LOADER_VERSION: ${{ steps.runtime.outputs.loader }}
-        run: |
-          cd server
-          java -jar fabric-installer.jar server \
-            -mcversion "$MC_VERSION" \
-            -loader "$LOADER_VERSION" \
-            -downloadMinecraft
-          test -f fabric-server-launch.jar
-          cp ../universal/ClassicGUIShop-v1.2.6.jar mods/ClassicGUIShop-v1.2.6.jar
-          printf 'eula=true\n' > eula.txt
+          python .github/scripts/setup_fabric_server.py \
+            "${{ matrix.minecraft }}" \
+            server \
+            universal/ClassicGUIShop-v1.2.6.jar
 
       - name: Boot universal jar on Minecraft ${{ matrix.minecraft }}
         shell: bash
-        env:
-          MC_VERSION: ${{ matrix.minecraft }}
         run: |
-          cd server
-          set +e
-          timeout 180s java -Xms512M -Xmx1536M -jar fabric-server-launch.jar nogui > server.log 2>&1
-          status=$?
-          set -e
-
-          if ! grep -Fq "[ClassicGUIShop] Initialized with" server.log; then
-            echo "ClassicGUIShop did not initialize on Minecraft $MC_VERSION"
-            tail -n 250 server.log
-            exit 1
-          fi
-
-          if ! grep -Fq "[ClassicGUIShop] Runtime listing filter parked" server.log; then
-            echo "ClassicGUIShop did not finish its server-started compatibility pass on Minecraft $MC_VERSION"
-            tail -n 250 server.log
-            exit 1
-          fi
-
-          if grep -Eq "Could not execute entrypoint|NoSuchMethodError|NoSuchFieldError|ClassNotFoundException|Mod resolution encountered an incompatible mod set|Exception in server tick loop" server.log; then
-            echo "A compatibility failure was detected on Minecraft $MC_VERSION"
-            tail -n 250 server.log
-            exit 1
-          fi
-
-          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
-            echo "Fabric server exited unexpectedly with status $status"
-            tail -n 250 server.log
-            exit "$status"
-          fi
-
-          echo "Universal ClassicGUIShop jar booted successfully on Minecraft $MC_VERSION"
-          tail -n 80 server.log
+          chmod +x .github/scripts/boot_fabric_server.sh
+          .github/scripts/boot_fabric_server.sh server server.log
 
       - name: Upload runtime log
         if: always()
@@ -270,3 +180,83 @@ jobs:
         with:
           name: runtime-${{ matrix.minecraft }}
           path: server/server.log
+
+  version-switch-test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Download universal ClassicGUIShop jar
+        uses: actions/download-artifact@v4
+        with:
+          name: ClassicGUIShop
+          path: universal
+
+      - name: Prepare both Fabric servers
+        shell: bash
+        run: |
+          python .github/scripts/setup_fabric_server.py \
+            26.2 \
+            server-26.2 \
+            universal/ClassicGUIShop-v1.2.6.jar
+          python .github/scripts/setup_fabric_server.py \
+            26.1.1 \
+            server-26.1.1 \
+            universal/ClassicGUIShop-v1.2.6.jar
+          chmod +x .github/scripts/boot_fabric_server.sh
+
+      - name: Generate the 26.2 catalog
+        shell: bash
+        run: |
+          .github/scripts/boot_fabric_server.sh server-26.2 initial-26.2.log
+          test -d server-26.2/config/guishop
+
+      - name: Move the 26.2 configuration to 26.1.1
+        shell: bash
+        run: |
+          mkdir -p server-26.1.1/config
+          rm -rf server-26.1.1/config/guishop
+          cp -a server-26.2/config/guishop server-26.1.1/config/guishop
+          .github/scripts/boot_fabric_server.sh server-26.1.1 downgrade-26.1.1.log
+
+          read -r parked restored <<< "$(
+            sed -n 's/.*Runtime listing filter parked \([0-9][0-9]*\), restored \([0-9][0-9]*\).*/\1 \2/p' \
+              server-26.1.1/downgrade-26.1.1.log | tail -n 1
+          )"
+          echo "Downgrade parked $parked listing(s) and restored $restored listing(s)."
+          test "${parked:-0}" -gt 0
+          test -s server-26.1.1/config/guishop/versioned-listings.json
+
+      - name: Return the same configuration to 26.2
+        shell: bash
+        run: |
+          rm -rf server-26.2/config/guishop
+          cp -a server-26.1.1/config/guishop server-26.2/config/guishop
+          .github/scripts/boot_fabric_server.sh server-26.2 return-26.2.log
+
+          read -r parked restored <<< "$(
+            sed -n 's/.*Runtime listing filter parked \([0-9][0-9]*\), restored \([0-9][0-9]*\).*/\1 \2/p' \
+              server-26.2/return-26.2.log | tail -n 1
+          )"
+          echo "Return parked $parked listing(s) and restored $restored listing(s)."
+          test "${restored:-0}" -gt 0
+
+      - name: Upload version-switch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-switch-26.2-26.1.1-26.2
+          path: |
+            server-26.2/initial-26.2.log
+            server-26.1.1/downgrade-26.1.1.log
+            server-26.2/return-26.2.log
+            server-26.2/config/guishop/versioned-listings.json
