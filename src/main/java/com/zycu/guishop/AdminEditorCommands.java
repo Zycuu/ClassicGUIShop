@@ -23,7 +23,6 @@ public final class AdminEditorCommands {
         redirectExisting(advanced, existingAdmin, "category");
         redirectExisting(advanced, existingAdmin, "enchant");
         redirectExisting(advanced, existingAdmin, "economy");
-        redirectExisting(advanced, existingAdmin, "catalog");
         redirectExisting(advanced, existingAdmin, "multiplier");
 
         dispatcher.register(Commands.literal("adminshop")
@@ -46,6 +45,8 @@ public final class AdminEditorCommands {
             .then(Commands.literal("sell").executes(context -> openShop(context, ShopGui.Mode.SELL)))
             .then(Commands.literal("enchant").executes(AdminEditorCommands::openEnchantments))
         );
+
+        CommandTreeCleanup.prune(dispatcher);
     }
 
     private static void redirectExisting(
@@ -63,7 +64,7 @@ public final class AdminEditorCommands {
         ShopMessages.admin(source, "/adminshop | Open the classic visual editor", false);
         ShopMessages.admin(source, "/adminshop reload | Reload configuration and folders", false);
         ShopMessages.admin(source, "/adminshop import | Import external content", false);
-        ShopMessages.admin(source, "/adminshop advanced <item|category|enchant|economy|catalog|multiplier>", false);
+        ShopMessages.admin(source, "/adminshop advanced <item|category|enchant|economy|multiplier>", false);
         return 1;
     }
 
