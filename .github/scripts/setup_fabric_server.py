@@ -87,7 +87,7 @@ def main() -> None:
     if not launcher.is_file():
         raise FileNotFoundError(launcher)
 
-    shutil.copy2(universal_jar, mods_directory / "ClassicGUIShop-v1.2.6.jar")
+    shutil.copy2(universal_jar, mods_directory / universal_jar.name)
     (server_directory / "eula.txt").write_text("eula=true\n", encoding="utf-8")
 
     print(
