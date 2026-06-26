@@ -28,7 +28,7 @@ public final class AdminEditorCommands {
 
         dispatcher.register(Commands.literal("adminshop")
             .requires(source -> ShopPermissions.admin(source, "root"))
-            .executes(AdminEditorCommands::openDashboard)
+            .executes(AdminEditorCommands::openEditor)
             .then(Commands.literal("edit")
                 .requires(source -> ShopPermissions.admin(source, "editor"))
                 .executes(AdminEditorCommands::openEditor))
@@ -39,8 +39,6 @@ public final class AdminEditorCommands {
                 .executes(AdminEditorCommands::reload))
         );
 
-        // Registered after the original shop tree. Brigadier merges duplicate literal nodes
-        // and replaces the executable handlers without removing existing child commands.
         dispatcher.register(Commands.literal("shop")
             .requires(source -> ShopPermissions.user(source, "guishop.command.shop"))
             .executes(context -> openShop(context, ShopGui.Mode.BUY))
@@ -60,18 +58,11 @@ public final class AdminEditorCommands {
         if (target != null) advanced.then(Commands.literal(childName).redirect(target));
     }
 
-    private static int openDashboard(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
-        AdminShopDialogs.open(player);
-        return 1;
-    }
-
     private static int advancedHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        ShopMessages.admin(source, "/adminshop | Open the admin control center", false);
-        ShopMessages.admin(source, "/adminshop edit | Open the visual listing editor", false);
-        ShopMessages.admin(source, "/adminshop import | Import external content", false);
+        ShopMessages.admin(source, "/adminshop | Open the classic visual editor", false);
         ShopMessages.admin(source, "/adminshop reload | Reload configuration and folders", false);
+        ShopMessages.admin(source, "/adminshop import | Import external content", false);
         ShopMessages.admin(source, "/adminshop advanced <item|category|enchant|economy|catalog|multiplier>", false);
         return 1;
     }
@@ -99,13 +90,13 @@ public final class AdminEditorCommands {
 
     private static int openShop(CommandContext<CommandSourceStack> context, ShopGui.Mode mode) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        FolderAwareShopGui.openCategories(player, mode);
+        HybridShopGui.openCategories(player, mode);
         return 1;
     }
 
     private static int openEnchantments(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        FolderAwareShopGui.openEnchantments(player, 1);
+        HybridShopGui.openEnchantments(player, 1);
         return 1;
     }
 }
