@@ -73,13 +73,21 @@ public final class AdminEditorCommands {
         GuiShop.CONFIG.permissionDefaults.putIfAbsent("guishop.command.ident", 0);
         GuiShop.CONFIG.permissionDefaults.putIfAbsent("guishop.admin.import", 2);
         GuiShop.CONFIG.permissionDefaults.putIfAbsent("guishop.admin.editor", 2);
+        GuiShop.FOLDERS = SafeShopFolderLoader.load();
+
+        VersionedListingStore.ReconcileResult versioned = VersionedListingStore.reconcile(
+            GuiShop.CONFIG,
+            GuiShop.FOLDERS,
+            context.getSource().getServer().registryAccess()
+        );
         GuiShop.CONFIG.ensureEnchantmentDefaults(context.getSource().getServer());
         VanillaCatalog.SyncResult result = VanillaCatalog.sync(GuiShop.CONFIG, context.getSource().getServer());
         GuiShop.ECONOMY.updateConfig(GuiShop.CONFIG);
-        GuiShop.FOLDERS = SafeShopFolderLoader.load();
         GuiShop.FOLDERS.sync(GuiShop.CONFIG);
         ShopMessages.admin(context.getSource(), "Configuration and folders reloaded. Catalog added "
-            + result.added() + ", removed " + result.removed() + ", repriced " + result.repriced() + ".", true);
+            + result.added() + ", removed " + result.removed() + ", repriced " + result.repriced()
+            + "; parked " + versioned.parked() + " and restored " + versioned.restored()
+            + " version-specific listing(s).", true);
         return 1;
     }
 

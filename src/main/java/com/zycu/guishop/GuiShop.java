@@ -31,11 +31,19 @@ public final class GuiShop implements ModInitializer {
         });
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            VersionedListingStore.ReconcileResult versioned = VersionedListingStore.reconcile(
+                CONFIG,
+                FOLDERS,
+                server.registryAccess()
+            );
             CONFIG.ensureEnchantmentDefaults(server);
             VanillaCatalog.SyncResult catalog = VanillaCatalog.sync(CONFIG, server);
             EconomyExploitScanner.FixReport economy = EconomyExploitScanner.fixGeneratedExploits(server);
             FOLDERS.sync(CONFIG);
             IntegrationImportService.logStartupWarning(server);
+            System.out.println("[ClassicGUIShop] Runtime listing filter parked " + versioned.parked()
+                + ", restored " + versioned.restored() + ", and is preserving "
+                + versioned.remainingParked() + " unavailable listing(s).");
             System.out.println("[ClassicGUIShop] Vanilla catalog synchronized. Added " + catalog.added()
                 + ", removed " + catalog.removed() + ", repriced " + catalog.repriced() + ".");
             System.out.println("[ClassicGUIShop] Economy audit checked " + economy.after().recipesChecked()

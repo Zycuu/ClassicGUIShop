@@ -1,7 +1,9 @@
 package com.zycu.guishop;
 
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -9,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -22,6 +25,18 @@ public final class AnvilTextPrompt {
             (containerId, inventory, ignored) -> new PromptMenu(containerId, inventory, player, initialText, callback),
             Component.literal(title)
         ));
+    }
+
+    private static ItemStack runtimeItem(String identifier, Item fallback) {
+        try {
+            Identifier id = Identifier.parse(identifier);
+            Item item = BuiltInRegistries.ITEM.getValue(id);
+            if (item != null && item != Items.AIR && id.equals(BuiltInRegistries.ITEM.getKey(item))) {
+                return new ItemStack(item);
+            }
+        } catch (Exception ignored) {
+        }
+        return new ItemStack(fallback);
     }
 
     private static final class PromptMenu extends AnvilMenu {
@@ -61,7 +76,7 @@ public final class AnvilTextPrompt {
             if (text == null && !this.inputSlots.getItem(0).isEmpty()) {
                 text = this.inputSlots.getItem(0).getHoverName().getString();
             }
-            ItemStack result = new ItemStack(Items.LIME_DYE);
+            ItemStack result = runtimeItem("minecraft:lime_dye", Items.PAPER);
             result.set(DataComponents.CUSTOM_NAME, Component.literal(
                 text == null || text.isBlank() ? "Enter a value, then click here" : "Confirm: " + text
             ));

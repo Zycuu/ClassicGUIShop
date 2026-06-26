@@ -35,6 +35,10 @@ public final class ShopService {
 
     public static boolean trade(ServerPlayer player, ShopConfig.ShopItem entry, ShopGui.Mode mode, int requestedQuantity) {
         if (!canTransact(player, mode)) return false;
+        if (!VersionedListingStore.isRuntimeAvailable(entry, player.registryAccess())) {
+            ShopMessages.warning(player, "That listing is unavailable in this Minecraft version.");
+            return false;
+        }
 
         ItemStack template = entry.createStack(player.registryAccess());
         if (template.isEmpty()) {
@@ -93,6 +97,10 @@ public final class ShopService {
             ShopMessages.warning(player, "That exact item does not have a sell price.");
             return false;
         }
+        if (!VersionedListingStore.isRuntimeAvailable(found.item(), player.registryAccess())) {
+            ShopMessages.warning(player, "That listing is unavailable in this Minecraft version.");
+            return false;
+        }
 
         ItemStack template = found.item().createStack(player.registryAccess());
         int available = allInventory ? count(player, template) : held.getCount();
@@ -137,6 +145,10 @@ public final class ShopService {
         ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(identifier);
         if (found == null) {
             ShopMessages.warning(player, "No shop listing exists for " + identifier + ".");
+            return false;
+        }
+        if (!VersionedListingStore.isRuntimeAvailable(found.item(), player.registryAccess())) {
+            ShopMessages.warning(player, "That listing is unavailable in this Minecraft version.");
             return false;
         }
         return showWorth(player, found, amount);

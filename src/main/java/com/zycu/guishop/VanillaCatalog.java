@@ -162,7 +162,10 @@ public final class VanillaCatalog {
             for (ShopConfig.ShopItem item : category.items) {
                 String id = item.item == null ? "minecraft:air" : item.item;
                 boolean vanilla = id.startsWith("minecraft:");
-                boolean allowed = !vanilla || (allowedBaseItemIds.contains(id) && !UNOBTAINABLE_ITEMS.contains(id));
+                boolean registeredHere = VersionedListingStore.isItemRegistered(id);
+                boolean allowed = !vanilla
+                    || !registeredHere
+                    || (allowedBaseItemIds.contains(id) && !UNOBTAINABLE_ITEMS.contains(id));
                 if (allowed) retained.add(item);
                 else removed++;
             }
