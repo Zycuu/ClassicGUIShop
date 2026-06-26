@@ -16,7 +16,7 @@ Clients do not need the mod. ClassicGUIShop uses vanilla chest and anvil menus a
 - Deterministic difficulty-based prices for generated vanilla listings.
 - Recipe-aware economy protection for crafting and processing loops.
 - Predictive command suggestions for players, categories, item IDs, listing IDs, enchantments, prices, pages, and integration namespaces.
-- Mod and data-pack content detection with safe, unpriced imports.
+- Mod namespace imports and data-pack recipe-output imports with safe, unpriced listings.
 - Configurable `[ShopGUI]` chat prefix and message colors.
 - Persistent balances and player payments.
 - All management commands grouped under `/adminshop`.
@@ -125,7 +125,6 @@ ClassicGUIShop checks for non-vanilla item namespaces, recipe namespaces, instal
 /adminshop import namespace <namespace> [category]
 /adminshop import datapack <recipe-namespace> [category]
 /adminshop import held <category> <buy> <sell>
-/adminshop import resourcepack <category> <buy> <sell>
 /adminshop import price <category> <buy> <sell>
 ```
 
@@ -145,11 +144,13 @@ They remain hidden from player buy and sell menus until an administrator reviews
 
 ### Data-pack imports
 
-`datapack` scans recipe outputs whose recipe IDs use the selected namespace. This can import exact component-bearing outputs created by compatible data packs.
+`datapack` imports the resolved outputs of recipes whose recipe IDs use the selected namespace. It does not guess from resource-pack files, item model files, sounds, textures, or ingredients.
+
+If a data-pack recipe outputs a component-bearing item, such as a custom named disc, custom model item, potion, or other exact ItemStack, that exact output is preserved. If the recipe output is only a plain vanilla item, the shop will treat it as that plain vanilla item.
 
 ### Resource-pack-backed items
 
-A resource pack alone changes client assets and cannot register a new server item ID. For custom-model or resource-pack-backed items, hold the exact stack and use `import resourcepack` or `import held`. The complete ItemStack components are preserved.
+A resource pack alone changes client assets and cannot register a new server item ID. Pure resource-pack visuals are not automatically imported. To sell a resource-pack-backed custom item, make the server produce a real component-bearing ItemStack through a data-pack recipe, or hold the exact stack and use `import held`.
 
 ## Item listings
 
