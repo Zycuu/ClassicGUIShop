@@ -1,6 +1,6 @@
 # ClassicGUIShop
 
-A server-side Fabric shop mod for Minecraft Java 26.1.1, inspired by the original Bukkit GUIShop plugin.
+A server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.2.x, inspired by the original Bukkit GUIShop plugin.
 
 Clients do not need the mod. ClassicGUIShop uses vanilla chest and anvil menus and includes its own persistent economy.
 
@@ -68,8 +68,7 @@ Selecting an item opens its listing editor. The administrator can:
 - Click **Set Buy Price** and type the exact value into a vanilla anvil text prompt
 - Click **Set Sell Price** and type the exact value into a vanilla anvil text prompt
 - Disable buying or selling by setting that side to `0`
-- Move the listing into a folder
-- Create a new folder while assigning the item
+- Move the listing into an existing folder
 
 Prices changed through the editor are marked as manual and are never overwritten by automatic balancing.
 
@@ -77,12 +76,19 @@ Prices changed through the editor are marked as manual and are never overwritten
 
 Folders work like the built-in colored-block type menus, but can be created for any normal category.
 
-From `/adminshop`:
+Create a folder with the advanced command:
 
-1. Open a category.
-2. Click **Create Folder**.
-3. Enter the folder name in the anvil prompt.
-4. Open an item and choose **Move to Folder**.
+```text
+/adminshop advanced folder create <category> <icon> <display name>
+```
+
+Example:
+
+```text
+/adminshop advanced folder create building_blocks minecraft:bricks Stone Materials
+```
+
+After creating the folder, open `/adminshop`, select a listing, and use **Move to Folder**. Folder creation is intentionally command-only; the visual editor handles moving, renaming, and deleting existing folders.
 
 Items with no folder assignment appear under **Unsorted**. Empty folders and fully unpriced folders are hidden from the normal player shop, but remain visible in the administrator editor.
 
@@ -213,6 +219,7 @@ config/guishop/settings.json
 config/guishop/shops.json
 config/guishop/enchantments.json
 config/guishop/folders.json
+config/guishop/versioned-listings.json
 config/guishop/balances.json
 config/guishop/players.json
 ```
