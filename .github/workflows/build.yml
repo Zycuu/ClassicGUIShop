@@ -133,3 +133,140 @@ jobs:
         with:
           name: compatibility-${{ matrix.minecraft }}
           path: compatibility-${{ matrix.minecraft }}.log
+
+  runtime-smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft:
+          - "26.1.1"
+          - "26.2"
+
+    steps:
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Download universal ClassicGUIShop jar
+        uses: actions/download-artifact@v4
+        with:
+          name: ClassicGUIShop
+          path: universal
+
+      - name: Resolve and download Fabric server dependencies
+        id: runtime
+        shell: bash
+        env:
+          MC_VERSION: ${{ matrix.minecraft }}
+        run: |
+          mkdir -p server/mods
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          mc = os.environ["MC_VERSION"]
+
+          def read_json(url):
+              with urllib.request.urlopen(url, timeout=60) as response:
+                  return json.load(response)
+
+          installers = read_json("https://meta.fabricmc.net/v2/versions/installer")
+          installer = next((entry for entry in installers if entry.get("stable")), installers[0])
+
+          loaders = read_json(f"https://meta.fabricmc.net/v2/versions/loader/{mc}")
+          if not loaders:
+              raise SystemExit(f"No Fabric Loader release found for Minecraft {mc}")
+          loader_entry = next(
+              (entry for entry in loaders if entry.get("loader", {}).get("stable")),
+              loaders[0]
+          )
+          loader = loader_entry["loader"]["version"]
+
+          metadata_url = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml"
+          with urllib.request.urlopen(metadata_url, timeout=60) as response:
+              root = ET.fromstring(response.read())
+          api_versions = [
+              node.text for node in root.findall("./versioning/versions/version")
+              if node.text and node.text.endswith("+" + mc) and "SNAPSHOT" not in node.text.upper()
+          ]
+          if not api_versions:
+              raise SystemExit(f"No Fabric API release found for Minecraft {mc}")
+          fabric_api = api_versions[-1]
+
+          urllib.request.urlretrieve(installer["url"], "server/fabric-installer.jar")
+          api_url = (
+              "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/"
+              f"{fabric_api}/fabric-api-{fabric_api}.jar"
+          )
+          urllib.request.urlretrieve(api_url, "server/mods/fabric-api.jar")
+
+          print(f"Minecraft {mc}; Loader {loader}; Installer {installer['version']}; Fabric API {fabric_api}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"loader={loader}\n")
+          PY
+
+      - name: Install Fabric server for Minecraft ${{ matrix.minecraft }}
+        shell: bash
+        env:
+          MC_VERSION: ${{ matrix.minecraft }}
+          LOADER_VERSION: ${{ steps.runtime.outputs.loader }}
+        run: |
+          cd server
+          java -jar fabric-installer.jar server \
+            -mcversion "$MC_VERSION" \
+            -loader "$LOADER_VERSION" \
+            -downloadMinecraft
+          test -f fabric-server-launch.jar
+          cp ../universal/ClassicGUIShop-v1.2.6.jar mods/ClassicGUIShop-v1.2.6.jar
+          printf 'eula=true\n' > eula.txt
+
+      - name: Boot universal jar on Minecraft ${{ matrix.minecraft }}
+        shell: bash
+        env:
+          MC_VERSION: ${{ matrix.minecraft }}
+        run: |
+          cd server
+          set +e
+          timeout 180s java -Xms512M -Xmx1536M -jar fabric-server-launch.jar nogui > server.log 2>&1
+          status=$?
+          set -e
+
+          if ! grep -Fq "[ClassicGUIShop] Initialized with" server.log; then
+            echo "ClassicGUIShop did not initialize on Minecraft $MC_VERSION"
+            tail -n 250 server.log
+            exit 1
+          fi
+
+          if ! grep -Fq "[ClassicGUIShop] Runtime listing filter parked" server.log; then
+            echo "ClassicGUIShop did not finish its server-started compatibility pass on Minecraft $MC_VERSION"
+            tail -n 250 server.log
+            exit 1
+          fi
+
+          if grep -Eq "Could not execute entrypoint|NoSuchMethodError|NoSuchFieldError|ClassNotFoundException|Mod resolution encountered an incompatible mod set|Exception in server tick loop" server.log; then
+            echo "A compatibility failure was detected on Minecraft $MC_VERSION"
+            tail -n 250 server.log
+            exit 1
+          fi
+
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            echo "Fabric server exited unexpectedly with status $status"
+            tail -n 250 server.log
+            exit "$status"
+          fi
+
+          echo "Universal ClassicGUIShop jar booted successfully on Minecraft $MC_VERSION"
+          tail -n 80 server.log
+
+      - name: Upload runtime log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.minecraft }}
+          path: server/server.log
