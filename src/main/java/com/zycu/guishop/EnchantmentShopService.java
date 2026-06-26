@@ -14,12 +14,20 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class EnchantmentShopService {
+    private static final Map<UUID, ShopGui.Mode> PLAYER_MODES = new ConcurrentHashMap<>();
+
     private EnchantmentShopService() {}
 
+    public static void rememberMode(ServerPlayer player, ShopGui.Mode mode) {
+        if (player != null && mode != null) PLAYER_MODES.put(player.getUUID(), mode);
+    }
+
     public static List<EnchantmentView> availableEnchantments(ServerPlayer player) {
-        return availableEnchantments(player, ShopGui.Mode.BUY);
+        return availableEnchantments(player, rememberedMode(player));
     }
 
     public static List<EnchantmentView> availableEnchantments(ServerPlayer player, ShopGui.Mode mode) {
@@ -54,7 +62,7 @@ public final class EnchantmentShopService {
     }
 
     public static List<OfferView> availableLevels(ServerPlayer player, String enchantmentId) {
-        return availableLevels(player, enchantmentId, ShopGui.Mode.BUY);
+        return availableLevels(player, enchantmentId, rememberedMode(player));
     }
 
     public static List<OfferView> availableLevels(ServerPlayer player, String enchantmentId, ShopGui.Mode mode) {
@@ -83,6 +91,9 @@ public final class EnchantmentShopService {
     }
 
     public static boolean purchase(ServerPlayer player, String enchantmentId, int targetLevel) {
+        if (rememberedMode(player) == ShopGui.Mode.SELL) {
+            return sell(player, enchantmentId, targetLevel, 1);
+        }
         if (!ShopPermissions.user(player, "guishop.enchant")) {
             ShopMessages.error(player, "You do not have permission to buy enchanted books.");
             return false;
@@ -223,6 +234,11 @@ public final class EnchantmentShopService {
             case 10 -> "X";
             default -> Integer.toString(value);
         };
+    }
+
+    private static ShopGui.Mode rememberedMode(ServerPlayer player) {
+        if (player == null) return ShopGui.Mode.BUY;
+        return PLAYER_MODES.getOrDefault(player.getUUID(), ShopGui.Mode.BUY);
     }
 
     private static ResolvedOffer resolve(ServerPlayer player, String enchantmentId) {
