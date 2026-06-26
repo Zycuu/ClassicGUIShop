@@ -111,8 +111,6 @@ public final class AdminShopEditorGuiV2 {
             container.bind(NEXT_SLOT, displayStack("minecraft:arrow", "Next Folder Page"),
                 () -> openCategory(player, category.id, target));
         }
-        container.bind(ACTION_SLOT, displayStack("minecraft:lime_dye", "Create Folder"),
-            () -> promptCreateFolder(player, category.id));
 
         openMenu(player, container,
             Component.literal("Shop Editor - " + category.name + " " + page + "/" + pages), 6);
@@ -281,18 +279,6 @@ public final class AdminShopEditorGuiV2 {
                 () -> openFolderChooser(player, category, item, returnFolder, returnPage,
                     folderMenuPage, target));
         }
-        container.bind(ACTION_SLOT, displayStack("minecraft:lime_dye", "Create Folder"), () ->
-            AnvilTextPrompt.open(player, "Create Folder", "New Folder", value -> {
-                ShopFolderStore.Folder folder = GuiShop.FOLDERS.createFolder(category.id, value, item.item);
-                if (folder == null) {
-                    ShopMessages.error(player, "Could not create that folder.");
-                    openFolderChooser(player, category, item, returnFolder, returnPage,
-                        folderMenuPage, page);
-                    return;
-                }
-                GuiShop.FOLDERS.assign(category.id, item.listingId, folder.id);
-                openItem(player, category.id, item, returnFolder, returnPage, folderMenuPage);
-            }));
 
         openMenu(player, container,
             Component.literal("Move " + item.name + " to Folder " + page + "/" + pages), 6);
@@ -356,17 +342,6 @@ public final class AdminShopEditorGuiV2 {
                     "Invalid price. Enter a number of 0 or greater, such as 25 or 19.95.");
             }
             openItem(player, category.id, item, returnFolder, returnPage, folderMenuPage);
-        });
-    }
-
-    private static void promptCreateFolder(ServerPlayer player, String categoryId) {
-        ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
-        if (category == null) return;
-        AnvilTextPrompt.open(player, "Create Shop Folder", "New Folder", value -> {
-            ShopFolderStore.Folder folder = GuiShop.FOLDERS.createFolder(category.id, value, "minecraft:chest");
-            if (folder == null) ShopMessages.error(player, "Could not create that folder.");
-            else ShopMessages.success(player, "Created folder " + folder.name + ".");
-            openCategory(player, category.id, Integer.MAX_VALUE);
         });
     }
 
