@@ -555,6 +555,11 @@ public final class HybridShopGui {
         return stack;
     }
 
+    private static Component shopTitle(Component title) {
+        return Component.literal(title.getString())
+            .withStyle(net.minecraft.ChatFormatting.GREEN, net.minecraft.ChatFormatting.BOLD);
+    }
+
     private static void openMenu(
         ServerPlayer player,
         ShopContainer container,
@@ -567,7 +572,7 @@ public final class HybridShopGui {
                 container.attach(menu);
                 return menu;
             },
-            title
+            shopTitle(title)
         ));
     }
 

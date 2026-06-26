@@ -36,7 +36,7 @@ jobs:
             grep -n -C 4 -E "error:|FAILURE:|What went wrong|Execution failed" build.log || cat build.log
           else
             tail -n 40 build.log
-            test -f build/libs/ClassicGUIShop-v1.2.8.jar
+            test -f build/libs/ClassicGUIShop-v1.2.9.jar
           fi
           exit $status
 
@@ -53,8 +53,8 @@ jobs:
         with:
           name: ClassicGUIShop
           path: |
-            build/libs/ClassicGUIShop-v1.2.8.jar
-            build/libs/ClassicGUIShop-v1.2.8-sources.jar
+            build/libs/ClassicGUIShop-v1.2.9.jar
+            build/libs/ClassicGUIShop-v1.2.9-sources.jar
 
   compatibility:
     runs-on: ubuntu-latest
@@ -166,7 +166,7 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             "${{ matrix.minecraft }}" \
             server \
-            universal/ClassicGUIShop-v1.2.8.jar
+            universal/ClassicGUIShop-v1.2.9.jar
 
       - name: Boot universal jar on Minecraft ${{ matrix.minecraft }}
         shell: bash
@@ -207,11 +207,11 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             26.2 \
             server-26.2 \
-            universal/ClassicGUIShop-v1.2.8.jar
+            universal/ClassicGUIShop-v1.2.9.jar
           python .github/scripts/setup_fabric_server.py \
             26.1.1 \
             server-26.1.1 \
-            universal/ClassicGUIShop-v1.2.8.jar
+            universal/ClassicGUIShop-v1.2.9.jar
           chmod +x .github/scripts/boot_fabric_server.sh
 
       - name: Generate the 26.2 catalog
