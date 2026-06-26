@@ -2,7 +2,6 @@ package com.zycu.guishop;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -62,13 +61,6 @@ public final class IntegrationCommands {
                             .then(Commands.argument("sell", DoubleArgumentType.doubleArg(0))
                                 .suggests(ShopSuggestions.PRICES)
                                 .executes(IntegrationCommands::importHeld)))))
-                .then(Commands.literal("preview")
-                    .then(Commands.argument("category", StringArgumentType.word())
-                        .suggests(ShopSuggestions.CATEGORIES)
-                        .executes(context -> preview(context, 1))
-                        .then(Commands.argument("page", IntegerArgumentType.integer(1))
-                            .suggests(ShopSuggestions.PAGES)
-                            .executes(context -> preview(context, IntegerArgumentType.getInteger(context, "page"))))))
                 .then(Commands.literal("price")
                     .then(Commands.argument("category", StringArgumentType.word())
                         .suggests(ShopSuggestions.CATEGORIES)
@@ -106,9 +98,8 @@ public final class IntegrationCommands {
         ShopMessages.admin(context.getSource(), "/adminshop import datapack <recipe-namespace> [category]", false);
         ShopMessages.admin(context.getSource(), "/adminshop import held <category> <buy> <sell>", false);
         ShopMessages.admin(context.getSource(), "/adminshop import resourcepack <category> <buy> <sell>", false);
-        ShopMessages.admin(context.getSource(), "/adminshop import preview <category> [page]", false);
         ShopMessages.admin(context.getSource(), "/adminshop import price <category> <buy> <sell>", false);
-        ShopMessages.warning(context.getSource(), "Bulk imported mod and data-pack listings start hidden with buy 0 and sell 0. Preview them, then assign prices before players can see the category.");
+        ShopMessages.warning(context.getSource(), "Bulk imported mod and data-pack listings start hidden with buy 0 and sell 0. Open /adminshop to review them, then assign prices before players can see the category.");
         return 1;
     }
 
@@ -158,7 +149,7 @@ public final class IntegrationCommands {
             + result.source() + " into category " + result.categoryId() + "; " + result.existing()
             + " already existed and " + result.skipped() + " were skipped.", true);
         ShopMessages.warning(context.getSource(), "The category is hidden from the normal player shop because its imported listings currently have buy 0 and sell 0.");
-        ShopMessages.info(context.getSource(), "Preview it with /adminshop import preview " + result.categoryId(), false);
+        ShopMessages.info(context.getSource(), "Review imported listings with /adminshop, including hidden items.", false);
         ShopMessages.info(context.getSource(), "Enable all listings with /adminshop import price " + result.categoryId() + " <buy> <sell>, or price individual listing IDs.", false);
     }
 
@@ -202,12 +193,6 @@ public final class IntegrationCommands {
         }
         ShopMessages.warning(context.getSource(), "External and resource-pack-backed item prices are manual and are not automatically balanced.");
         return 1;
-    }
-
-    private static int preview(CommandContext<CommandSourceStack> context, int page) throws CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
-        String category = StringArgumentType.getString(context, "category");
-        return ImportPreviewGui.open(player, category, page) ? 1 : 0;
     }
 
     private static int priceCategory(CommandContext<CommandSourceStack> context) {
