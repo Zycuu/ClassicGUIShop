@@ -86,7 +86,12 @@ public final class ShopMessages {
         String normalized = configured.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
         try {
             ChatFormatting formatting = ChatFormatting.valueOf(normalized);
-            return formatting.isColor() ? formatting : fallback;
+            return switch (formatting) {
+                case BLACK, DARK_BLUE, DARK_GREEN, DARK_AQUA, DARK_RED, DARK_PURPLE,
+                    GOLD, GRAY, DARK_GRAY, BLUE, GREEN, AQUA, RED, LIGHT_PURPLE,
+                    YELLOW, WHITE -> formatting;
+                default -> fallback;
+            };
         } catch (IllegalArgumentException ignored) {
             return fallback;
         }
