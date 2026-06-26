@@ -49,12 +49,11 @@ Clients do not need the mod. ClassicGUIShop uses vanilla chest and anvil menus a
 ## Visual administrator editor
 
 ```text
+/adminshop
 /adminshop edit
-/adminshop gui-edit
-/adminshop editor
 ```
 
-All three commands open the same visual editor. The editor is designed for large mod and data-pack imports where administrators may not know the item IDs.
+Both commands open the same classic inventory-based visual editor. The editor is designed for large mod and data-pack imports where administrators may not know the item IDs.
 
 The editor shows:
 
@@ -78,7 +77,7 @@ Prices changed through the editor are marked as manual and are never overwritten
 
 Folders work like the built-in colored-block type menus, but can be created for any normal category.
 
-From `/adminshop edit`:
+From `/adminshop`:
 
 1. Open a category.
 2. Click **Create Folder**.
@@ -121,7 +120,6 @@ ClassicGUIShop checks for non-vanilla item namespaces, recipe namespaces, instal
 /adminshop import datapack <recipe-namespace> [category]
 /adminshop import held <category> <buy> <sell>
 /adminshop import resourcepack <category> <buy> <sell>
-/adminshop import preview <category> [page]
 /adminshop import price <category> <buy> <sell>
 ```
 
@@ -137,7 +135,7 @@ sell: 0
 manualPrice: true
 ```
 
-They remain hidden from player buy and sell menus until an administrator reviews and assigns prices. They are still fully visible in `/adminshop edit`.
+They remain hidden from player buy and sell menus until an administrator reviews and assigns prices. They are fully visible in `/adminshop`.
 
 ### Data-pack imports
 
@@ -176,15 +174,11 @@ Use the listing ID when multiple variants of the same base item exist.
 /adminshop category remove <id>
 ```
 
-Removing a category also removes every listing contained in it. Removed default categories are remembered so synchronization does not immediately recreate them.
+Removing a category also removes every listing contained in it. Removed default categories are remembered so automatic synchronization does not immediately recreate them.
 
 ## Vanilla catalog
 
-```text
-/adminshop catalog sync
-```
-
-The catalog synchronizes when the server starts and when `/adminshop reload` is used. It mirrors normal vanilla creative inventory tabs, removes technical or unobtainable entries, and applies balanced generated prices.
+The catalog synchronizes automatically when the server starts and when `/adminshop reload` is used. It mirrors normal vanilla creative inventory tabs, removes technical or unobtainable entries, and applies balanced generated prices.
 
 ## Enchanted books
 
@@ -210,7 +204,7 @@ The catalog synchronizes when the server starts and when `/adminshop reload` is 
 /adminshop reload
 ```
 
-The economy audit follows loaded crafting, cooking, stonecutting, smithing, datapack, and compatible mod recipes to detect profitable buy-craft-sell routes. Generated sell prices can be corrected automatically; manual prices are reported but preserved.
+The economy audit follows loaded crafting, cooking, stonecutting, smithing, data-pack, and compatible mod recipes to detect profitable buy-craft-sell routes. Generated sell prices can be corrected automatically; manual prices are reported but preserved.
 
 ## Configuration
 
@@ -224,14 +218,3 @@ config/guishop/players.json
 ```
 
 Generated configuration files include `_about` and `_notes` documentation. Existing `shop.json` files are migrated automatically and retained as `shop.json.migrated-backup`.
-
-## ClassicGUIShop v1.2.0
-
-- Added `/adminshop edit`, `/adminshop gui-edit`, and `/adminshop editor`.
-- Added a full category and listing browser that reveals hidden and unpriced items.
-- Added exact buy and sell price entry through a vanilla anvil prompt.
-- Added persistent custom folders for normal shop categories.
-- Added item-to-folder assignment, folder creation, folder renaming, and folder deletion.
-- Added folder-aware player shop navigation.
-- Added `folders.json` for folder definitions and exact listing assignments.
-- Preserved existing category, listing, balance, economy, import, and permission files.
