@@ -15,34 +15,66 @@ public final class CommandIntegrityCheck {
         CommandNode<CommandSourceStack> root = dispatcher.getRoot();
 
         requireCommand(root, "shop", missing);
-        requireChild(root, "shop", "buy", missing);
-        requireChild(root, "shop", "sell", missing);
-        requireChild(root, "shop", "enchant", missing);
-        requireChild(root, "shop", "balance", missing);
-        requireChild(root, "shop", "pay", missing);
+        requirePath(root, missing, "shop", "buy");
+        requirePath(root, missing, "shop", "sell");
+        requirePath(root, missing, "shop", "enchant");
+        requirePath(root, missing, "shop", "balance");
+        requirePath(root, missing, "shop", "pay");
 
         requireCommand(root, "sellhand", missing);
-        requireChild(root, "sellhand", "all", missing);
+        requirePath(root, missing, "sellhand", "all");
+        requirePath(root, missing, "sellhand", "amount");
+
         requireCommand(root, "worth", missing);
-        requireChild(root, "worth", "all", missing);
+        requirePath(root, missing, "worth", "all");
+        requirePath(root, missing, "worth", "item");
+
         requireCommand(root, "ident", missing);
 
         requireCommand(root, "adminshop", missing);
-        requireChild(root, "adminshop", "edit", missing);
-        requireChild(root, "adminshop", "help", missing);
-        requireChild(root, "adminshop", "reload", missing);
-        requireChild(root, "adminshop", "item", missing);
-        requireChild(root, "adminshop", "category", missing);
-        requireChild(root, "adminshop", "enchant", missing);
-        requireChild(root, "adminshop", "economy", missing);
-        requireChild(root, "adminshop", "multiplier", missing);
-        requireChild(root, "adminshop", "import", missing);
+        requirePath(root, missing, "adminshop", "edit");
+        requirePath(root, missing, "adminshop", "help");
+        requirePath(root, missing, "adminshop", "reload");
+        requirePath(root, missing, "adminshop", "multiplier");
+
+        requirePath(root, missing, "adminshop", "item");
+        requirePath(root, missing, "adminshop", "item", "add");
+        requirePath(root, missing, "adminshop", "item", "remove");
+        requirePath(root, missing, "adminshop", "item", "price");
+        requirePath(root, missing, "adminshop", "item", "move");
+        requirePath(root, missing, "adminshop", "item", "list");
+
+        requirePath(root, missing, "adminshop", "category");
+        requirePath(root, missing, "adminshop", "category", "add");
+        requirePath(root, missing, "adminshop", "category", "remove");
+        requirePath(root, missing, "adminshop", "category", "list");
+
+        requirePath(root, missing, "adminshop", "enchant");
+        requirePath(root, missing, "adminshop", "enchant", "set");
+        requirePath(root, missing, "adminshop", "enchant", "remove");
+        requirePath(root, missing, "adminshop", "enchant", "list");
+        requirePath(root, missing, "adminshop", "enchant", "defaultprice");
+        requirePath(root, missing, "adminshop", "enchant", "enabled");
+
+        requirePath(root, missing, "adminshop", "economy");
+        requirePath(root, missing, "adminshop", "economy", "get");
+        requirePath(root, missing, "adminshop", "economy", "set");
+        requirePath(root, missing, "adminshop", "economy", "add");
+        requirePath(root, missing, "adminshop", "economy", "take");
+
+        requirePath(root, missing, "adminshop", "import");
+        requirePath(root, missing, "adminshop", "import", "scan");
+        requirePath(root, missing, "adminshop", "import", "mod");
+        requirePath(root, missing, "adminshop", "import", "namespace");
+        requirePath(root, missing, "adminshop", "import", "datapack");
+        requirePath(root, missing, "adminshop", "import", "held");
+        requirePath(root, missing, "adminshop", "import", "price");
 
         if (!missing.isEmpty()) {
             throw new IllegalStateException("ClassicGUIShop command registration is incomplete: " + String.join(", ", missing));
         }
 
-        System.out.println("[ClassicGUIShop] Command integrity verified: player, admin, import, economy, and editor commands are registered.");
+        System.out.println("[ClassicGUIShop] Command integrity verified: player, admin, import, economy, enchanted-book, and editor commands are registered.");
     }
 
     private static void requireCommand(CommandNode<CommandSourceStack> root, String name, List<String> missing) {
@@ -56,19 +88,16 @@ public final class CommandIntegrityCheck {
         }
     }
 
-    private static void requireChild(
-        CommandNode<CommandSourceStack> root,
-        String parentName,
-        String childName,
-        List<String> missing
-    ) {
-        CommandNode<CommandSourceStack> parent = root.getChild(parentName);
-        if (parent == null) {
-            missing.add("/" + parentName + " " + childName);
-            return;
-        }
-        if (parent.getChild(childName) == null) {
-            missing.add("/" + parentName + " " + childName);
+    private static void requirePath(CommandNode<CommandSourceStack> root, List<String> missing, String... path) {
+        CommandNode<CommandSourceStack> current = root;
+        StringBuilder display = new StringBuilder();
+        for (String part : path) {
+            display.append('/').append(part);
+            current = current == null ? null : current.getChild(part);
+            if (current == null) {
+                missing.add(display.toString().replace('/', ' ').trim());
+                return;
+            }
         }
     }
 }
