@@ -70,7 +70,7 @@ public final class AdminEditorCommands {
         if (target != null) advanced.then(Commands.literal(childName).redirect(target));
     }
 
-    private static int advancedHelp(CommandContext<CommandSourceStack> context) {
+    public static int advancedHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         ShopMessages.admin(source, "/adminshop | Open the classic visual editor", false);
         ShopMessages.admin(source, "/adminshop reload | Reload configuration and folders", false);
@@ -112,7 +112,7 @@ public final class AdminEditorCommands {
         return 1;
     }
 
-    private static int reload(CommandContext<CommandSourceStack> context) {
+    public static int reload(CommandContext<CommandSourceStack> context) {
         GuiShop.CONFIG = ShopConfig.load();
         GuiShop.CONFIG.permissionDefaults.putIfAbsent("guishop.command.ident", 0);
         GuiShop.CONFIG.permissionDefaults.putIfAbsent("guishop.admin.import", 2);
@@ -135,7 +135,7 @@ public final class AdminEditorCommands {
         return 1;
     }
 
-    private static int openEditor(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    public static int openEditor(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         AdminShopEditorGuiV2.open(player);
         return 1;
