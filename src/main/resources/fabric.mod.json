@@ -14,7 +14,9 @@
     "fabricloader": ">=0.18.3",
     "minecraft": "${minecraft_range}",
     "java": ">=25",
-    "fabric-api": "*",
-    "fabric-permissions-api-v0": ">=0.7.0"
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "fabric-permissions-api-v0": "*"
   }
 }
