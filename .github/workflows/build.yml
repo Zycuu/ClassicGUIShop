@@ -1,5 +1,5 @@
-name: Build ClassicGUIShop v1.3.7
-run-name: ClassicGUIShop v1.3.7 - ${{ github.event_name }} - ${{ github.sha }}
+name: Build ClassicGUIShop v1.3.8
+run-name: ClassicGUIShop v1.3.8 - ${{ github.event_name }} - ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
             grep -n -C 4 -E "error:|FAILURE:|What went wrong|Execution failed" build.log || cat build.log
           else
             tail -n 40 build.log
-            test -f build/libs/ClassicGUIShop-v1.3.7.jar
+            test -f build/libs/ClassicGUIShop-v1.3.8.jar
           fi
           exit $status
 
@@ -54,8 +54,8 @@ jobs:
         with:
           name: ClassicGUIShop
           path: |
-            build/libs/ClassicGUIShop-v1.3.7.jar
-            build/libs/ClassicGUIShop-v1.3.7-sources.jar
+            build/libs/ClassicGUIShop-v1.3.8.jar
+            build/libs/ClassicGUIShop-v1.3.8-sources.jar
 
   compatibility:
     runs-on: ubuntu-latest
@@ -79,45 +79,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Resolve matching Fabric API
-        id: fabric
+      - name: Compile against Minecraft ${{ matrix.minecraft }} without Fabric API dependency
         shell: bash
         env:
           MC_VERSION: ${{ matrix.minecraft }}
-        run: |
-          python - <<'PY'
-          import os
-          import urllib.request
-          import xml.etree.ElementTree as ET
-
-          mc = os.environ["MC_VERSION"]
-          url = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml"
-          with urllib.request.urlopen(url, timeout=30) as response:
-              root = ET.fromstring(response.read())
-
-          versions = [
-              node.text for node in root.findall("./versioning/versions/version")
-              if node.text and node.text.endswith("+" + mc) and "SNAPSHOT" not in node.text.upper()
-          ]
-          if not versions:
-              raise SystemExit(f"No Fabric API release found for Minecraft {mc}")
-
-          selected = versions[-1]
-          print(f"Using Fabric API {selected} for Minecraft {mc}")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"version={selected}\n")
-          PY
-
-      - name: Compile against Minecraft ${{ matrix.minecraft }}
-        shell: bash
-        env:
-          MC_VERSION: ${{ matrix.minecraft }}
-          FABRIC_API_VERSION: ${{ steps.fabric.outputs.version }}
         run: |
           set +e
           gradle clean build \
             -Pminecraft_version="$MC_VERSION" \
-            -Pfabric_api_version="$FABRIC_API_VERSION" \
             > "compatibility-$MC_VERSION.log" 2>&1
           status=$?
           if [ $status -ne 0 ]; then
@@ -161,15 +130,17 @@ jobs:
           name: ClassicGUIShop
           path: universal
 
-      - name: Prepare Fabric server for Minecraft ${{ matrix.minecraft }}
+      - name: Prepare Fabric Loader 0.18.3 server without Fabric API for Minecraft ${{ matrix.minecraft }}
         shell: bash
         run: |
           python .github/scripts/setup_fabric_server.py \
             "${{ matrix.minecraft }}" \
             server \
-            universal/ClassicGUIShop-v1.3.7.jar
+            universal/ClassicGUIShop-v1.3.8.jar \
+            0.18.3 \
+            false
 
-      - name: Boot universal jar on Minecraft ${{ matrix.minecraft }}
+      - name: Boot universal jar on Loader 0.18.3 without Fabric API
         shell: bash
         run: |
           chmod +x .github/scripts/boot_fabric_server.sh
@@ -202,17 +173,21 @@ jobs:
           name: ClassicGUIShop
           path: universal
 
-      - name: Prepare both Fabric servers
+      - name: Prepare both Fabric Loader 0.18.3 servers without Fabric API
         shell: bash
         run: |
           python .github/scripts/setup_fabric_server.py \
             26.2 \
             server-26.2 \
-            universal/ClassicGUIShop-v1.3.7.jar
+            universal/ClassicGUIShop-v1.3.8.jar \
+            0.18.3 \
+            false
           python .github/scripts/setup_fabric_server.py \
             26.1.1 \
             server-26.1.1 \
-            universal/ClassicGUIShop-v1.3.7.jar
+            universal/ClassicGUIShop-v1.3.8.jar \
+            0.18.3 \
+            false
           chmod +x .github/scripts/boot_fabric_server.sh
 
       - name: Generate the 26.2 catalog
@@ -248,7 +223,7 @@ jobs:
             sed -n 's/.*Runtime listing filter parked \([0-9][0-9]*\), restored \([0-9][0-9]*\).*/\1 \2/p' \
               server-26.2/return-26.2.log | tail -n 1
           )"
-          echo "Return parked $parked listing(s) and restored $restored listing(s)."
+          echo "Return parked $parked and restored $restored listing(s)."
           test "${restored:-0}" -gt 0
 
       - name: Upload version-switch evidence
