@@ -36,7 +36,7 @@ public final class ShopPermissions {
     }
 
     private static boolean hasPermissionLevel(CommandSourceStack source, int level) {
-        return level <= 0 || source.hasPermission(level);
+        return level <= 0 || source.hasPermissionLevel(level);
     }
 
     private static String sanitize(String value) {
