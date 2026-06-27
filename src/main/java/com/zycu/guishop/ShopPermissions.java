@@ -24,17 +24,14 @@ public final class ShopPermissions {
     public static void logPermissionAccessors() {
         if (ALL_PERMISSIONS != null) {
             System.out.println("[ClassicGUIShop] Permission model detected: Minecraft PermissionSet.ALL_PERMISSIONS.");
-            return;
         }
         if (!LEGACY_PERMISSION_METHODS.isEmpty()) {
             System.out.println("[ClassicGUIShop] Permission model detected: legacy CommandSourceStack boolean(int) method.");
-            return;
         }
         if (!LEGACY_PERMISSION_LEVEL_FIELDS.isEmpty()) {
             System.out.println("[ClassicGUIShop] Permission model detected: legacy CommandSourceStack int permission field.");
-            return;
         }
-        System.err.println("[ClassicGUIShop] Could not detect a permission model. Admin commands may be hidden from players.");
+        System.out.println("[ClassicGUIShop] Permission model detected: vanilla operator fallback.");
     }
 
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
@@ -70,6 +67,7 @@ public final class ShopPermissions {
         if (level <= 0) return true;
 
         if (hasAllPermissions(source)) return true;
+        if (hasVanillaOperatorLevel(source)) return true;
 
         ServerPlayer player = null;
         try {
@@ -82,6 +80,16 @@ public final class ShopPermissions {
         if (player == null) return true;
 
         return hasLegacyPermissionLevel(source, level);
+    }
+
+    private static boolean hasVanillaOperatorLevel(CommandSourceStack source) {
+        try {
+            ServerPlayer player = source.getPlayer();
+            if (player == null) return true;
+            return source.getServer().getPlayerList().isOp(player.getGameProfile());
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
+        }
     }
 
     private static boolean hasAllPermissions(Object target) {
