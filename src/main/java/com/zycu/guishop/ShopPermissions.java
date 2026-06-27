@@ -3,12 +3,14 @@ package com.zycu.guishop;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.lang.reflect.Method;
+
 public final class ShopPermissions {
     private ShopPermissions() {}
 
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
         int level = GuiShop.CONFIG == null ? fallbackLevel : GuiShop.CONFIG.permissionLevel(node, fallbackLevel);
-        return source.hasPermission(level);
+        return hasPermissionLevel(source, level);
     }
 
     public static boolean check(ServerPlayer player, String node, int fallbackLevel) {
@@ -33,6 +35,21 @@ public final class ShopPermissions {
 
     public static boolean category(ServerPlayer player, String categoryId) {
         return check(player, "guishop.category." + sanitize(categoryId), 0);
+    }
+
+    private static boolean hasPermissionLevel(CommandSourceStack source, int level) {
+        if (level <= 0) return true;
+        String[] methodNames = {"hasPermission", "hasPermissionLevel"};
+        for (String methodName : methodNames) {
+            try {
+                Method method = CommandSourceStack.class.getMethod(methodName, int.class);
+                Object result = method.invoke(source, level);
+                if (result instanceof Boolean value) return value;
+            } catch (ReflectiveOperationException | LinkageError ignored) {
+                // Try the next mapped method name.
+            }
+        }
+        return false;
     }
 
     private static String sanitize(String value) {
