@@ -86,10 +86,31 @@ public final class ShopPermissions {
         try {
             ServerPlayer player = source.getPlayer();
             if (player == null) return true;
-            return source.getServer().getPlayerList().isOp(player.getGameProfile());
-        } catch (RuntimeException | LinkageError ignored) {
+
+            Object playerList = source.getServer().getPlayerList();
+            Object[] candidates = new Object[] {
+                invokeNoArg(player, "getNameAndId"),
+                invokeNoArg(player, "nameAndId"),
+                invokeNoArg(source, "getNameAndId"),
+                invokeNoArg(source, "nameAndId"),
+                player.getGameProfile()
+            };
+
+            for (Method method : playerList.getClass().getMethods()) {
+                if (!method.getName().equals("isOp") || method.getReturnType() != boolean.class) continue;
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (parameterTypes.length != 1) continue;
+
+                for (Object candidate : candidates) {
+                    if (candidate == null || !parameterTypes[0].isInstance(candidate)) continue;
+                    Object result = method.invoke(playerList, candidate);
+                    if (result instanceof Boolean allowed && allowed) return true;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             return false;
         }
+        return false;
     }
 
     private static boolean hasAllPermissions(Object target) {
@@ -126,7 +147,7 @@ public final class ShopPermissions {
     }
 
     private static Object invokeNoArg(Object target, String methodName) {
-        Class<?> type = target.getClass();
+        Class<?> type = target == null ? null : target.getClass();
         while (type != null && type != Object.class) {
             try {
                 Method method = type.getDeclaredMethod(methodName);
