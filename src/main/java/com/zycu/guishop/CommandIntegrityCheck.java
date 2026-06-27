@@ -70,11 +70,20 @@ public final class CommandIntegrityCheck {
         requirePath(root, missing, "adminshop", "import", "held");
         requirePath(root, missing, "adminshop", "import", "price");
 
+        requirePath(root, missing, "adminshop", "advanced");
+        requirePath(root, missing, "adminshop", "advanced", "item");
+        requirePath(root, missing, "adminshop", "advanced", "category");
+        requirePath(root, missing, "adminshop", "advanced", "enchant");
+        requirePath(root, missing, "adminshop", "advanced", "economy");
+        requirePath(root, missing, "adminshop", "advanced", "multiplier");
+        requirePath(root, missing, "adminshop", "advanced", "folder");
+        requirePath(root, missing, "adminshop", "advanced", "folder", "create");
+
         if (!missing.isEmpty()) {
             throw new IllegalStateException("ClassicGUIShop command registration is incomplete: " + String.join(", ", missing));
         }
 
-        System.out.println("[ClassicGUIShop] Command integrity verified: player, admin, import, economy, enchanted-book, and editor commands are registered.");
+        System.out.println("[ClassicGUIShop] Command integrity verified: player, admin, advanced admin, import, economy, enchanted-book, and editor commands are registered.");
     }
 
     private static void requireCommand(CommandNode<CommandSourceStack> root, String name, List<String> missing) {
