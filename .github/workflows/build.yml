@@ -1,5 +1,5 @@
-name: Build ClassicGUIShop v1.3.10
-run-name: ClassicGUIShop v1.3.10 - ${{ github.event_name }} - ${{ github.sha }}
+name: Build ClassicGUIShop v1.3.11
+run-name: ClassicGUIShop v1.3.11 - ${{ github.event_name }} - ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
             grep -n -C 4 -E "error:|FAILURE:|What went wrong|Execution failed" build.log || cat build.log
           else
             tail -n 40 build.log
-            test -f build/libs/ClassicGUIShop-v1.3.10.jar
+            test -f build/libs/ClassicGUIShop-v1.3.11.jar
           fi
           exit $status
 
@@ -54,8 +54,8 @@ jobs:
         with:
           name: ClassicGUIShop
           path: |
-            build/libs/ClassicGUIShop-v1.3.10.jar
-            build/libs/ClassicGUIShop-v1.3.10-sources.jar
+            build/libs/ClassicGUIShop-v1.3.11.jar
+            build/libs/ClassicGUIShop-v1.3.11-sources.jar
 
   compatibility:
     runs-on: ubuntu-latest
@@ -136,7 +136,7 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             "${{ matrix.minecraft }}" \
             server \
-            universal/ClassicGUIShop-v1.3.10.jar \
+            universal/ClassicGUIShop-v1.3.11.jar \
             0.18.3 \
             false
 
@@ -145,6 +145,7 @@ jobs:
         run: |
           chmod +x .github/scripts/boot_fabric_server.sh
           .github/scripts/boot_fabric_server.sh server server.log
+          grep -F "Command integrity verified" server/server.log
 
       - name: Upload runtime log
         if: always()
@@ -179,13 +180,13 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             26.2 \
             server-26.2 \
-            universal/ClassicGUIShop-v1.3.10.jar \
+            universal/ClassicGUIShop-v1.3.11.jar \
             0.18.3 \
             false
           python .github/scripts/setup_fabric_server.py \
             26.1.1 \
             server-26.1.1 \
-            universal/ClassicGUIShop-v1.3.10.jar \
+            universal/ClassicGUIShop-v1.3.11.jar \
             0.18.3 \
             false
           chmod +x .github/scripts/boot_fabric_server.sh
@@ -194,6 +195,7 @@ jobs:
         shell: bash
         run: |
           .github/scripts/boot_fabric_server.sh server-26.2 initial-26.2.log
+          grep -F "Command integrity verified" server-26.2/initial-26.2.log
           test -d server-26.2/config/guishop
 
       - name: Move the 26.2 configuration to 26.1.1
@@ -203,6 +205,7 @@ jobs:
           rm -rf server-26.1.1/config/guishop
           cp -a server-26.2/config/guishop server-26.1.1/config/guishop
           .github/scripts/boot_fabric_server.sh server-26.1.1 downgrade-26.1.1.log
+          grep -F "Command integrity verified" server-26.1.1/downgrade-26.1.1.log
 
           read -r parked restored <<< "$(
             sed -n 's/.*Runtime listing filter parked \([0-9][0-9]*\), restored \([0-9][0-9]*\).*/\1 \2/p' \
@@ -218,6 +221,7 @@ jobs:
           rm -rf server-26.2/config/guishop
           cp -a server-26.1.1/config/guishop server-26.2/config/guishop
           .github/scripts/boot_fabric_server.sh server-26.2 return-26.2.log
+          grep -F "Command integrity verified" server-26.2/return-26.2.log
 
           read -r parked restored <<< "$(
             sed -n 's/.*Runtime listing filter parked \([0-9][0-9]*\), restored \([0-9][0-9]*\).*/\1 \2/p' \
