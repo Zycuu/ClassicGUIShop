@@ -20,7 +20,7 @@ public final class ShopPermissions {
             StringBuilder names = new StringBuilder();
             for (Method method : PERMISSION_METHODS) {
                 if (!names.isEmpty()) names.append(", ");
-                names.append(method.getName());
+                names.append(describeMethod(method));
             }
             System.out.println("[ClassicGUIShop] Permission method candidate(s): " + names);
             return;
@@ -30,13 +30,15 @@ public final class ShopPermissions {
             StringBuilder names = new StringBuilder();
             for (Field field : PERMISSION_LEVEL_FIELDS) {
                 if (!names.isEmpty()) names.append(", ");
-                names.append(field.getName());
+                names.append(describeField(field));
             }
             System.out.println("[ClassicGUIShop] Permission level field candidate(s): " + names);
             return;
         }
 
-        System.err.println("[ClassicGUIShop] Could not find a CommandSourceStack permission accessor. Admin commands may be hidden from players.");
+        System.err.println("[ClassicGUIShop] Could not find a CommandSourceStack permission accessor. Dumping runtime shape for diagnosis.");
+        dumpClassShape(CommandSourceStack.class, "CommandSourceStack");
+        dumpClassShape(ServerPlayer.class, "ServerPlayer");
     }
 
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
@@ -120,6 +122,33 @@ public final class ShopPermissions {
             type = type.getSuperclass();
         }
         return List.copyOf(fields);
+    }
+
+    private static void dumpClassShape(Class<?> type, String label) {
+        System.err.println("[ClassicGUIShop] " + label + " runtime class: " + type.getName());
+        int methodCount = 0;
+        for (Method method : type.getDeclaredMethods()) {
+            if (methodCount++ >= 80) break;
+            System.err.println("[ClassicGUIShop] " + label + " method " + describeMethod(method));
+        }
+        int fieldCount = 0;
+        for (Field field : type.getDeclaredFields()) {
+            if (fieldCount++ >= 80) break;
+            System.err.println("[ClassicGUIShop] " + label + " field " + describeField(field));
+        }
+    }
+
+    private static String describeMethod(Method method) {
+        StringBuilder parameters = new StringBuilder();
+        for (Class<?> parameterType : method.getParameterTypes()) {
+            if (!parameters.isEmpty()) parameters.append(",");
+            parameters.append(parameterType.getName());
+        }
+        return method.getName() + "(" + parameters + "):" + method.getReturnType().getName();
+    }
+
+    private static String describeField(Field field) {
+        return field.getName() + ":" + field.getType().getName() + ":static=" + Modifier.isStatic(field.getModifiers());
     }
 
     private static String sanitize(String value) {
