@@ -3,8 +3,6 @@ package com.zycu.guishop;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.lang.reflect.Method;
-
 public final class ShopPermissions {
     private ShopPermissions() {}
 
@@ -38,18 +36,7 @@ public final class ShopPermissions {
     }
 
     private static boolean hasPermissionLevel(CommandSourceStack source, int level) {
-        if (level <= 0) return true;
-        String[] methodNames = {"hasPermission", "hasPermissionLevel"};
-        for (String methodName : methodNames) {
-            try {
-                Method method = CommandSourceStack.class.getMethod(methodName, int.class);
-                Object result = method.invoke(source, level);
-                if (result instanceof Boolean value) return value;
-            } catch (ReflectiveOperationException | LinkageError ignored) {
-                // Try the next mapped method name.
-            }
-        }
-        return false;
+        return level <= 0 || source.hasPermission(level);
     }
 
     private static String sanitize(String value) {
