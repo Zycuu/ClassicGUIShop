@@ -1,6 +1,5 @@
 package com.zycu.guishop;
 
-import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -9,12 +8,11 @@ public final class ShopPermissions {
 
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
         int level = GuiShop.CONFIG == null ? fallbackLevel : GuiShop.CONFIG.permissionLevel(node, fallbackLevel);
-        return Permissions.check(source, node, level);
+        return source.hasPermission(level);
     }
 
     public static boolean check(ServerPlayer player, String node, int fallbackLevel) {
-        int level = GuiShop.CONFIG == null ? fallbackLevel : GuiShop.CONFIG.permissionLevel(node, fallbackLevel);
-        return Permissions.check(player, node, level);
+        return check(player.createCommandSourceStack(), node, fallbackLevel);
     }
 
     public static boolean user(CommandSourceStack source, String node) {
