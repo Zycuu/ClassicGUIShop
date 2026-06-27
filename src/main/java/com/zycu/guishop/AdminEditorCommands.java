@@ -36,7 +36,7 @@ public final class AdminEditorCommands {
                         .then(Commands.argument("name", StringArgumentType.greedyString())
                             .executes(AdminEditorCommands::createFolder))))));
 
-        dispatcher.register(Commands.literal("adminshop")
+        LiteralArgumentBuilder<CommandSourceStack> admin = Commands.literal("adminshop")
             .requires(source -> ShopPermissions.admin(source, "root"))
             .executes(AdminEditorCommands::openEditor)
             .then(Commands.literal("edit")
@@ -46,8 +46,17 @@ public final class AdminEditorCommands {
             .then(advanced)
             .then(Commands.literal("reload")
                 .requires(source -> ShopPermissions.admin(source, "reload"))
-                .executes(AdminEditorCommands::reload))
-        );
+                .executes(AdminEditorCommands::reload));
+
+        redirectExisting(admin, existingAdmin, "item");
+        redirectExisting(admin, existingAdmin, "category");
+        redirectExisting(admin, existingAdmin, "enchant");
+        redirectExisting(admin, existingAdmin, "economy");
+        redirectExisting(admin, existingAdmin, "multiplier");
+        redirectExisting(admin, existingAdmin, "import");
+
+        CommandTreeCleanup.removeRoot(dispatcher, "adminshop");
+        dispatcher.register(admin);
 
         dispatcher.register(Commands.literal("shop")
             .requires(source -> ShopPermissions.user(source, "guishop.command.shop"))
@@ -61,13 +70,13 @@ public final class AdminEditorCommands {
     }
 
     private static void redirectExisting(
-        LiteralArgumentBuilder<CommandSourceStack> advanced,
+        LiteralArgumentBuilder<CommandSourceStack> builder,
         CommandNode<CommandSourceStack> adminRoot,
         String childName
     ) {
         if (adminRoot == null) return;
         CommandNode<CommandSourceStack> target = adminRoot.getChild(childName);
-        if (target != null) advanced.then(Commands.literal(childName).redirect(target));
+        if (target != null) builder.then(Commands.literal(childName).redirect(target));
     }
 
     public static int advancedHelp(CommandContext<CommandSourceStack> context) {
