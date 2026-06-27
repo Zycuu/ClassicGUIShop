@@ -238,7 +238,36 @@ public final class EnchantmentShopService {
 
     private static ShopGui.Mode rememberedMode(ServerPlayer player) {
         if (player == null) return ShopGui.Mode.BUY;
-        return PLAYER_MODES.getOrDefault(player.getUUID(), ShopGui.Mode.BUY);
+        ShopGui.Mode visible = visibleShopMode(player);
+        if (visible != null) {
+            PLAYER_MODES.put(player.getUUID(), visible);
+            return visible;
+        }
+        ShopGui.Mode remembered = PLAYER_MODES.get(player.getUUID());
+        if (remembered != null) return remembered;
+        if (ShopService.canUseMode(player, ShopGui.Mode.SELL) && !ShopService.canUseMode(player, ShopGui.Mode.BUY)) {
+            return ShopGui.Mode.SELL;
+        }
+        return ShopGui.Mode.BUY;
+    }
+
+    private static ShopGui.Mode visibleShopMode(ServerPlayer player) {
+        String info = slotName(player, 49);
+        String toggle = slotName(player, 53);
+        if (info.contains("| Sell |") || toggle.contains("Switch to Buy")) return ShopGui.Mode.SELL;
+        if (info.contains("| Buy |") || toggle.contains("Switch to Sell")) return ShopGui.Mode.BUY;
+        return null;
+    }
+
+    private static String slotName(ServerPlayer player, int slot) {
+        try {
+            if (player == null || player.containerMenu == null) return "";
+            ItemStack stack = player.containerMenu.getSlot(slot).getItem();
+            if (stack == null || stack.isEmpty()) return "";
+            return stack.getHoverName().getString();
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private static ResolvedOffer resolve(ServerPlayer player, String enchantmentId) {
