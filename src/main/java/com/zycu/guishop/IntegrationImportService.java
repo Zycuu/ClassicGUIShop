@@ -139,18 +139,14 @@ public final class IntegrationImportService {
         return new ImportResult(normalized, category.id, imported, existing, 0);
     }
 
-    public static void logStartupWarning(MinecraftServer server) {
+    public static void logImportReminder(MinecraftServer server) {
+        if (!ImportReminderConsoleConfig.importReminderInConsole()) return;
+
         IntegrationScan scan = scan(server);
         if (!scan.hasExternalContent()) return;
 
-        System.out.println("[ClassicGUIShop] External mod or data-pack content detected.");
-        if (!scan.itemNamespaces().isEmpty()) {
-            System.out.println("[ClassicGUIShop] Importable item namespaces: " + String.join(", ", scan.itemNamespaces()));
-        }
-        if (!scan.dataPacks().isEmpty()) {
-            System.out.println("[ClassicGUIShop] Enabled non-vanilla data packs: " + String.join(", ", scan.dataPacks()));
-        }
-        System.out.println("[ClassicGUIShop] External items are never assigned automatic prices. Run /adminshop import scan for details.");
+        System.out.println("[ShopGUI] External mod or data-pack content is installed. Imported items are not automatically priced.");
+        System.out.println("[ShopGUI] Run /adminshop edit to browse every imported listing, including hidden items.");
     }
 
     private static ShopConfig.Category ensureCategory(String categoryId, String displayName, String icon) {

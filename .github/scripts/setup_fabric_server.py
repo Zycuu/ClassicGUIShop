@@ -31,13 +31,33 @@ def fabric_api_version(minecraft_version: str) -> str:
     return versions[-1]
 
 
+def selected_loader_version(minecraft_version: str, requested: str | None) -> str:
+    if requested:
+        return requested
+
+    loaders = read_json(f"https://meta.fabricmc.net/v2/versions/loader/{minecraft_version}")
+    if not loaders:
+        raise RuntimeError(f"No Fabric Loader release found for Minecraft {minecraft_version}")
+    loader_entry = next(
+        (entry for entry in loaders if entry.get("loader", {}).get("stable")),
+        loaders[0],
+    )
+    return loader_entry["loader"]["version"]
+
+
 def main() -> None:
-    if len(sys.argv) != 4:
-        raise SystemExit("Usage: setup_fabric_server.py <minecraft-version> <server-directory> <universal-jar>")
+    if len(sys.argv) not in (4, 6):
+        raise SystemExit(
+            "Usage: setup_fabric_server.py <minecraft-version> <server-directory> <universal-jar> "
+            "[<loader-version> <install-fabric-api:true|false>]"
+        )
 
     minecraft_version = sys.argv[1]
     server_directory = Path(sys.argv[2]).resolve()
     universal_jar = Path(sys.argv[3]).resolve()
+    requested_loader = sys.argv[4] if len(sys.argv) == 6 else None
+    install_fabric_api = sys.argv[5].lower() == "true" if len(sys.argv) == 6 else True
+
     if not universal_jar.is_file():
         raise FileNotFoundError(universal_jar)
 
@@ -47,25 +67,19 @@ def main() -> None:
 
     installers = read_json("https://meta.fabricmc.net/v2/versions/installer")
     installer = next((entry for entry in installers if entry.get("stable")), installers[0])
-
-    loaders = read_json(f"https://meta.fabricmc.net/v2/versions/loader/{minecraft_version}")
-    if not loaders:
-        raise RuntimeError(f"No Fabric Loader release found for Minecraft {minecraft_version}")
-    loader_entry = next(
-        (entry for entry in loaders if entry.get("loader", {}).get("stable")),
-        loaders[0],
-    )
-    loader_version = loader_entry["loader"]["version"]
-    api_version = fabric_api_version(minecraft_version)
+    loader_version = selected_loader_version(minecraft_version, requested_loader)
 
     installer_path = server_directory / "fabric-installer.jar"
     urllib.request.urlretrieve(installer["url"], installer_path)
 
-    api_url = (
-        "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/"
-        f"{api_version}/fabric-api-{api_version}.jar"
-    )
-    urllib.request.urlretrieve(api_url, mods_directory / "fabric-api.jar")
+    api_version = None
+    if install_fabric_api:
+        api_version = fabric_api_version(minecraft_version)
+        api_url = (
+            "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/"
+            f"{api_version}/fabric-api-{api_version}.jar"
+        )
+        urllib.request.urlretrieve(api_url, mods_directory / "fabric-api.jar")
 
     subprocess.run(
         [
@@ -90,9 +104,10 @@ def main() -> None:
     shutil.copy2(universal_jar, mods_directory / universal_jar.name)
     (server_directory / "eula.txt").write_text("eula=true\n", encoding="utf-8")
 
+    api_label = api_version if api_version else "not installed"
     print(
         f"Prepared Minecraft {minecraft_version}; Fabric Loader {loader_version}; "
-        f"Installer {installer['version']}; Fabric API {api_version}"
+        f"Installer {installer['version']}; Fabric API {api_label}"
     )
 
 
