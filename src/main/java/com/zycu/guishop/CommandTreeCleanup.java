@@ -24,6 +24,10 @@ public final class CommandTreeCleanup {
         removeChild(imports, "preview");
     }
 
+    public static void removeRoot(CommandDispatcher<CommandSourceStack> dispatcher, String childName) {
+        removeChild(dispatcher.getRoot(), childName);
+    }
+
     private static void removeChild(CommandNode<CommandSourceStack> parent, String childName) {
         if (parent == null) return;
 
