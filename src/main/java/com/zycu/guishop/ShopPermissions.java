@@ -40,6 +40,7 @@ public final class ShopPermissions {
         dumpClassShape(CommandSourceStack.class, "CommandSourceStack");
         dumpClassShape(ServerPlayer.class, "ServerPlayer");
         dumpClassByName("net.minecraft.server.permissions.PermissionSet", "PermissionSet");
+        dumpClassByName("net.minecraft.server.permissions.Permission", "Permission");
     }
 
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
