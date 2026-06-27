@@ -69,5 +69,6 @@ public final class GuiShop implements ModInitializer {
         });
 
         System.out.println("[ShopGUI] Shop is now open!");
+        System.out.println("[ClassicGUIShop] Initialized with " + CONFIG.categories.size() + " categories.");
     }
 }
