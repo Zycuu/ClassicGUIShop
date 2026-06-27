@@ -36,9 +36,10 @@ public final class ShopPermissions {
             return;
         }
 
-        System.err.println("[ClassicGUIShop] Could not find a CommandSourceStack permission accessor. Dumping runtime shape for diagnosis.");
+        System.err.println("[ClassicGUIShop] Could not find old-style CommandSourceStack permission accessor. Dumping runtime shape for diagnosis.");
         dumpClassShape(CommandSourceStack.class, "CommandSourceStack");
         dumpClassShape(ServerPlayer.class, "ServerPlayer");
+        dumpClassByName("net.minecraft.server.permissions.PermissionSet", "PermissionSet");
     }
 
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
@@ -124,16 +125,24 @@ public final class ShopPermissions {
         return List.copyOf(fields);
     }
 
+    private static void dumpClassByName(String className, String label) {
+        try {
+            dumpClassShape(Class.forName(className), label);
+        } catch (ReflectiveOperationException | LinkageError error) {
+            System.err.println("[ClassicGUIShop] Could not inspect " + className + ": " + error.getClass().getSimpleName() + " " + error.getMessage());
+        }
+    }
+
     private static void dumpClassShape(Class<?> type, String label) {
         System.err.println("[ClassicGUIShop] " + label + " runtime class: " + type.getName());
         int methodCount = 0;
         for (Method method : type.getDeclaredMethods()) {
-            if (methodCount++ >= 80) break;
+            if (methodCount++ >= 100) break;
             System.err.println("[ClassicGUIShop] " + label + " method " + describeMethod(method));
         }
         int fieldCount = 0;
         for (Field field : type.getDeclaredFields()) {
-            if (fieldCount++ >= 80) break;
+            if (fieldCount++ >= 100) break;
             System.err.println("[ClassicGUIShop] " + label + " field " + describeField(field));
         }
     }
