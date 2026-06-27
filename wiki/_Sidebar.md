@@ -1,0 +1,15 @@
+# ClassicGUIShop Wiki
+
+- [Home](Home.md)
+- [Installation](Installation.md)
+- [Quick Start](Quick-Start.md)
+- [Player Guide](Player-Guide.md)
+- [Admin Guide](Admin-Guide.md)
+- [Command Reference](Command-Reference.md)
+- [Shop Folders](Shop-Folders.md)
+- [Imports: Mods and Data Packs](Imports-Mods-and-Data-Packs.md)
+- [Economy and Pricing](Economy-and-Pricing.md)
+- [Permissions](Permissions.md)
+- [Configuration Files](Configuration-Files.md)
+- [Troubleshooting](Troubleshooting.md)
+- [Public Release Checklist](Public-Release-Checklist.md)

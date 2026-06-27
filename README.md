@@ -4,6 +4,17 @@ A server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.2.x, inspired
 
 Clients do not need the mod. ClassicGUIShop uses vanilla chest and anvil menus and includes its own persistent economy.
 
+## Documentation
+
+The repository wiki pages are stored in [`wiki/`](wiki/Home.md):
+
+- [Installation](wiki/Installation.md)
+- [Quick Start](wiki/Quick-Start.md)
+- [Player Guide](wiki/Player-Guide.md)
+- [Admin Guide](wiki/Admin-Guide.md)
+- [Command Reference](wiki/Command-Reference.md)
+- [Troubleshooting](wiki/Troubleshooting.md)
+
 ## Features
 
 - Buy and sell shops through `/shop`.
