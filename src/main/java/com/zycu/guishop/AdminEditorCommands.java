@@ -17,14 +17,19 @@ public final class AdminEditorCommands {
     public static int advancedHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         ShopMessages.admin(source, "/adminshop | Open the classic visual editor", false);
+        ShopMessages.admin(source, "/adminshop edit | Open the classic visual editor", false);
         ShopMessages.admin(source, "/adminshop reload | Reload configuration and folders", false);
         ShopMessages.admin(source, "/adminshop import | Import external content", false);
         ShopMessages.admin(source,
-            "/adminshop item|category|enchant|economy|multiplier | Advanced text admin commands", false);
+            "/adminshop <item|category|enchant|economy|multiplier> | Text admin commands", false);
+        ShopMessages.admin(source,
+            "/adminshop advanced <item|category|folder|enchant|economy|multiplier>", false);
+        ShopMessages.admin(source,
+            "/adminshop advanced folder create <category> <icon> <display name>", false);
         return 1;
     }
 
-    private static int createFolder(CommandContext<CommandSourceStack> context) {
+    public static int createFolder(CommandContext<CommandSourceStack> context) {
         String categoryId = StringArgumentType.getString(context, "category");
         String icon = StringArgumentType.getString(context, "icon");
         String name = StringArgumentType.getString(context, "name").trim();
