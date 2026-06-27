@@ -36,6 +36,7 @@ public final class HybridShopGui {
         GuiShop.PLAYERS.remember(player);
         ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
         if (mode == null) return;
+        EnchantmentShopService.rememberMode(player, mode);
 
         List<MenuButton> buttons = new ArrayList<>();
         for (ShopConfig.Category category : GuiShop.CONFIG.categories) {
@@ -48,7 +49,7 @@ public final class HybridShopGui {
         if (GuiShop.CONFIG.enchantmentsEnabled() && ShopPermissions.user(player, "guishop.enchant")) {
             buttons.add(new MenuButton(
                 displayStack("minecraft:enchanted_book", "Enchanted Books"),
-                () -> openEnchantments(player, 1)
+                () -> openEnchantments(player, mode, 1)
             ));
         }
 
@@ -109,6 +110,7 @@ public final class HybridShopGui {
 
         ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
         if (mode == null) return;
+        EnchantmentShopService.rememberMode(player, mode);
         openItemScreen(
             player,
             category.name,
@@ -129,6 +131,7 @@ public final class HybridShopGui {
         ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
         ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
         if (mode == null || category == null) return;
+        EnchantmentShopService.rememberMode(player, mode);
 
         PageSession session = new PageSession(
             player,
@@ -192,6 +195,7 @@ public final class HybridShopGui {
         ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
         ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
         if (mode == null || category == null) return;
+        EnchantmentShopService.rememberMode(player, mode);
 
         List<ShopConfig.ShopItem> items = new ArrayList<>();
         for (ShopConfig.ShopItem item : category.items) {
@@ -219,6 +223,7 @@ public final class HybridShopGui {
         ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
         ShopConfig.Category category = GuiShop.CONFIG.category("colored_blocks");
         if (mode == null || category == null) return;
+        EnchantmentShopService.rememberMode(player, mode);
 
         PageSession session = new PageSession(
             player,
@@ -267,6 +272,7 @@ public final class HybridShopGui {
     ) {
         ShopConfig.Category category = GuiShop.CONFIG.category("colored_blocks");
         if (category == null) return;
+        EnchantmentShopService.rememberMode(player, mode);
         ColoredBlockGroups.Group group = ColoredBlockGroups.byId(groupId);
         List<ShopConfig.ShopItem> items = new ArrayList<>();
         for (ShopConfig.ShopItem item : category.items) {
@@ -296,6 +302,7 @@ public final class HybridShopGui {
         GuiAction backAction,
         ModeAction modeAction
     ) {
+        EnchantmentShopService.rememberMode(player, mode);
         PageSession session = new PageSession(
             player,
             Component.literal(title + " - " + modeName(mode)),
@@ -342,19 +349,32 @@ public final class HybridShopGui {
     }
 
     public static void openEnchantments(ServerPlayer player, int requestedPage) {
+        openEnchantments(player, ShopGui.Mode.BUY, requestedPage);
+    }
+
+    public static void openEnchantments(
+        ServerPlayer player,
+        ShopGui.Mode requestedMode,
+        int requestedPage
+    ) {
         if (!GuiShop.CONFIG.enchantmentsEnabled() || !ShopPermissions.user(player, "guishop.enchant")) {
             ShopMessages.warning(player, "The enchanted book shop is unavailable.");
             return;
         }
 
+        ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
+        if (mode == null) return;
+        EnchantmentShopService.rememberMode(player, mode);
+
         PageSession session = new PageSession(
             player,
-            Component.literal("Enchanted Books"),
+            Component.literal("Enchanted Books - " + modeName(mode)),
             (screen, requested) -> {
                 List<EnchantmentShopService.EnchantmentView> enchantments =
-                    EnchantmentShopService.availableEnchantments(player);
+                    EnchantmentShopService.availableEnchantments(player, mode);
                 if (enchantments.isEmpty()) {
-                    ShopMessages.warning(player, "No enchanted books are currently available.");
+                    ShopMessages.warning(player, "No enchanted books are currently available for "
+                        + modeName(mode).toLowerCase() + ".");
                     return;
                 }
 
@@ -372,16 +392,24 @@ public final class HybridShopGui {
                         : GuiShop.CONFIG.money(enchantment.firstLevelCost()) + " - "
                             + GuiShop.CONFIG.money(enchantment.maximumLevelCost());
                     icon.set(DataComponents.CUSTOM_NAME,
-                        Component.literal(enchantment.displayName() + " | Levels 1-"
+                        Component.literal(enchantment.displayName() + " | " + modeName(mode) + " levels 1-"
                             + enchantment.maxLevel() + " | " + range));
                     screen.bind(slot, icon, false,
-                        ignored -> openEnchantmentLevels(player, enchantment.enchantmentId(), 1, page));
+                        ignored -> openEnchantmentLevels(player, mode, enchantment.enchantmentId(), 1, page));
                 }
                 screen.bind(BACK_SLOT, displayStack("minecraft:barrier", "Back to Shop"), false,
-                    ignored -> openCategories(player, ShopGui.Mode.BUY));
+                    ignored -> openCategories(player, mode));
                 screen.pageControls(page, pages,
-                    "Page " + page + "/" + pages + " | Balance " + money(player),
+                    modeName(mode) + " | Page " + page + "/" + pages + " | Balance " + money(player),
                     target -> screen.show(target));
+                if (ShopService.canUseMode(player, mode.opposite())) {
+                    screen.bind(MODE_SLOT,
+                        displayStack(mode == ShopGui.Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald",
+                            "Switch to " + modeName(mode.opposite())),
+                        false,
+                        ignored -> openEnchantments(player, mode.opposite(), 1)
+                    );
+                }
                 screen.finish();
             }
         );
@@ -390,26 +418,28 @@ public final class HybridShopGui {
 
     private static void openEnchantmentLevels(
         ServerPlayer player,
+        ShopGui.Mode mode,
         String enchantmentId,
         int requestedPage,
         int parentPage
     ) {
+        EnchantmentShopService.rememberMode(player, mode);
         List<EnchantmentShopService.OfferView> initial =
-            EnchantmentShopService.availableLevels(player, enchantmentId);
+            EnchantmentShopService.availableLevels(player, enchantmentId, mode);
         if (initial.isEmpty()) {
-            openEnchantments(player, parentPage);
+            openEnchantments(player, mode, parentPage);
             return;
         }
-        String title = initial.get(0).displayName() + " Levels";
+        String title = initial.get(0).displayName() + " Levels - " + modeName(mode);
 
         PageSession session = new PageSession(
             player,
             Component.literal(title),
             (screen, requested) -> {
                 List<EnchantmentShopService.OfferView> offers =
-                    EnchantmentShopService.availableLevels(player, enchantmentId);
+                    EnchantmentShopService.availableLevels(player, enchantmentId, mode);
                 if (offers.isEmpty()) {
-                    openEnchantments(player, parentPage);
+                    openEnchantments(player, mode, parentPage);
                     return;
                 }
 
@@ -425,22 +455,40 @@ public final class HybridShopGui {
                     icon.set(DataComponents.CUSTOM_NAME,
                         Component.literal(offer.displayName() + " "
                             + EnchantmentShopService.roman(offer.targetLevel()) + " | "
-                            + GuiShop.CONFIG.money(offer.cost())));
-                    screen.bind(slot, icon, false, ignored -> {
-                        if (EnchantmentShopService.purchase(
-                            player,
-                            offer.enchantmentId(),
-                            offer.targetLevel()
-                        )) {
-                            screen.show(page);
+                            + modeName(mode) + " " + GuiShop.CONFIG.money(offer.cost())));
+                    screen.bind(slot, icon, mode == ShopGui.Mode.SELL, quantity -> {
+                        boolean success;
+                        if (mode == ShopGui.Mode.SELL) {
+                            int requestedAmount = quantity == 64 ? ShopService.SELL_ALL : 1;
+                            success = EnchantmentShopService.sell(
+                                player,
+                                offer.enchantmentId(),
+                                offer.targetLevel(),
+                                requestedAmount
+                            );
+                        } else {
+                            success = EnchantmentShopService.purchase(
+                                player,
+                                offer.enchantmentId(),
+                                offer.targetLevel()
+                            );
                         }
+                        if (success) screen.show(page);
                     });
                 }
                 screen.bind(BACK_SLOT, displayStack("minecraft:barrier", "Back to Enchantments"), false,
-                    ignored -> openEnchantments(player, parentPage));
+                    ignored -> openEnchantments(player, mode, parentPage));
                 screen.pageControls(page, pages,
-                    "Page " + page + "/" + pages + " | Balance " + money(player),
+                    modeName(mode) + " | Page " + page + "/" + pages + " | Balance " + money(player),
                     target -> screen.show(target));
+                if (ShopService.canUseMode(player, mode.opposite())) {
+                    screen.bind(MODE_SLOT,
+                        displayStack(mode == ShopGui.Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald",
+                            "Switch to " + modeName(mode.opposite())),
+                        false,
+                        ignored -> openEnchantmentLevels(player, mode.opposite(), enchantmentId, 1, parentPage)
+                    );
+                }
                 screen.finish();
             }
         );
