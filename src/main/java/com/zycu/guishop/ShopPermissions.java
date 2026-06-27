@@ -81,14 +81,20 @@ public final class ShopPermissions {
         if (player != null && hasAllPermissions(player)) return true;
         if (player == null) return true;
 
-        if (hasLegacyPermissionLevel(source, level)) return true;
-        return hasLevelObject(source, level);
+        return hasLegacyPermissionLevel(source, level);
     }
 
     private static boolean hasAllPermissions(Object target) {
         if (ALL_PERMISSIONS == null || target == null) return false;
         Object permissions = invokeNoArg(target, "permissions");
-        return permissions == ALL_PERMISSIONS || ALL_PERMISSIONS.equals(permissions);
+        if (permissions == ALL_PERMISSIONS || ALL_PERMISSIONS.equals(permissions)) return true;
+
+        Object levels = invokeNoArg(target, "levels");
+        if (!(levels instanceof Collection<?> collection)) return false;
+        for (Object entry : collection) {
+            if (entry == ALL_PERMISSIONS || ALL_PERMISSIONS.equals(entry)) return true;
+        }
+        return false;
     }
 
     private static boolean hasLegacyPermissionLevel(CommandSourceStack source, int level) {
@@ -109,30 +115,6 @@ public final class ShopPermissions {
             }
         }
         return false;
-    }
-
-    private static boolean hasLevelObject(CommandSourceStack source, int level) {
-        Object value = invokeNoArg(source, "levels");
-        if (!(value instanceof Collection<?> collection)) return false;
-
-        for (Object entry : collection) {
-            Integer parsed = parsePermissionLevel(entry);
-            if (parsed != null && parsed >= level) return true;
-        }
-        return false;
-    }
-
-    private static Integer parsePermissionLevel(Object entry) {
-        if (entry == null) return null;
-        if (entry instanceof Number number) return number.intValue();
-
-        String text = String.valueOf(entry).toLowerCase(Locale.ROOT);
-        int best = -1;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c >= '0' && c <= '4') best = Math.max(best, c - '0');
-        }
-        return best >= 0 ? best : null;
     }
 
     private static Object invokeNoArg(Object target, String methodName) {
