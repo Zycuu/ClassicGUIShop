@@ -11,7 +11,7 @@
     "main": ["com.zycu.guishop.GuiShop"]
   },
   "depends": {
-    "fabricloader": ">=0.19.3",
+    "fabricloader": ">=0.18.3",
     "minecraft": "${minecraft_range}",
     "java": ">=25",
     "fabric-api": "*",
