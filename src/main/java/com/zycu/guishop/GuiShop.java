@@ -32,6 +32,7 @@ public final class GuiShop implements ModInitializer {
     }
 
     public static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        ShopPermissions.logPermissionAccessors();
         ShopCommands.register(dispatcher);
         EconomyCommands.register(dispatcher);
         IntegrationCommands.register(dispatcher);
