@@ -36,6 +36,7 @@ public final class GuiShop implements ModInitializer {
         EconomyCommands.register(dispatcher);
         IntegrationCommands.register(dispatcher);
         AdminEditorCommands.register(dispatcher);
+        System.out.println("[ClassicGUIShop] Registered /adminshop visual editor command.");
     }
 
     public static void onServerTick(MinecraftServer server) {
