@@ -1,5 +1,5 @@
-name: Build ClassicGUIShop v1.3.8
-run-name: ClassicGUIShop v1.3.8 - ${{ github.event_name }} - ${{ github.sha }}
+name: Build ClassicGUIShop v1.3.9
+run-name: ClassicGUIShop v1.3.9 - ${{ github.event_name }} - ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
             grep -n -C 4 -E "error:|FAILURE:|What went wrong|Execution failed" build.log || cat build.log
           else
             tail -n 40 build.log
-            test -f build/libs/ClassicGUIShop-v1.3.8.jar
+            test -f build/libs/ClassicGUIShop-v1.3.9.jar
           fi
           exit $status
 
@@ -54,8 +54,8 @@ jobs:
         with:
           name: ClassicGUIShop
           path: |
-            build/libs/ClassicGUIShop-v1.3.8.jar
-            build/libs/ClassicGUIShop-v1.3.8-sources.jar
+            build/libs/ClassicGUIShop-v1.3.9.jar
+            build/libs/ClassicGUIShop-v1.3.9-sources.jar
 
   compatibility:
     runs-on: ubuntu-latest
@@ -136,7 +136,7 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             "${{ matrix.minecraft }}" \
             server \
-            universal/ClassicGUIShop-v1.3.8.jar \
+            universal/ClassicGUIShop-v1.3.9.jar \
             0.18.3 \
             false
 
@@ -179,13 +179,13 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             26.2 \
             server-26.2 \
-            universal/ClassicGUIShop-v1.3.8.jar \
+            universal/ClassicGUIShop-v1.3.9.jar \
             0.18.3 \
             false
           python .github/scripts/setup_fabric_server.py \
             26.1.1 \
             server-26.1.1 \
-            universal/ClassicGUIShop-v1.3.8.jar \
+            universal/ClassicGUIShop-v1.3.9.jar \
             0.18.3 \
             false
           chmod +x .github/scripts/boot_fabric_server.sh
