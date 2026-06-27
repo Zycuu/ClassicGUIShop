@@ -7,40 +7,34 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 
 public final class ShopPermissions {
-    private static final List<Method> PERMISSION_METHODS = findPermissionMethods();
-    private static final List<Field> PERMISSION_LEVEL_FIELDS = findPermissionLevelFields();
+    private static final List<Method> LEGACY_PERMISSION_METHODS = findLegacyPermissionMethods();
+    private static final List<Field> LEGACY_PERMISSION_LEVEL_FIELDS = findLegacyPermissionLevelFields();
+    private static final Object ALL_PERMISSIONS = findStaticFieldValue(
+        "net.minecraft.server.permissions.PermissionSet",
+        "ALL_PERMISSIONS"
+    );
 
     private ShopPermissions() {}
 
     public static void logPermissionAccessors() {
-        if (!PERMISSION_METHODS.isEmpty()) {
-            StringBuilder names = new StringBuilder();
-            for (Method method : PERMISSION_METHODS) {
-                if (!names.isEmpty()) names.append(", ");
-                names.append(describeMethod(method));
-            }
-            System.out.println("[ClassicGUIShop] Permission method candidate(s): " + names);
+        if (ALL_PERMISSIONS != null) {
+            System.out.println("[ClassicGUIShop] Permission model detected: Minecraft PermissionSet.ALL_PERMISSIONS.");
             return;
         }
-
-        if (!PERMISSION_LEVEL_FIELDS.isEmpty()) {
-            StringBuilder names = new StringBuilder();
-            for (Field field : PERMISSION_LEVEL_FIELDS) {
-                if (!names.isEmpty()) names.append(", ");
-                names.append(describeField(field));
-            }
-            System.out.println("[ClassicGUIShop] Permission level field candidate(s): " + names);
+        if (!LEGACY_PERMISSION_METHODS.isEmpty()) {
+            System.out.println("[ClassicGUIShop] Permission model detected: legacy CommandSourceStack boolean(int) method.");
             return;
         }
-
-        System.err.println("[ClassicGUIShop] Could not find old-style CommandSourceStack permission accessor. Dumping runtime shape for diagnosis.");
-        dumpClassShape(CommandSourceStack.class, "CommandSourceStack");
-        dumpClassShape(ServerPlayer.class, "ServerPlayer");
-        dumpClassByName("net.minecraft.server.permissions.PermissionSet", "PermissionSet");
-        dumpClassByName("net.minecraft.server.permissions.Permission", "Permission");
+        if (!LEGACY_PERMISSION_LEVEL_FIELDS.isEmpty()) {
+            System.out.println("[ClassicGUIShop] Permission model detected: legacy CommandSourceStack int permission field.");
+            return;
+        }
+        System.err.println("[ClassicGUIShop] Could not detect a permission model. Admin commands may be hidden from players.");
     }
 
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
@@ -75,7 +69,30 @@ public final class ShopPermissions {
     private static boolean hasPermissionLevel(CommandSourceStack source, int level) {
         if (level <= 0) return true;
 
-        for (Method method : PERMISSION_METHODS) {
+        if (hasAllPermissions(source)) return true;
+
+        ServerPlayer player = null;
+        try {
+            player = source.getPlayer();
+        } catch (RuntimeException ignored) {
+            // Older mappings may throw for non-player sources. Non-player command sources are handled below.
+        }
+
+        if (player != null && hasAllPermissions(player)) return true;
+        if (player == null) return true;
+
+        if (hasLegacyPermissionLevel(source, level)) return true;
+        return hasLevelObject(source, level);
+    }
+
+    private static boolean hasAllPermissions(Object target) {
+        if (ALL_PERMISSIONS == null || target == null) return false;
+        Object permissions = invokeNoArg(target, "permissions");
+        return permissions == ALL_PERMISSIONS || ALL_PERMISSIONS.equals(permissions);
+    }
+
+    private static boolean hasLegacyPermissionLevel(CommandSourceStack source, int level) {
+        for (Method method : LEGACY_PERMISSION_METHODS) {
             try {
                 Object result = method.invoke(source, level);
                 if (result instanceof Boolean value && value) return true;
@@ -84,18 +101,57 @@ public final class ShopPermissions {
             }
         }
 
-        for (Field field : PERMISSION_LEVEL_FIELDS) {
+        for (Field field : LEGACY_PERMISSION_LEVEL_FIELDS) {
             try {
                 if (field.getInt(source) >= level) return true;
             } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 // Try the next int field candidate.
             }
         }
-
         return false;
     }
 
-    private static List<Method> findPermissionMethods() {
+    private static boolean hasLevelObject(CommandSourceStack source, int level) {
+        Object value = invokeNoArg(source, "levels");
+        if (!(value instanceof Collection<?> collection)) return false;
+
+        for (Object entry : collection) {
+            Integer parsed = parsePermissionLevel(entry);
+            if (parsed != null && parsed >= level) return true;
+        }
+        return false;
+    }
+
+    private static Integer parsePermissionLevel(Object entry) {
+        if (entry == null) return null;
+        if (entry instanceof Number number) return number.intValue();
+
+        String text = String.valueOf(entry).toLowerCase(Locale.ROOT);
+        int best = -1;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c >= '0' && c <= '4') best = Math.max(best, c - '0');
+        }
+        return best >= 0 ? best : null;
+    }
+
+    private static Object invokeNoArg(Object target, String methodName) {
+        Class<?> type = target.getClass();
+        while (type != null && type != Object.class) {
+            try {
+                Method method = type.getDeclaredMethod(methodName);
+                method.setAccessible(true);
+                return method.invoke(target);
+            } catch (NoSuchMethodException ignored) {
+                type = type.getSuperclass();
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static List<Method> findLegacyPermissionMethods() {
         List<Method> methods = new ArrayList<>();
         Class<?> type = CommandSourceStack.class;
         while (type != null && type != Object.class) {
@@ -111,7 +167,7 @@ public final class ShopPermissions {
         return List.copyOf(methods);
     }
 
-    private static List<Field> findPermissionLevelFields() {
+    private static List<Field> findLegacyPermissionLevelFields() {
         List<Field> fields = new ArrayList<>();
         Class<?> type = CommandSourceStack.class;
         while (type != null && type != Object.class) {
@@ -126,42 +182,18 @@ public final class ShopPermissions {
         return List.copyOf(fields);
     }
 
-    private static void dumpClassByName(String className, String label) {
+    private static Object findStaticFieldValue(String className, String fieldName) {
         try {
-            dumpClassShape(Class.forName(className), label);
-        } catch (ReflectiveOperationException | LinkageError error) {
-            System.err.println("[ClassicGUIShop] Could not inspect " + className + ": " + error.getClass().getSimpleName() + " " + error.getMessage());
+            Class<?> type = Class.forName(className);
+            Field field = type.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(null);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
         }
-    }
-
-    private static void dumpClassShape(Class<?> type, String label) {
-        System.err.println("[ClassicGUIShop] " + label + " runtime class: " + type.getName());
-        int methodCount = 0;
-        for (Method method : type.getDeclaredMethods()) {
-            if (methodCount++ >= 100) break;
-            System.err.println("[ClassicGUIShop] " + label + " method " + describeMethod(method));
-        }
-        int fieldCount = 0;
-        for (Field field : type.getDeclaredFields()) {
-            if (fieldCount++ >= 100) break;
-            System.err.println("[ClassicGUIShop] " + label + " field " + describeField(field));
-        }
-    }
-
-    private static String describeMethod(Method method) {
-        StringBuilder parameters = new StringBuilder();
-        for (Class<?> parameterType : method.getParameterTypes()) {
-            if (!parameters.isEmpty()) parameters.append(",");
-            parameters.append(parameterType.getName());
-        }
-        return method.getName() + "(" + parameters + "):" + method.getReturnType().getName();
-    }
-
-    private static String describeField(Field field) {
-        return field.getName() + ":" + field.getType().getName() + ":static=" + Modifier.isStatic(field.getModifiers());
     }
 
     private static String sanitize(String value) {
-        return value.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_.-]", "_");
+        return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_.-]", "_");
     }
 }
