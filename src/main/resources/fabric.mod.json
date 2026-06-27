@@ -10,13 +10,16 @@
   "entrypoints": {
     "main": ["com.zycu.guishop.GuiShop"]
   },
+  "mixins": [
+    "guishop.mixins.json"
+  ],
   "depends": {
-    "fabricloader": ">=0.18.4",
+    "fabricloader": ">=0.18.3",
     "minecraft": "${minecraft_range}",
-    "java": ">=25",
-    "fabric-api": "*"
+    "java": ">=25"
   },
   "suggests": {
+    "fabric-api": "*",
     "fabric-permissions-api-v0": "*"
   }
 }
