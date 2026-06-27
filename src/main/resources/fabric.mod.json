@@ -21,5 +21,8 @@
   "suggests": {
     "fabric-api": "*",
     "fabric-permissions-api-v0": "*"
+  },
+  "breaks": {
+    "fabric-api": "0.153.0+26.2"
   }
 }
