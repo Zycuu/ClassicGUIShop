@@ -1,55 +1,24 @@
 # ClassicGUIShop Wiki
 
-ClassicGUIShop is a server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.3.x. It is inspired by the original Bukkit GUIShop plugin while adding a persistent economy, visual administration, exact item support, folders, imports, and version-safe catalog handling.
+This documentation describes **1.4.0-dev.1**, the stripped development base for rebuilding ClassicGUIShop 1.4.0.
 
-Clients do not need to install ClassicGUIShop. The mod uses vanilla Minecraft chest and anvil menus.
+Minecraft support remains 26.1.1 through 26.3.x, using Java 25+. Fabric Loader 0.19.5 is recommended. Fabric API remains optional.
 
-## Current public release candidate
+Player shops, balances, payments, selling, worth checks, existing folders, configured enchanted books, exact item matching, unavailable-listing preservation, and the existing recipe safety pass remain.
 
-```text
-ClassicGUIShop-v1.3.17.jar
-Minecraft: >=26.1.1 <26.4
-Java:      25+
-Loader:    Fabric Loader 0.19.5 recommended
-```
+Administrator tools and commands, held-item identification, automatic catalog population, automatic enchantment offer discovery, and catalog-generated pricing have been removed. Fresh shops start empty; existing data is retained.
 
-Fabric API is optional for ClassicGUIShop. If another mod requires it, use the build matching your Minecraft version.
-
-## Main features
-
-- Player buy and sell shops through `/shop`.
-- Green classic-style player shop titles.
-- Built-in persistent economy.
-- Player payments and balances.
-- Visual admin editor through `/adminshop`.
-- Exact ItemStack preservation for names, lore, enchantments, trims, potions, and other components.
-- Enchanted book buying and selling.
-- Colored block grouping.
-- Custom shop folders.
-- Mod namespace imports.
-- Data-pack recipe-output imports.
-- Held exact-stack imports.
-- Automatic vanilla catalog synchronization.
-- Version-safe listing parking for items unavailable in the current Minecraft version.
-- Recipe-aware economy audit and generated-price fixing.
-- Predictive command suggestions.
-- Configurable chat prefix and message colors.
-
-## Wiki pages
+## Documentation
 
 - [Installation](Installation.md)
 - [Quick Start](Quick-Start.md)
 - [Player Guide](Player-Guide.md)
-- [Admin Guide](Admin-Guide.md)
 - [Command Reference](Command-Reference.md)
-- [Shop Folders](Shop-Folders.md)
-- [Imports: Mods and Data Packs](Imports-Mods-and-Data-Packs.md)
-- [Economy and Pricing](Economy-and-Pricing.md)
+- [Administrator rebuild status](Admin-Guide.md)
+- [Configuration](Configuration-Files.md)
 - [Permissions](Permissions.md)
-- [Configuration Files](Configuration-Files.md)
+- [Economy and Pricing](Economy-and-Pricing.md)
+- [Shop Folders](Shop-Folders.md)
+- [Imports](Imports-Mods-and-Data-Packs.md)
 - [Troubleshooting](Troubleshooting.md)
-- [Public Release Checklist](Public-Release-Checklist.md)
-
-## Design notes
-
-ClassicGUIShop is intentionally server-side. That means resource-pack-only visuals cannot be automatically detected as real shop items. For custom resource-pack items, the server must produce a real component-bearing ItemStack through a data-pack recipe, command, loot table, or another server-side system. Admins can also import an exact held stack with `/adminshop import held`.
+- [Release Checklist](Public-Release-Checklist.md)

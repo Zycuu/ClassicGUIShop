@@ -15,12 +15,10 @@ ClassicGUIShop is server-side. Players do not need the mod on their clients.
 
 1. Install a Fabric server for your Minecraft version.
 2. Use Fabric Loader 0.19.5 or newer for Minecraft 26.3. Fabric API is optional for ClassicGUIShop; if other mods require it, install the build matching your Minecraft version.
-3. Place `ClassicGUIShop-v1.3.17.jar` in the server `mods` folder.
+3. Place `ClassicGUIShop-v1.4.0-dev.1.jar` in the server `mods` folder.
 4. Start the server once.
 5. Confirm that the console shows ClassicGUIShop initialization messages.
-6. Join with an operator account or a permissions setup that grants admin access.
-7. Run `/adminshop` to open the visual editor.
-8. Run `/shop` to confirm the player shop opens.
+6. Run `/shop` to confirm the player shop opens. Fresh installations have no listings; existing configurations are retained.
 
 ## First startup files
 
@@ -50,8 +48,8 @@ Some files may appear only after the feature is used or after the first full ser
 2. Back up `config/guishop/`.
 3. Replace the old ClassicGUIShop JAR with the new one.
 4. Start the server.
-5. Watch the console for migration, catalog sync, economy audit, and versioned-listing messages.
-6. Open `/adminshop` and review hidden or imported categories before players use them.
+5. Watch the console for migration, economy audit, and versioned-listing messages.
+6. Confirm that existing listings and balances remain. Administrator tools and automatic discovery are unavailable during this rebuild.
 
 ClassicGUIShop preserves older `shop.json` files as `shop.json.migrated-backup` when migrating to the separated configuration layout.
 

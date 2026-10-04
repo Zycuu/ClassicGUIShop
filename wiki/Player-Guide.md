@@ -113,22 +113,6 @@ Shows value for every exact matching item in your inventory.
 
 Shows value for a configured item or exact listing ID.
 
-## Identifying exact items
-
-```text
-/ident
-```
-
-Shows:
-
-- Display name
-- Base item ID
-- Exact listing ID
-- Namespace
-- Whether custom components were detected
-
-Use this when an item looks custom or when an admin needs the exact listing ID.
-
 ## Enchanted books
 
 Players can buy enchanted books through:

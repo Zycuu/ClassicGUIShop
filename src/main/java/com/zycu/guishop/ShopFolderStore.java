@@ -22,7 +22,7 @@ public final class ShopFolderStore {
     private static final Path FILE = DIRECTORY.resolve("folders.json");
 
     private List<String> _about = List.of(
-        "ClassicGUIShop folder layout used by the player shop and administrator GUI editor.",
+        "ClassicGUIShop folder layout retained for the player shop during the administrator rebuild.",
         "Folders only organize listings. Prices and exact item data remain in shops.json."
     );
     private Map<String, String> _notes = notes();

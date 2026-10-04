@@ -3,7 +3,7 @@
   "id": "guishop",
   "version": "${version}",
   "name": "ClassicGUIShop",
-  "description": "A server-side chest GUI shop with a built-in persistent economy, dynamic pricing, permissions, and administration commands.",
+  "description": "A server-side chest GUI shop with a persistent economy and exact configured item listings. Development base for the administrator and discovery rebuild.",
   "authors": ["Zycu", "Original GUIShop authors: _Waffles_ and AlreadyCoded"],
   "license": "All-Rights-Reserved",
   "environment": "*",

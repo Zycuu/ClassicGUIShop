@@ -31,7 +31,6 @@ public final class EnchantmentShopService {
     }
 
     public static List<EnchantmentView> availableEnchantments(ServerPlayer player, ShopGui.Mode mode) {
-        GuiShop.CONFIG.ensureEnchantmentDefaults(player.level().getServer());
         Registry<Enchantment> registry = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
         List<EnchantmentView> enchantments = new ArrayList<>();
 

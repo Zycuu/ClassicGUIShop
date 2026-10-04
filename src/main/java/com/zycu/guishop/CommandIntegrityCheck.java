@@ -14,6 +14,7 @@ public final class CommandIntegrityCheck {
         List<String> missing = new ArrayList<>();
         CommandNode<CommandSourceStack> root = dispatcher.getRoot();
 
+        requireCommand(root, "bal", missing);
         requireCommand(root, "shop", missing);
         requirePath(root, missing, "shop", "buy");
         requirePath(root, missing, "shop", "sell");
@@ -29,61 +30,15 @@ public final class CommandIntegrityCheck {
         requirePath(root, missing, "worth", "all");
         requirePath(root, missing, "worth", "item");
 
-        requireCommand(root, "ident", missing);
-
-        requireCommand(root, "adminshop", missing);
-        requirePath(root, missing, "adminshop", "edit");
-        requirePath(root, missing, "adminshop", "help");
-        requirePath(root, missing, "adminshop", "reload");
-        requirePath(root, missing, "adminshop", "multiplier");
-
-        requirePath(root, missing, "adminshop", "item");
-        requirePath(root, missing, "adminshop", "item", "add");
-        requirePath(root, missing, "adminshop", "item", "remove");
-        requirePath(root, missing, "adminshop", "item", "price");
-        requirePath(root, missing, "adminshop", "item", "move");
-        requirePath(root, missing, "adminshop", "item", "list");
-
-        requirePath(root, missing, "adminshop", "category");
-        requirePath(root, missing, "adminshop", "category", "add");
-        requirePath(root, missing, "adminshop", "category", "remove");
-        requirePath(root, missing, "adminshop", "category", "list");
-
-        requirePath(root, missing, "adminshop", "enchant");
-        requirePath(root, missing, "adminshop", "enchant", "set");
-        requirePath(root, missing, "adminshop", "enchant", "remove");
-        requirePath(root, missing, "adminshop", "enchant", "list");
-        requirePath(root, missing, "adminshop", "enchant", "defaultprice");
-        requirePath(root, missing, "adminshop", "enchant", "enabled");
-
-        requirePath(root, missing, "adminshop", "economy");
-        requirePath(root, missing, "adminshop", "economy", "get");
-        requirePath(root, missing, "adminshop", "economy", "set");
-        requirePath(root, missing, "adminshop", "economy", "add");
-        requirePath(root, missing, "adminshop", "economy", "take");
-
-        requirePath(root, missing, "adminshop", "import");
-        requirePath(root, missing, "adminshop", "import", "scan");
-        requirePath(root, missing, "adminshop", "import", "mod");
-        requirePath(root, missing, "adminshop", "import", "namespace");
-        requirePath(root, missing, "adminshop", "import", "datapack");
-        requirePath(root, missing, "adminshop", "import", "held");
-        requirePath(root, missing, "adminshop", "import", "price");
-
-        requirePath(root, missing, "adminshop", "advanced");
-        requirePath(root, missing, "adminshop", "advanced", "item");
-        requirePath(root, missing, "adminshop", "advanced", "category");
-        requirePath(root, missing, "adminshop", "advanced", "enchant");
-        requirePath(root, missing, "adminshop", "advanced", "economy");
-        requirePath(root, missing, "adminshop", "advanced", "multiplier");
-        requirePath(root, missing, "adminshop", "advanced", "folder");
-        requirePath(root, missing, "adminshop", "advanced", "folder", "create");
+        if (root.getChild("adminshop") != null || root.getChild("ident") != null) {
+            throw new IllegalStateException("Retired /adminshop and /ident commands must not be registered");
+        }
 
         if (!missing.isEmpty()) {
             throw new IllegalStateException("ClassicGUIShop command registration is incomplete: " + String.join(", ", missing));
         }
 
-        System.out.println("[ClassicGUIShop] Command integrity verified: player, admin, advanced admin, import, economy, enchanted-book, and editor commands are registered.");
+        System.out.println("[ClassicGUIShop] Command integrity verified: player shop, balance, payment, selling, and worth commands are registered; admin and identification command removal verified.");
     }
 
     private static void requireCommand(CommandNode<CommandSourceStack> root, String name, List<String> missing) {

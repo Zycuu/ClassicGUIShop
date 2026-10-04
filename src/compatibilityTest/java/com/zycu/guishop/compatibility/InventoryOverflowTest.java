@@ -2,7 +2,9 @@ package com.zycu.guishop.compatibility;
 
 import com.mojang.authlib.GameProfile;
 import com.zycu.guishop.EconomyExploitScanner;
-import com.zycu.guishop.IntegrationImportService;
+import com.zycu.guishop.EnchantmentShopService;
+import com.zycu.guishop.GuiShop;
+import com.zycu.guishop.ShopGui;
 import com.zycu.guishop.ShopService;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ClientInformation;
@@ -62,11 +64,28 @@ public abstract class InventoryOverflowTest {
         guishop$checkDelivery(player, level, true, 0, 3, 0, 3);
         guishop$checkDelivery(player, level, true, 0, 130, 0, 130);
 
-        if (EconomyExploitScanner.audit(server).recipesChecked() <= 0
-            || !IntegrationImportService.recipeNamespaces(server).toList().contains("minecraft")) {
-            throw new AssertionError("Recipe audit/import access did not find vanilla recipes");
+        int offersBefore = GuiShop.CONFIG.enchantments.size();
+        EnchantmentShopService.availableEnchantments(player, ShopGui.Mode.BUY);
+        if (GuiShop.CONFIG.enchantments.size() != offersBefore) {
+            throw new AssertionError("Opening the enchantment shop discovered new offers");
         }
-        System.out.println("[ClassicGUIShop compatibility test] PASS: empty, partial, full, multi-stack overflow; recipe audit/import access");
+
+        if (EconomyExploitScanner.audit(server).recipesChecked() <= 0) {
+            throw new AssertionError("Recipe audit did not find vanilla recipes");
+        }
+        var dispatcher = server.getCommands().getDispatcher();
+        if (dispatcher.getRoot().getChild("adminshop") != null
+            || dispatcher.getRoot().getChild("ident") != null
+            || dispatcher.getCompletionSuggestions(dispatcher.parse("admin", server.createCommandSourceStack()))
+                .join().getList().stream().anyMatch(suggestion -> suggestion.getText().equals("adminshop"))) {
+            throw new AssertionError("Retired admin command remains registered or suggested");
+        }
+        for (String command : new String[]{"shop", "bal", "sellhand", "worth"}) {
+            if (dispatcher.getRoot().getChild(command) == null) {
+                throw new AssertionError("Missing retained player command: " + command);
+            }
+        }
+        System.out.println("[ClassicGUIShop compatibility test] PASS: inventory delivery; recipe audit; player commands retained; admin and identification commands absent; no enchantment discovery");
     }
 
     @Unique

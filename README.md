@@ -2,7 +2,16 @@
 
 A server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.3.x, inspired by the original Bukkit GUIShop plugin.
 
-Clients do not need the mod. ClassicGUIShop uses vanilla chest and anvil menus and includes its own persistent economy.
+Clients do not need the mod. ClassicGUIShop uses vanilla chest menus and includes its own persistent economy.
+
+This branch is the stripped **1.4.0-dev.1** development base for the 1.4.0 rebuild. The administrator interface, all administrator commands, held-item identification, automatic item discovery, and generated catalog pricing have been removed. Existing shop data is retained. Fresh installations start with empty shops and enchantment offers.
+
+## Retained features
+
+- Player buy/sell GUI, colored block groups, configured enchanted books, and existing folders.
+- Persistent balances, payments, held-item selling, and worth checks.
+- Exact item stack matching and unavailable-listing preservation across Minecraft versions.
+- The existing recipe economy safety pass, which can adjust generated sell prices but preserves manual prices.
 
 ## Documentation
 
@@ -15,23 +24,6 @@ The repository wiki pages are stored in [`wiki/`](wiki/Home.md):
 - [Command Reference](wiki/Command-Reference.md)
 - [Troubleshooting](wiki/Troubleshooting.md)
 
-## Features
-
-- Buy and sell shops through `/shop`.
-- Enchanted books organized by enchantment, then by level.
-- Colored blocks organized by block type, then by color.
-- Administrator-created folders inside any normal shop category.
-- Full visual administrator editor that reveals hidden and unpriced listings.
-- Exact item listings preserve enchantments, names, lore, trims, potion data, and other components.
-- Automatic vanilla catalog synchronization with unobtainable-item cleanup.
-- Deterministic difficulty-based prices for generated vanilla listings.
-- Recipe-aware economy protection for crafting and processing loops.
-- Predictive command suggestions for players, categories, item IDs, listing IDs, enchantments, prices, pages, and integration namespaces.
-- Mod namespace imports and data-pack recipe-output imports with safe, unpriced listings.
-- Configurable `[ShopGUI]` chat prefix and message colors.
-- Persistent balances and player payments.
-- All management commands grouped under `/adminshop`.
-
 ## Player commands
 
 ```text
@@ -42,7 +34,6 @@ The repository wiki pages are stored in [`wiki/`](wiki/Home.md):
 /shop pay <player> <amount>
 
 /bal
-/ident
 
 /sellhand
 /sellhand <amount>
@@ -54,175 +45,6 @@ The repository wiki pages are stored in [`wiki/`](wiki/Home.md):
 ```
 
 `/bal` shows the player's balance. `/shop balance` remains available as a compatibility alias.
-
-`/ident` reports the held item's base item ID, exact listing ID, namespace, and whether custom components are present. The exact listing ID can distinguish enchanted, renamed, trimmed, potion, or custom-model variants that share the same base item.
-
-## Visual administrator editor
-
-```text
-/adminshop
-/adminshop edit
-```
-
-Both commands open the same classic inventory-based visual editor. The editor is designed for large mod and data-pack imports where administrators may not know the item IDs.
-
-The editor shows:
-
-- Every category, including categories hidden from the player shop
-- Every listing, including items with both buy and sell set to `0`
-- Current buy and sell values
-- Whether the listing is active or hidden
-- The exact item and listing IDs when the item is clicked
-
-Selecting an item opens its listing editor. The administrator can:
-
-- Click **Set Buy Price** and type the exact value into a vanilla anvil text prompt
-- Click **Set Sell Price** and type the exact value into a vanilla anvil text prompt
-- Disable buying or selling by setting that side to `0`
-- Move the listing into an existing folder
-
-Prices changed through the editor are marked as manual and are never overwritten by automatic balancing.
-
-## Shop folders
-
-Folders work like the built-in colored-block type menus, but can be created for any normal category.
-
-Create a folder with the advanced command:
-
-```text
-/adminshop advanced folder create <category> <icon> <display name>
-```
-
-Example:
-
-```text
-/adminshop advanced folder create building_blocks minecraft:bricks Stone Materials
-```
-
-After creating the folder, open `/adminshop`, select a listing, and use **Move to Folder**. Folder creation is intentionally command-only; the visual editor handles moving, renaming, and deleting existing folders.
-
-Items with no folder assignment appear under **Unsorted**. Empty folders and fully unpriced folders are hidden from the normal player shop, but remain visible in the administrator editor.
-
-Folder layout is stored separately in:
-
-```text
-config/guishop/folders.json
-```
-
-This keeps pricing and exact ItemStack data in `shops.json` while allowing folders to be reorganized without rewriting item listings.
-
-## Predictive command suggestions
-
-ClassicGUIShop uses Minecraft's Brigadier command suggestion system. While typing commands, the client can suggest:
-
-- Online and previously known player names
-- Existing category IDs
-- Registered vanilla and modded item IDs
-- Exact configured listing IDs
-- Enchantment IDs
-- Mod item namespaces
-- Data-pack recipe namespaces
-- Common price, amount, page, and enchantment-level values
-
-Literal command and subcommand names continue to use Minecraft's normal command completion.
-
-## External content detection and imports
-
-ClassicGUIShop checks for non-vanilla item namespaces, recipe namespaces, installed content mods, and enabled non-vanilla data packs. A warning is written to the server console at startup, and administrators are reminded when they join.
-
-```text
-/adminshop import scan
-/adminshop import mod <namespace> [category]
-/adminshop import namespace <namespace> [category]
-/adminshop import datapack <recipe-namespace> [category]
-/adminshop import held <category> <buy> <sell>
-/adminshop import price <category> <buy> <sell>
-```
-
-### Mod and namespace imports
-
-`mod` and `namespace` scan the registered item registry and import every item belonging to that namespace. A category is created automatically when one is not supplied.
-
-Bulk imported listings start with:
-
-```text
-buy: 0
-sell: 0
-manualPrice: true
-```
-
-They remain hidden from player buy and sell menus until an administrator reviews and assigns prices. They are fully visible in `/adminshop`.
-
-### Data-pack imports
-
-`datapack` imports the resolved outputs of recipes whose recipe IDs use the selected namespace. It does not guess from resource-pack files, item model files, sounds, textures, or ingredients.
-
-If a data-pack recipe outputs a component-bearing item, such as a custom named disc, custom model item, potion, or other exact ItemStack, that exact output is preserved. If the recipe output is only a plain vanilla item, the shop will treat it as that plain vanilla item.
-
-### Resource-pack-backed items
-
-A resource pack alone changes client assets and cannot register a new server item ID. Pure resource-pack visuals are not automatically imported. To sell a resource-pack-backed custom item, make the server produce a real component-bearing ItemStack through a data-pack recipe, or hold the exact stack and use `import held`.
-
-## Item listings
-
-`/adminshop item add` records the exact held stack rather than only its base item type.
-
-```text
-/adminshop item add <category> <buy> <sell>
-/adminshop item remove
-/adminshop item price <item-or-listing-id> <buy> <sell>
-/adminshop item move <item-or-listing-id> <category>
-/adminshop item list
-/adminshop item list <category> [page]
-```
-
-Component-rich listings receive an identifier resembling:
-
-```text
-minecraft:diamond_sword#a12b34c56d78
-```
-
-Use the listing ID when multiple variants of the same base item exist.
-
-## Categories
-
-```text
-/adminshop category list
-/adminshop category add <id> <icon> <display name>
-/adminshop category remove <id>
-```
-
-Removing a category also removes every listing contained in it. Removed default categories are remembered so automatic synchronization does not immediately recreate them.
-
-## Vanilla catalog
-
-The catalog synchronizes automatically when the server starts and when `/adminshop reload` is used. It mirrors normal vanilla creative inventory tabs, removes technical or unobtainable entries, and applies balanced generated prices.
-
-## Enchanted books
-
-```text
-/adminshop enchant list [page]
-/adminshop enchant set <enchantment> <pricePerLevel> [maxLevel]
-/adminshop enchant remove <enchantment>
-/adminshop enchant defaultprice <pricePerLevel>
-/adminshop enchant enabled <true|false>
-```
-
-## Economy administration
-
-```text
-/adminshop economy get <player>
-/adminshop economy set <player> <amount>
-/adminshop economy add <player> <amount>
-/adminshop economy take <player> <amount>
-/adminshop economy audit
-/adminshop economy check
-/adminshop economy fix
-/adminshop multiplier <value>
-/adminshop reload
-```
-
-The economy audit follows loaded crafting, cooking, stonecutting, smithing, data-pack, and compatible mod recipes to detect profitable buy-craft-sell routes. Generated sell prices can be corrected automatically; manual prices are reported but preserved.
 
 ## Configuration
 
@@ -248,6 +70,6 @@ gradle build
 
 The release JAR is built against Minecraft 26.1.1 and supports 26.1.1, 26.2, and 26.3. CI also compiles against each version and runs the same release JAR on dedicated test servers.
 
-`gradle compatibilityTestJar` builds a separate test mod for disposable servers. It checks inventory delivery with empty, partially filled, and full inventories, multi-stack overflow, and recipe audit/import access. This test mod creates test items and must stay out of production servers. It is published as a separate CI artifact and is not included in the release JAR.
+`gradle compatibilityTestJar` builds a separate test mod for disposable servers. It checks inventory delivery with empty, partially filled, and full inventories, multi-stack overflow, recipe audit, and retired-command absence. This test mod creates test items and must stay out of production servers. It is published as a separate CI artifact and is not included in the release JAR.
 
 CI also checks that newer listings are parked on 26.1.1 and restored on returning to 26.2 or 26.3.

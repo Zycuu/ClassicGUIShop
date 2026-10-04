@@ -1,5 +1,5 @@
-name: Build ClassicGUIShop v1.3.17
-run-name: ClassicGUIShop v1.3.17 - ${{ github.event_name }} - ${{ github.sha }}
+name: Build ClassicGUIShop v1.4.0-dev.1
+run-name: ClassicGUIShop v1.4.0-dev.1 - ${{ github.event_name }} - ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
             grep -n -C 4 -E "error:|FAILURE:|What went wrong|Execution failed" build.log || cat build.log
           else
             tail -n 40 build.log
-            test -f build/libs/ClassicGUIShop-v1.3.17.jar
+            test -f build/libs/ClassicGUIShop-v1.4.0-dev.1.jar
           fi
           exit $status
 
@@ -56,15 +56,15 @@ jobs:
         with:
           name: ClassicGUIShop
           path: |
-            build/libs/ClassicGUIShop-v1.3.17.jar
-            build/libs/ClassicGUIShop-v1.3.17-sources.jar
+            build/libs/ClassicGUIShop-v1.4.0-dev.1.jar
+            build/libs/ClassicGUIShop-v1.4.0-dev.1-sources.jar
 
       - name: Upload compatibility test mod
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ClassicGUIShop-compatibility-test
-          path: build/libs/ClassicGUIShop-v1.3.17-compatibility-test.jar
+          path: build/libs/ClassicGUIShop-v1.4.0-dev.1-compatibility-test.jar
 
   compatibility:
     runs-on: ubuntu-latest
@@ -164,10 +164,10 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             "${{ matrix.minecraft }}" \
             server \
-            universal/ClassicGUIShop-v1.3.17.jar \
+            universal/ClassicGUIShop-v1.4.0-dev.1.jar \
             "${{ matrix.loader }}" \
             "${{ matrix.api }}" \
-            compatibility-test/ClassicGUIShop-v1.3.17-compatibility-test.jar
+            compatibility-test/ClassicGUIShop-v1.4.0-dev.1-compatibility-test.jar
 
       - name: Boot universal jar on Loader ${{ matrix.loader }} with Fabric API=${{ matrix.api }}
         shell: bash
@@ -220,22 +220,23 @@ jobs:
           python .github/scripts/setup_fabric_server.py \
             ${{ matrix.newer }} \
             server-${{ matrix.newer }} \
-            universal/ClassicGUIShop-v1.3.17.jar \
+            universal/ClassicGUIShop-v1.4.0-dev.1.jar \
             0.19.5 \
             false \
-            compatibility-test/ClassicGUIShop-v1.3.17-compatibility-test.jar
+            compatibility-test/ClassicGUIShop-v1.4.0-dev.1-compatibility-test.jar
           python .github/scripts/setup_fabric_server.py \
             26.1.1 \
             server-26.1.1 \
-            universal/ClassicGUIShop-v1.3.17.jar \
+            universal/ClassicGUIShop-v1.4.0-dev.1.jar \
             0.19.5 \
             false \
-            compatibility-test/ClassicGUIShop-v1.3.17-compatibility-test.jar
+            compatibility-test/ClassicGUIShop-v1.4.0-dev.1-compatibility-test.jar
           chmod +x .github/scripts/boot_fabric_server.sh
 
-      - name: Generate the ${{ matrix.newer }} catalog
+      - name: Seed explicit listings and start Minecraft ${{ matrix.newer }}
         shell: bash
         run: |
+          python .github/scripts/version_switch_fixture.py seed "${{ matrix.newer }}" server-${{ matrix.newer }}/config/guishop
           .github/scripts/boot_fabric_server.sh server-${{ matrix.newer }} initial-${{ matrix.newer }}.log
           grep -F "Permission model detected" server-${{ matrix.newer }}/initial-${{ matrix.newer }}.log
           grep -F "Command integrity verified" server-${{ matrix.newer }}/initial-${{ matrix.newer }}.log
@@ -276,6 +277,7 @@ jobs:
           )"
           echo "Return parked $parked and restored $restored listing(s)."
           test "${restored:-0}" -gt 0
+          python .github/scripts/version_switch_fixture.py verify "${{ matrix.newer }}" server-${{ matrix.newer }}/config/guishop
 
       - name: Upload version-switch evidence
         if: always()

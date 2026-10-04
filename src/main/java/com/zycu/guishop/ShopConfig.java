@@ -4,12 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,6 +18,8 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class ShopConfig {
+    // Preserve the metadata version on existing generated listings during the rebuild.
+    public static final int GENERATED_PRICING_MODEL_VERSION = 2;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path DIRECTORY = FabricLoader.getInstance().getConfigDir().resolve("guishop");
     private static final Path LEGACY_FILE = DIRECTORY.resolve("shop.json");
@@ -103,61 +101,12 @@ public final class ShopConfig {
         }
     }
 
-    public synchronized void ensureEnchantmentDefaults(MinecraftServer server) {
-        Registry<Enchantment> registry = server.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
-        boolean changed = false;
-        for (Map.Entry<net.minecraft.resources.ResourceKey<Enchantment>, Enchantment> entry : registry.entrySet()) {
-            String id = entry.getKey().identifier().toString();
-            if (!enchantments.containsKey(id)) {
-                EnchantmentOffer offer = new EnchantmentOffer();
-                offer.name = entry.getValue().description().getString();
-                offer.pricePerLevel = defaultEnchantmentPricePerLevel;
-                offer.maxLevel = entry.getValue().getMaxLevel();
-                offer.enabled = true;
-                enchantments.put(id, offer);
-                changed = true;
-            }
-        }
-        if (changed) save();
-    }
-
-    public boolean autoPopulateVanillaCatalog() {
-        return !Boolean.FALSE.equals(autoPopulateVanillaCatalog);
-    }
-
-    public boolean purgeUnobtainableOnSync() {
-        return !Boolean.FALSE.equals(purgeUnobtainableOnSync);
-    }
-
-    public boolean balancedPricingEnabled() {
-        return !Boolean.FALSE.equals(balancedPricingEnabled);
-    }
-
-    public boolean rebalanceGeneratedItems() {
-        return !Boolean.FALSE.equals(rebalanceGeneratedItems);
-    }
-
     public Category category(String id) {
         if (id == null) return null;
         for (Category category : categories) {
             if (category.id.equalsIgnoreCase(id)) return category;
         }
         return null;
-    }
-
-    public synchronized Category ensureDefaultCategory(String id, String displayName, String icon) {
-        String cleanId = sanitizeId(id);
-        if (disabledDefaultCategories.stream().anyMatch(disabled -> disabled.equalsIgnoreCase(cleanId))) return null;
-        Category existing = category(cleanId);
-        if (existing != null) return existing;
-
-        Category category = new Category();
-        category.id = cleanId;
-        category.name = displayName;
-        category.icon = icon;
-        categories.add(category);
-        addPermissionDefault("guishop.category." + cleanId, 0);
-        return category;
     }
 
     public FoundItem findItem(String identifier) {
@@ -194,186 +143,9 @@ public final class ShopConfig {
         return null;
     }
 
-    public List<FoundItem> findItems(String identifier) {
-        List<FoundItem> exact = new ArrayList<>();
-        if (identifier == null || identifier.isBlank()) return exact;
-        String raw = identifier.trim();
-        for (Category category : categories) {
-            for (ShopItem item : category.items) {
-                if (item.listingId != null && item.listingId.equalsIgnoreCase(raw)) exact.add(new FoundItem(category, item));
-            }
-        }
-        if (!exact.isEmpty()) return exact;
-
-        String itemId = raw.contains("#") ? raw : normalizeIdentifier(raw);
-        List<FoundItem> found = new ArrayList<>();
-        for (Category category : categories) {
-            for (ShopItem item : category.items) {
-                if (item.item.equalsIgnoreCase(itemId)) found.add(new FoundItem(category, item));
-            }
-        }
-        return found;
-    }
-
-    public synchronized ShopItem addOrUpdateItem(
-        String categoryId,
-        ItemStack stack,
-        String name,
-        double buy,
-        double sell,
-        RegistryAccess access
-    ) {
-        Category target = category(categoryId);
-        if (target == null || stack == null || stack.isEmpty()) return null;
-
-        ItemStack template = stack.copyWithCount(1);
-        String listingId = ItemStackData.listingId(template, access);
-        ShopItem item = null;
-        for (Category category : categories) {
-            for (int index = category.items.size() - 1; index >= 0; index--) {
-                ShopItem candidate = category.items.get(index);
-                if (listingId.equalsIgnoreCase(candidate.listingId)
-                    || ItemStackData.same(candidate.createStack(access), template)) {
-                    if (item == null) item = candidate;
-                    category.items.remove(index);
-                }
-            }
-        }
-        if (item == null) item = new ShopItem();
-
-        item.item = ShopService.itemId(template);
-        item.listingId = listingId;
-        item.stack = ItemStackData.encode(template, access);
-        item.name = name;
-        item.buy = buy;
-        item.sell = sell;
-        item.manualPrice = true;
-        item.pricingModelVersion = BalancedPricing.MODEL_VERSION;
-        target.items.add(item);
-        save();
-        return item;
-    }
-
-    public synchronized ShopItem addGeneratedItem(
-        String categoryId,
-        ItemStack stack,
-        double buy,
-        double sell,
-        RegistryAccess access
-    ) {
-        Category target = category(categoryId);
-        if (target == null || stack == null || stack.isEmpty()) return null;
-        FoundItem existing = findItem(stack, access);
-        if (existing != null) return existing.item;
-
-        ItemStack template = stack.copyWithCount(1);
-        ShopItem item = new ShopItem();
-        item.item = ShopService.itemId(template);
-        item.listingId = ItemStackData.listingId(template, access);
-        item.stack = ItemStackData.encode(template, access);
-        item.name = template.getHoverName().getString();
-        item.buy = buy;
-        item.sell = sell;
-        item.manualPrice = false;
-        item.pricingModelVersion = BalancedPricing.MODEL_VERSION;
-        target.items.add(item);
-        return item;
-    }
-
-    public synchronized int removeItemEverywhere(ItemStack stack, RegistryAccess access) {
-        if (stack == null || stack.isEmpty()) return 0;
-        int removed = 0;
-        String listingId = ItemStackData.listingId(stack.copyWithCount(1), access);
-        for (Category category : categories) {
-            int before = category.items.size();
-            category.items.removeIf(item -> listingId.equalsIgnoreCase(item.listingId)
-                || ItemStackData.same(item.createStack(access), stack));
-            removed += before - category.items.size();
-        }
-        if (removed > 0) save();
-        return removed;
-    }
-
-    public synchronized int removeItemEverywhere(String identifier) {
-        List<FoundItem> found = findItems(identifier);
-        for (FoundItem entry : found) entry.category.items.remove(entry.item);
-        if (!found.isEmpty()) save();
-        return found.size();
-    }
-
-    public synchronized boolean updatePrices(String identifier, double buy, double sell) {
-        boolean changed = false;
-        for (FoundItem found : findItems(identifier)) {
-            found.item.buy = buy;
-            found.item.sell = sell;
-            found.item.manualPrice = true;
-            found.item.pricingModelVersion = BalancedPricing.MODEL_VERSION;
-            changed = true;
-        }
-        if (changed) save();
-        return changed;
-    }
-
-    public synchronized boolean moveItem(String identifier, String categoryId) {
-        Category target = category(categoryId);
-        List<FoundItem> foundItems = findItems(identifier);
-        if (target == null || foundItems.isEmpty()) return false;
-        for (FoundItem found : foundItems) {
-            if (found.category != target) {
-                found.category.items.remove(found.item);
-                target.items.add(found.item);
-            }
-        }
-        save();
-        return true;
-    }
-
-    public synchronized Category createCategory(String id, String displayName, String icon) {
-        if (id == null || id.isBlank() || category(id) != null) return null;
-        Category category = new Category();
-        category.id = sanitizeId(id);
-        category.name = displayName == null || displayName.isBlank() ? category.id : displayName;
-        category.icon = icon == null || icon.isBlank() ? "minecraft:chest" : icon;
-        categories.add(category);
-        disabledDefaultCategories.removeIf(disabled -> disabled.equalsIgnoreCase(category.id));
-        save();
-        return category;
-    }
-
-    public synchronized RemovedCategory removeCategoryAndContents(String id) {
-        Category category = category(id);
-        if (category == null) return null;
-        int removedListings = category.items.size();
-        categories.remove(category);
-        if (disabledDefaultCategories.stream().noneMatch(disabled -> disabled.equalsIgnoreCase(category.id))) {
-            disabledDefaultCategories.add(category.id);
-        }
-        save();
-        return new RemovedCategory(category.id, removedListings);
-    }
-
     public EnchantmentOffer enchantmentOffer(String enchantmentId) {
         if (enchantmentId == null) return null;
         return enchantments.get(normalizeIdentifier(enchantmentId));
-    }
-
-    public synchronized EnchantmentOffer setEnchantmentOffer(String enchantmentId, String displayName, double pricePerLevel, int maxLevel) {
-        String id = normalizeIdentifier(enchantmentId);
-        EnchantmentOffer offer = enchantments.computeIfAbsent(id, ignored -> new EnchantmentOffer());
-        if (displayName != null && !displayName.isBlank()) offer.name = displayName;
-        offer.pricePerLevel = pricePerLevel;
-        offer.maxLevel = maxLevel;
-        offer.enabled = true;
-        save();
-        return offer;
-    }
-
-    public synchronized boolean disableEnchantment(String enchantmentId) {
-        EnchantmentOffer offer = enchantmentOffer(enchantmentId);
-        if (offer == null) return false;
-        offer.enabled = false;
-        save();
-        return true;
     }
 
     public int permissionLevel(String node, int fallback) {
@@ -433,17 +205,6 @@ public final class ShopConfig {
         addPermissionDefault("guishop.sell", 0);
         addPermissionDefault("guishop.enchant", 0);
         addPermissionDefault("guishop.creative.bypass", 2);
-        addPermissionDefault("guishop.admin", 2);
-        addPermissionDefault("guishop.admin.item.add", 2);
-        addPermissionDefault("guishop.admin.item.remove", 2);
-        addPermissionDefault("guishop.admin.item.list", 2);
-        addPermissionDefault("guishop.admin.item.price", 2);
-        addPermissionDefault("guishop.admin.item.category", 2);
-        addPermissionDefault("guishop.admin.category", 2);
-        addPermissionDefault("guishop.admin.enchant", 2);
-        addPermissionDefault("guishop.admin.reload", 2);
-        addPermissionDefault("guishop.admin.multiplier", 2);
-        addPermissionDefault("guishop.admin.balance", 2);
 
         for (Map.Entry<String, EnchantmentOffer> entry : new ArrayList<>(enchantments.entrySet())) {
             String normalizedId = normalizeIdentifier(entry.getKey());
@@ -631,20 +392,20 @@ public final class ShopConfig {
         notes.put("general.allowOfflinePayments", "When true, /shop pay may send money to a player who is offline but has joined before. When false, the recipient must be online.");
         notes.put("economy.currencySymbol", "Text displayed before money values, such as $, €, or Coins: . This changes display only.");
         notes.put("economy.startingBalance", "Balance assigned when ClassicGUIShop first creates a balance record for a player. Changing it does not alter existing balances.");
-        notes.put("catalog.autoPopulateVanillaCatalog", "When true, server startup and catalog sync add missing vanilla items to the default categories.");
-        notes.put("catalog.purgeUnobtainableOnSync", "When true, catalog sync removes vanilla technical, operator-only, spawn-egg, and other blocked listings.");
-        notes.put("catalog.balancedPricingEnabled", "When true, automatically generated vanilla listings use the built-in difficulty-based pricing model.");
-        notes.put("catalog.rebalanceGeneratedItems", "When true, generated listings are updated when the built-in pricing model changes. Listings marked manualPrice=true are never changed.");
-        notes.put("catalog.sellRatio", "Sets the base sell price as a fraction of the buy price. 0.32 means roughly 32 percent before item-specific rarity and farming adjustments.");
-        notes.put("catalog.minimumBuyPrice", "Lowest buy price the automatic pricing model may assign to a generated listing.");
-        notes.put("catalog.disabledDefaultCategories", "Category IDs listed here will not be recreated by catalog sync. Removing an ID allows that default category to return.");
+        notes.put("catalog.autoPopulateVanillaCatalog", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
+        notes.put("catalog.purgeUnobtainableOnSync", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
+        notes.put("catalog.balancedPricingEnabled", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
+        notes.put("catalog.rebalanceGeneratedItems", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
+        notes.put("catalog.sellRatio", "Sell ratio retained for configured enchanted book offers. Automatic catalog pricing is removed.");
+        notes.put("catalog.minimumBuyPrice", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
+        notes.put("catalog.disabledDefaultCategories", "Legacy category exclusions retained; automatic catalog creation is removed.");
         notes.put("chat.prefix", "Text placed at the start of every ClassicGUIShop chat message.");
         notes.put("chat.prefixColor", "Minecraft color name used for the chat prefix, such as gold, aqua, green, yellow, red, or light_purple.");
         notes.put("chat.infoColor", "Color used for informational messages such as balances and worth checks.");
         notes.put("chat.successColor", "Color used for successful purchases, sales, payments, and other completed actions.");
         notes.put("chat.warningColor", "Color used for non-fatal warnings, unavailable listings, and disabled features.");
         notes.put("chat.errorColor", "Color used when an action fails or the player lacks permission or money.");
-        notes.put("chat.adminColor", "Color used for administrator command output.");
+        notes.put("chat.adminColor", "Legacy administrator color retained for the planned interface rebuild.");
         notes.put("permissionDefaults", "Each entry is a fallback Minecraft permission level. 0 allows everyone, 2 allows normal operators, and 4 requires the highest operator level. Permission mods may override these values.");
         return notes;
     }
@@ -658,11 +419,11 @@ public final class ShopConfig {
         notes.put("categories[].items", "Listings contained in the category. The colored_blocks category is automatically divided into block-type submenus in the GUI.");
         notes.put("categories[].items[].item", "Base Minecraft item ID for the listing.");
         notes.put("categories[].items[].listingId", "Unique listing identifier. Component-rich variants include a #hash so multiple versions of the same base item can coexist.");
-        notes.put("categories[].items[].stack", "Serialized exact ItemStack data. It preserves enchantments, names, lore, trims, potion contents, and other components. Prefer /adminshop commands instead of editing this by hand.");
+        notes.put("categories[].items[].stack", "Serialized exact ItemStack data. It preserves enchantments, names, lore, trims, potion contents, and other components. Preserve this serialized data when editing listings; the administrator interface is being rebuilt.");
         notes.put("categories[].items[].name", "Display name used in the shop GUI and chat messages.");
         notes.put("categories[].items[].buy", "Price for one item. Set to 0 to hide the listing from buy menus.");
         notes.put("categories[].items[].sell", "Amount paid for one matching item. Set to 0 to prevent players from selling it.");
-        notes.put("categories[].items[].manualPrice", "When true, automatic economy balancing will not change buy or sell. /adminshop item add and item price set this to true.");
+        notes.put("categories[].items[].manualPrice", "When true, automatic economy balancing will not change buy or sell. Manual listings retain their configured prices.");
         notes.put("categories[].items[].pricingModelVersion", "Internal version of the automatic pricing model last applied. Normally this should not be edited.");
         return notes;
     }
@@ -670,7 +431,7 @@ public final class ShopConfig {
     private static Map<String, String> enchantmentNotes() {
         Map<String, String> notes = new LinkedHashMap<>();
         notes.put("enabled", "Master switch for the enchanted-book shop. False hides it from players without deleting individual offers.");
-        notes.put("defaultPricePerLevel", "Price per enchantment level assigned when the mod discovers a new enchantment that is not already listed.");
+        notes.put("defaultPricePerLevel", "Legacy default price retained for compatibility; automatic enchantment offer discovery has been removed.");
         notes.put("offers", "Map of enchantment IDs to the books offered by the shop.");
         notes.put("offers.<enchantment>.name", "Display name shown to players for that enchantment.");
         notes.put("offers.<enchantment>.pricePerLevel", "Base cost multiplied by the selected level. For example, 100.0 makes level III cost 300.0 before the global price multiplier.");
@@ -680,7 +441,6 @@ public final class ShopConfig {
     }
 
     public record FoundItem(Category category, ShopItem item) {}
-    public record RemovedCategory(String id, int removedListings) {}
 
     public static final class Category {
         public String id;

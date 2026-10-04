@@ -51,14 +51,6 @@ public final class ShopPermissions {
         return check(player, node, 0);
     }
 
-    public static boolean admin(CommandSourceStack source, String child) {
-        return check(source, "guishop.admin", 2) || check(source, "guishop.admin." + child, 2);
-    }
-
-    public static boolean admin(ServerPlayer player, String child) {
-        return check(player, "guishop.admin", 2) || check(player, "guishop.admin." + child, 2);
-    }
-
     public static boolean category(ServerPlayer player, String categoryId) {
         return check(player, "guishop.category." + sanitize(categoryId), 0);
     }

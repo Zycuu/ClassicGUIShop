@@ -27,10 +27,6 @@ public final class ShopMessages {
         return message(text, color(GuiShop.CONFIG == null ? null : GuiShop.CONFIG.chatErrorColor, ChatFormatting.RED));
     }
 
-    public static Component admin(String text) {
-        return message(text, color(GuiShop.CONFIG == null ? null : GuiShop.CONFIG.chatAdminColor, ChatFormatting.LIGHT_PURPLE));
-    }
-
     public static void info(ServerPlayer player, String text) {
         player.sendSystemMessage(info(text));
     }
@@ -57,10 +53,6 @@ public final class ShopMessages {
 
     public static void warning(CommandSourceStack source, String text) {
         source.sendSuccess(() -> warning(text), false);
-    }
-
-    public static void admin(CommandSourceStack source, String text, boolean broadcast) {
-        source.sendSuccess(() -> admin(text), broadcast);
     }
 
     public static void error(CommandSourceStack source, String text) {

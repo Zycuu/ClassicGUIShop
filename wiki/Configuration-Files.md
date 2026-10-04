@@ -25,8 +25,8 @@ Stores global settings such as:
 - Starting balance
 - Currency symbol
 - Price multiplier
-- Catalog synchronization settings
-- Generated pricing settings
+- Legacy catalog settings retained for compatibility; automatic discovery is removed
+- Legacy generated pricing settings retained for compatibility
 - Sell ratio
 - Creative transaction behavior
 - Offline payment behavior
@@ -87,7 +87,7 @@ Stores player balances.
 
 ## `players.json`
 
-Stores known player names and UUIDs for payments and admin balance commands.
+Stores known player names and UUIDs for payments .
 
 ## Backups and migration
 
@@ -108,6 +108,6 @@ config/guishop/
 - Stop the server before editing JSON.
 - Back up the file first.
 - Use a JSON validator if editing by hand.
-- Prefer in-game commands and `/adminshop` for normal edits.
+- The administrator editor and commands are unavailable during the rebuild.
 - Avoid editing serialized stack data manually.
-- Run `/adminshop reload` after safe manual edits.
+- Restart the server after safe manual edits.
