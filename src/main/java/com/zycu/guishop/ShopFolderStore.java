@@ -114,42 +114,6 @@ public final class ShopFolderStore {
         return assigned == null || folder(categoryId, assigned) == null ? UNSORTED : assigned;
     }
 
-    public synchronized Folder createFolder(String categoryId, String displayName, String icon) {
-        if (categoryId == null || categoryId.isBlank()) return null;
-        String name = displayName == null || displayName.isBlank() ? "New Folder" : displayName.trim();
-        CategoryFolders layout = layout(categoryId, true);
-        String baseId = sanitize(name);
-        String id = baseId;
-        int suffix = 2;
-        while (folder(categoryId, id) != null) id = baseId + "_" + suffix++;
-
-        Folder folder = new Folder();
-        folder.id = id;
-        folder.name = name;
-        folder.icon = icon == null || icon.isBlank() ? "minecraft:chest" : icon;
-        layout.folders.add(folder);
-        save();
-        return folder;
-    }
-
-    public synchronized boolean renameFolder(String categoryId, String folderId, String displayName) {
-        Folder folder = folder(categoryId, folderId);
-        if (folder == null || displayName == null || displayName.isBlank()) return false;
-        folder.name = displayName.trim();
-        save();
-        return true;
-    }
-
-    public synchronized boolean deleteFolder(String categoryId, String folderId) {
-        CategoryFolders layout = layout(categoryId, false);
-        Folder folder = folder(categoryId, folderId);
-        if (layout == null || folder == null) return false;
-        layout.folders.remove(folder);
-        layout.assignments.entrySet().removeIf(entry -> folderId.equalsIgnoreCase(entry.getValue()));
-        save();
-        return true;
-    }
-
     public synchronized boolean assign(String categoryId, String listingId, String folderId) {
         if (categoryId == null || listingId == null) return false;
         CategoryFolders layout = layout(categoryId, true);
