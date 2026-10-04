@@ -1,7 +1,9 @@
 # Shop Folders
 
-Existing folders and listing assignments remain available in the player shop. Folder management commands, both old administrator editors, and their text prompts have been removed for the rebuild.
+Manage folders in Adminshop's Shop Builder. Select a category, create a folder, choose its icon, and edit its display name and tooltip description. Reorder folders by dragging or with Move earlier/later. Move listings with the destination chooser or drag them onto a folder.
 
-Folder data stays in `config/guishop/folders.json`. It is separate from listing prices and exact stack data.
+Removing a folder returns its listings to Unsorted in the draft. Apply updates the server and backs up the previous layout. No folder management commands are registered.
 
-Player visibility still depends on whether a folder contains listings with an enabled price in the selected Buy or Sell mode. Unassigned items remain under Unsorted. No replacement folder editor is included in this development base.
+Player menus show folders containing listings enabled for the selected Buy or Sell mode. Unsorted appears first when it contains visible listings. Explicit custom folders take precedence over the older colored-block group layout.
+
+Data stays in `config/guishop/folders.json`, separate from prices and exact stack data.

@@ -107,6 +107,7 @@ public final class ShopCommands {
         }
 
         ShopMessages.success(sender, "Paid " + target.name() + " " + GuiShop.CONFIG.money(amount) + ".");
+        com.zycu.guishop.admin.TransactionJournal.record(sender, "PAY", "", "", 0, 0, amount, "Recipient " + target.name() + " (" + target.uuid() + ")");
         if (target.onlinePlayer() != null) {
             ShopMessages.success(target.onlinePlayer(), sender.getName().getString() + " paid you " + GuiShop.CONFIG.money(amount) + ".");
         }

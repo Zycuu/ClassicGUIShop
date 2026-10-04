@@ -3,26 +3,21 @@
   "id": "guishop",
   "version": "${version}",
   "name": "ClassicGUIShop",
-  "description": "A server-side chest GUI shop with a persistent economy and exact configured item listings. Development base for the administrator and discovery rebuild.",
+  "description": "A vanilla chest shop with a persistent economy and an optional client Adminshop for layouts, prices, server settings, and transaction records.",
   "authors": ["Zycu", "Original GUIShop authors: _Waffles_ and AlreadyCoded"],
   "license": "All-Rights-Reserved",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.zycu.guishop.GuiShop"]
+    "main": ["com.zycu.guishop.GuiShop"],
+    "client": ["com.zycu.guishop.client.AdminShopClient"]
   },
   "mixins": [
     "guishop.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.18.3",
+    "fabricloader": ">=0.19.5",
     "minecraft": "${minecraft_range}",
     "java": ">=25"
   },
-  "suggests": {
-    "fabric-api": "*",
-    "fabric-permissions-api-v0": "*"
-  },
-  "breaks": {
-    "fabric-api": "0.153.0+26.2"
-  }
+  "suggests": { "fabric-api": "*" }
 }

@@ -108,4 +108,4 @@ Shows value for the requested amount.
 
 ## Removed for the rebuild
 
-The administrator root and all its subcommands, aliases, redirects, and editor entry points are removed. Held-item identification is also removed. Automatic catalog detection no longer adds listings.
+The old administrator root and all its subcommands, aliases, redirects, and editor entry points remain removed. The replacement Adminshop is opened with F8 on an installed client and has no command entry point. Held-item identification is also removed. Automatic catalog detection no longer adds listings.

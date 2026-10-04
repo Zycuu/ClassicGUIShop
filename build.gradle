@@ -17,9 +17,24 @@ repositories {
     mavenCentral()
 }
 
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        guishop {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    // Bundle only the APIs the editor needs. Players can still use unmodified clients.
+    implementation include('net.fabricmc.fabric-api:fabric-api-base:2.0.6+fcdff87f5d')
+    implementation include('net.fabricmc.fabric-api:fabric-networking-api-v1:6.3.8+fcdff87f5d')
+    implementation include('net.fabricmc.fabric-api:fabric-lifecycle-events-v1:4.1.9+ffef5f675d')
+    implementation include('net.fabricmc.fabric-api:fabric-key-mapping-api-v1:2.0.8+3434d6d95d')
 }
 
 processResources {
@@ -54,4 +69,35 @@ tasks.register('compatibilityTestJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     from sourceSets.compatibilityTest.output
     archiveClassifier.set('compatibility-test')
+}
+
+// Opt-in desktop integration harness. Neither its classes nor its metadata enter the release JAR.
+if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest')) {
+    sourceSets {
+        clientTest {
+            compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+            runtimeClasspath += sourceSets.client.runtimeClasspath
+        }
+    }
+    loom {
+        mods {
+            guishop_alpha_test { sourceSet sourceSets.clientTest }
+        }
+        runs {
+            client {
+                source sourceSets.clientTest
+                programArgs '--width', '1320', '--height', '772'
+            }
+        }
+    }
+    tasks.named('runClient') { dependsOn tasks.named('clientTestClasses') }
+    tasks.named('processClientTestResources') {
+        inputs.property 'test_entrypoint', project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest'
+        filesMatching('fabric.mod.json') {
+            expand(test_entrypoint: project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest')
+        }
+    }
+    if (project.hasProperty('playerUiTest')) {
+        loom.runs.client.vmArg '-Dfabric.debug.disableModIds=guishop'
+    }
 }

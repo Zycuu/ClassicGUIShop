@@ -1,13 +1,11 @@
 # Economy and Pricing
 
-Persistent balances and player payments remain available through `/bal` and `/shop pay <player> <amount>`. Starting balance and the global multiplier remain in `config/guishop/settings.json`.
+Balances persist through server restarts. `/bal` shows a balance and `/shop pay <player> <amount>` transfers money to a known player. Adminshop Settings controls starting balance for new accounts, the currency prefix, the global multiplier, and offline payment behavior. Existing balances are preserved when applying settings.
 
-Listings retain configured buy and sell values. A side set to 0 is disabled; listings with both sides at 0 are hidden from the player shop. Manual prices are preserved.
+Listing buy and sell prices are edited in Shop Builder. Zero disables a side. The multiplier affects both sides. New or repriced listings are marked manual so the existing startup recipe audit does not overwrite those prices. The editor rejects non-finite or negative values and rejects sell prices above the same listing's enabled buy price. Zero-value trades are rejected before inventory changes.
 
-The old economy management commands and catalog price generator have been removed. Automatic discovery does not add or reprice listings. Legacy catalog settings are retained for compatibility.
+The retained startup recipe audit may reduce unsafe sell prices on older generated listings while preserving manual prices. Balanced presets and a broader exploit review remain future work. The price checks are not a guarantee against every recipe, mod, or economy exploit.
 
-The existing startup recipe economy safety pass remains. It can lower unsafe sell prices on previously generated listings, while preserving manual prices. This is not a guarantee that all possible economy exploits are covered; the pricing design will be reviewed during the rebuild.
+Configure enchanted-book offers explicitly under Settings / Enchantments. Buy cost is price per level times level times the multiplier, rounded to cents. Sell cost is that buy cost times the configured sell ratio. Zero maximum level means the natural maximum; higher configured maxima cannot exceed the natural limit in the shop.
 
-Configured enchanted book offers remain available. Buy prices use the configured price per level, offered level, and global multiplier. Sell prices use the retained sell ratio. New enchantment offers are no longer discovered automatically.
-
-Stop the test server and back up its configuration before making necessary manual price edits. Restart after editing; the old reload command is removed.
+Successful buys, sales, enchanted-book trades, and payments are logged on the server. Adminshop can search recent records and open their details.

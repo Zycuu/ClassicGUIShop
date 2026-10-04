@@ -25,6 +25,7 @@ Stores global settings such as:
 - Starting balance
 - Currency symbol
 - Price multiplier
+- Shop title (`general.shopTitle`)
 - Legacy catalog settings retained for compatibility; automatic discovery is removed
 - Legacy generated pricing settings retained for compatibility
 - Sell ratio
@@ -42,7 +43,7 @@ Listings include:
 - Category ID
 - Item ID
 - Exact listing ID
-- Display name
+- Display name and tooltip description (`description`)
 - Buy price
 - Sell price
 - Manual price status
@@ -56,14 +57,14 @@ Stores enchanted book shop configuration.
 
 Each enchantment can have:
 
-- Display name
+- Display name and tooltip description (`description`)
 - Enabled/disabled status
 - Price per level
 - Maximum offered level
 
 ## `folders.json`
 
-Stores folder layout and listing assignments.
+Stores folder layout, names, icons, tooltip descriptions, order, and listing assignments.
 
 Folder data is separate from `shops.json`, so moving listings between folders does not rewrite item prices or stack data.
 
@@ -73,11 +74,12 @@ Stores listings that exist in the shop config but are unavailable in the current
 
 Example use case:
 
-1. A 26.2 server creates a shop with 26.2-only items.
-2. The config is opened on 26.1.1.
-3. ClassicGUIShop parks unavailable listings here.
-4. The config returns to 26.2.
-5. ClassicGUIShop restores those listings automatically.
+1. A configured mod item becomes unavailable after a mod change.
+2. ClassicGUIShop parks its listing here.
+3. The required item mod returns.
+4. ClassicGUIShop restores the listing automatically.
+
+The Alpha targets Minecraft 26.3 specifically; this storage does not grant older runtime compatibility.
 
 This file preserves data. It is not a trash can.
 
@@ -103,11 +105,17 @@ Before major updates, back up:
 config/guishop/
 ```
 
+## Editor backups and transaction records
+
+Each Apply saves the previous configuration and detached before/after documents under `backups/<id>/`. Changes can load a previous document into a draft, with Apply required to restore it. Balances and journal history are not rolled back.
+
+Successful transactions and configuration applies are appended to UTC daily `transactions/YYYY-MM-DD.jsonl` files. Full journals and backups are retained without automatic deletion.
+
 ## Manual editing tips
 
 - Stop the server before editing JSON.
 - Back up the file first.
 - Use a JSON validator if editing by hand.
-- The administrator editor and commands are unavailable during the rebuild.
+- Use Adminshop for in-game configuration edits. Legacy administrator commands remain removed.
 - Avoid editing serialized stack data manually.
 - Restart the server after safe manual edits.

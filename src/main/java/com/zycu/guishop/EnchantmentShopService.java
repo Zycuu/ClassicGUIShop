@@ -121,12 +121,14 @@ public final class EnchantmentShopService {
         }
 
         double cost = buyPrice(resolved.configured(), targetLevel);
+        if (!ShopService.validTotal(player, cost)) return false;
         if (!GuiShop.ECONOMY.withdraw(player.getUUID(), cost)) {
             ShopMessages.error(player, "You cannot afford " + GuiShop.CONFIG.money(cost) + ".");
             return false;
         }
 
         ShopService.give(player, createBook(resolved.holder(), targetLevel), 1);
+        com.zycu.guishop.admin.TransactionJournal.record(player, "ENCHANT_BUY", resolved.enchantmentId() + ":" + targetLevel, "minecraft:enchanted_book", 1, cost, cost, "");
         ShopMessages.success(player, "Purchased " + resolved.configured().name + " " + roman(targetLevel)
             + " for " + GuiShop.CONFIG.money(cost) + ". Balance: "
             + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
@@ -169,8 +171,10 @@ public final class EnchantmentShopService {
             : Math.min(Math.max(1, requestedQuantity), available);
         double unitPrice = sellPrice(resolved.configured(), targetLevel);
         double total = round(unitPrice * quantity);
+        if (!ShopService.validTotal(player, total)) return false;
         ShopService.remove(player, template, quantity);
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
+        com.zycu.guishop.admin.TransactionJournal.record(player, "ENCHANT_SELL", resolved.enchantmentId() + ":" + targetLevel, "minecraft:enchanted_book", quantity, unitPrice, total, "");
         ShopMessages.success(player, "Sold " + quantity + "x " + resolved.configured().name + " "
             + roman(targetLevel) + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
             + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
@@ -190,6 +194,7 @@ public final class EnchantmentShopService {
 
         double unitPrice = sellPrice(resolved.offer().configured(), resolved.level());
         double total = round(unitPrice * quantity);
+        if (!ShopService.validTotal(player, total)) return false;
         if (allInventory) {
             ShopService.remove(player, resolved.template(), quantity);
         } else {
@@ -198,6 +203,7 @@ public final class EnchantmentShopService {
         }
 
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
+        com.zycu.guishop.admin.TransactionJournal.record(player, "ENCHANT_SELL", resolved.offer().enchantmentId() + ":" + resolved.level(), "minecraft:enchanted_book", quantity, unitPrice, total, allInventory ? "Inventory sale" : "Held-item sale");
         ShopMessages.success(player, "Sold " + quantity + "x " + resolved.offer().configured().name + " "
             + roman(resolved.level()) + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
             + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "guishop_alpha_test",
+  "version": "1.0.0",
+  "name": "ClassicGUIShop disposable Alpha UI test",
+  "environment": "client",
+  "entrypoints": {"client": ["${test_entrypoint}"]},
+  "depends": {"fabricloader": ">=0.19.5", "fabric-lifecycle-events-v1": "*"}
+}

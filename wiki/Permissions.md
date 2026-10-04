@@ -1,6 +1,8 @@
 # Permissions
 
-Retained player command settings:
+Adminshop requires **OP level 2 or higher**, checked by the server for every request. The optional client does not grant permissions. Non-OP clients receive the permission popup. Revoked administrators cannot apply edits or read server records.
+
+Player requirements can be edited under Access or `settings.json`:
 
 ```text
 guishop.command.shop
@@ -8,11 +10,6 @@ guishop.command.balance
 guishop.command.pay
 guishop.command.sellhand
 guishop.command.worth
-```
-
-Retained transaction and category settings:
-
-```text
 guishop.buy
 guishop.sell
 guishop.enchant
@@ -20,8 +17,6 @@ guishop.category.<category-id>
 guishop.creative.bypass
 ```
 
-These settings are fallback Minecraft permission levels in `config/guishop/settings.json`. Player actions default to 0 and Creative bypass defaults to 2. The current implementation uses vanilla operator checks; external permission API support will be reviewed during the rebuild.
+These are exact vanilla command levels: 0 everyone, 1 moderator, 2 gamemaster, 3 admin, 4 owner. Player actions default to 0 and creative bypass to 2. This Alpha uses Minecraft's PermissionSet and does not integrate external permission plugins.
 
-Administrator permissions and identification permissions no longer expose any commands. Existing entries are retained for compatibility, but new configurations do not add them.
-
-The operator fallback has known limitations with exact permission levels. Test access with operator and non-operator accounts before using a changed configuration publicly. The administrator redesign will include a permissions review.
+Legacy administrator and identification entries are retained in existing files for compatibility, but do not grant access or expose commands. They are hidden from the editor.

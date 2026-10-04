@@ -1,11 +1,11 @@
 # Quick Start
 
-This is the stripped 1.4.0 development base. New shops start empty because automatic item and enchantment discovery has been removed. Existing configured shops continue to work.
+1. Back up `config/guishop/` and install Alpha 1 on a Minecraft 26.3 test server.
+2. Install the same JAR on your matching Fabric client and join with OP level 2 or higher.
+3. Press F8, create a category, and choose its icon.
+4. Add a selected item or your exact held stack. Set buy/sell prices; zero disables that side.
+5. Create folders if wanted, move listings, and use Simulate to review the draft's chest layout.
+6. Apply, then open `/shop` to check the real player menu and test buying/selling.
+7. Review Transactions and Changes in Adminshop.
 
-1. Back up `config/guishop/` and install the development JAR on a test server.
-2. Start the server and check the command integrity and runtime listing filter messages.
-3. Open `/shop`, `/shop buy`, `/shop sell`, or `/shop enchant` to view configured listings.
-4. Use `/bal`, `/shop pay <player> <amount>`, `/sellhand`, and `/worth` as before.
-5. Verify that the old administrator and identification commands are unavailable.
-
-The replacement setup interface and item discovery system will be developed next.
+`/bal`, `/shop pay`, `/sellhand`, and `/worth` remain player commands. `/adminshop`, `/ident`, automatic catalog generation, and old folder commands remain removed.

@@ -85,6 +85,7 @@ public abstract class InventoryOverflowTest {
                 throw new AssertionError("Missing retained player command: " + command);
             }
         }
+        com.zycu.guishop.testing.AlphaServerChecks.run(server, player);
         System.out.println("[ClassicGUIShop compatibility test] PASS: inventory delivery; recipe audit; player commands retained; admin and identification commands absent; no enchantment discovery");
     }
 

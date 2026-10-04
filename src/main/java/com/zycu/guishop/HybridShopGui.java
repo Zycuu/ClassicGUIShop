@@ -33,6 +33,10 @@ public final class HybridShopGui {
     private HybridShopGui() {}
 
     public static void openCategories(ServerPlayer player, ShopGui.Mode requestedMode) {
+        openCategories(player, requestedMode, 1);
+    }
+
+    private static void openCategories(ServerPlayer player, ShopGui.Mode requestedMode, int requestedPage) {
         GuiShop.PLAYERS.remember(player);
         ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
         if (mode == null) return;
@@ -42,7 +46,7 @@ public final class HybridShopGui {
         for (ShopConfig.Category category : GuiShop.CONFIG.categories) {
             if (!ShopPermissions.category(player, category.id) || !hasAvailableItems(category, mode)) continue;
             buttons.add(new MenuButton(
-                displayStack(category.icon, category.name + " | " + modeName(mode)),
+                displayStack(category.icon, category.name + " | " + modeName(mode), category.description),
                 () -> openCategory(player, category.id, mode, 1)
             ));
         }
@@ -53,23 +57,26 @@ public final class HybridShopGui {
             ));
         }
 
-        int rows = categoryRows(buttons.size());
+        int pages = Math.max(1, (buttons.size() + CategoryLayout.PAGE_SIZE - 1) / CategoryLayout.PAGE_SIZE);
+        int page = Math.max(1, Math.min(requestedPage, pages));
+        int offset = (page - 1) * CategoryLayout.PAGE_SIZE;
+        int shown = Math.min(CategoryLayout.PAGE_SIZE, buttons.size() - offset);
+        int rows = CategoryLayout.rows(shown);
         ShopContainer container = new ShopContainer(rows * 9, player);
         container.beginRender();
-        int contentRows = Math.max(1, rows - 1);
-        int shown = Math.min(contentRows * 7, buttons.size());
-        int index = 0;
-        for (int row = 0; row < contentRows && index < shown; row++) {
-            int remaining = shown - index;
-            int inThisRow = Math.min(7, remaining);
-            int startColumn = 1 + (7 - inThisRow) / 2;
-            for (int offset = 0; offset < inThisRow; offset++) {
-                MenuButton button = buttons.get(index++);
-                container.bind(row * 9 + startColumn + offset, button.icon, false, ignored -> button.action.run());
-            }
+        List<Integer> slots = CategoryLayout.slots(shown);
+        for (int index = 0; index < shown; index++) {
+            MenuButton button = buttons.get(offset + index);
+            container.bind(slots.get(index), button.icon, false, ignored -> button.action.run());
         }
 
         int bottom = (rows - 1) * 9;
+        if (page > 1) container.bind(bottom,
+            displayStack("minecraft:arrow", "Previous category page"), false,
+            ignored -> openCategories(player, mode, page - 1));
+        if (page < pages) container.bind(bottom + 7,
+            displayStack("minecraft:arrow", "Next category page"), false,
+            ignored -> openCategories(player, mode, page + 1));
         container.bind(bottom + 4,
             displayStack("minecraft:paper", "Balance: " + money(player)),
             false,
@@ -84,7 +91,7 @@ public final class HybridShopGui {
             );
         }
         container.endRender();
-        openMenu(player, container, Component.literal("ClassicGUIShop - " + modeName(mode)), rows);
+        openMenu(player, container, Component.literal(GuiShop.CONFIG.shopTitle + " - " + modeName(mode)), rows);
     }
 
     public static void openCategory(
@@ -99,7 +106,7 @@ public final class HybridShopGui {
             return;
         }
 
-        if ("colored_blocks".equalsIgnoreCase(categoryId)) {
+        if ("colored_blocks".equalsIgnoreCase(categoryId) && !GuiShop.FOLDERS.hasFolders(categoryId)) {
             openColoredBlockGroups(player, requestedMode, requestedPage);
             return;
         }
@@ -160,7 +167,7 @@ public final class HybridShopGui {
                 for (int slot = 0; start + slot < end; slot++) {
                     FolderView view = views.get(start + slot);
                     screen.bind(slot,
-                        displayStack(view.icon, view.name + " | " + view.count + " listings"),
+                        displayStack(view.icon, view.name + " | " + view.count + " listings", view.description),
                         false,
                         ignored -> openFolder(player, category.id, view.id, mode, 1, page)
                     );
@@ -322,6 +329,7 @@ public final class HybridShopGui {
                     icon.set(DataComponents.CUSTOM_NAME,
                         Component.literal(entry.name + " | " + modeName(mode) + " "
                             + GuiShop.CONFIG.money(unitPrice) + " each"));
+                    description(icon, entry.description);
 
                     screen.bind(slot, icon, true, quantity -> {
                         int requestedAmount = mode == ShopGui.Mode.SELL && quantity == 64
@@ -499,11 +507,11 @@ public final class HybridShopGui {
         List<FolderView> views = new ArrayList<>();
         int unsorted = countFolder(category, ShopFolderStore.UNSORTED, mode);
         if (unsorted > 0) {
-            views.add(new FolderView(ShopFolderStore.UNSORTED, "Unsorted", "minecraft:chest", unsorted));
+            views.add(new FolderView(ShopFolderStore.UNSORTED, "Unsorted", "minecraft:chest", "", unsorted));
         }
         for (ShopFolderStore.Folder folder : GuiShop.FOLDERS.folders(category.id)) {
             int count = countFolder(category, folder.id, mode);
-            if (count > 0) views.add(new FolderView(folder.id, folder.name, folder.icon, count));
+            if (count > 0) views.add(new FolderView(folder.id, folder.name, folder.icon, folder.description, count));
         }
         return views;
     }
@@ -591,6 +599,10 @@ public final class HybridShopGui {
     }
 
     private static ItemStack displayStack(String identifier, String name) {
+        return displayStack(identifier, name, "");
+    }
+
+    private static ItemStack displayStack(String identifier, String name, String detail) {
         Item item;
         try {
             item = BuiltInRegistries.ITEM.getValue(Identifier.parse(identifier));
@@ -600,7 +612,16 @@ public final class HybridShopGui {
         }
         ItemStack stack = new ItemStack(item);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        description(stack, detail);
         return stack;
+    }
+
+    private static void description(ItemStack icon, String detail) {
+        if (detail == null || detail.isBlank()) return;
+        var lore = icon.getOrDefault(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of()));
+        if (lore.lines().size() < net.minecraft.world.item.component.ItemLore.MAX_LINES) {
+            icon.set(DataComponents.LORE, lore.withLineAdded(Component.literal(detail).withStyle(net.minecraft.ChatFormatting.GRAY)));
+        }
     }
 
     private static Component shopTitle(Component title) {
@@ -656,7 +677,7 @@ public final class HybridShopGui {
     }
 
     private record MenuButton(ItemStack icon, Runnable action) {}
-    private record FolderView(String id, String name, String icon, int count) {}
+    private record FolderView(String id, String name, String icon, String description, int count) {}
     private record ColoredView(ColoredBlockGroups.Group group, int count) {}
     private record Binding(GuiAction action, boolean trade) {}
 

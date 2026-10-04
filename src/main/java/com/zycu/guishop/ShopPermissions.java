@@ -2,201 +2,29 @@ package com.zycu.guishop;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permission;
+import net.minecraft.server.permissions.PermissionLevel;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Locale;
-
+/** Minecraft 26.3 permission checks honor the configured level exactly. */
 public final class ShopPermissions {
-    private static final List<Method> LEGACY_PERMISSION_METHODS = findLegacyPermissionMethods();
-    private static final List<Field> LEGACY_PERMISSION_LEVEL_FIELDS = findLegacyPermissionLevelFields();
-    private static final Object ALL_PERMISSIONS = findStaticFieldValue(
-        "net.minecraft.server.permissions.PermissionSet",
-        "ALL_PERMISSIONS"
-    );
-
     private ShopPermissions() {}
-
     public static void logPermissionAccessors() {
-        if (ALL_PERMISSIONS != null) {
-            System.out.println("[ClassicGUIShop] Permission model detected: Minecraft PermissionSet.ALL_PERMISSIONS.");
-        }
-        if (!LEGACY_PERMISSION_METHODS.isEmpty()) {
-            System.out.println("[ClassicGUIShop] Permission model detected: legacy CommandSourceStack boolean(int) method.");
-        }
-        if (!LEGACY_PERMISSION_LEVEL_FIELDS.isEmpty()) {
-            System.out.println("[ClassicGUIShop] Permission model detected: legacy CommandSourceStack int permission field.");
-        }
-        System.out.println("[ClassicGUIShop] Permission model detected: vanilla operator fallback.");
+        System.out.println("[ClassicGUIShop] Permission model detected: Minecraft PermissionSet with exact command levels.");
     }
-
     public static boolean check(CommandSourceStack source, String node, int fallbackLevel) {
         int level = GuiShop.CONFIG == null ? fallbackLevel : GuiShop.CONFIG.permissionLevel(node, fallbackLevel);
-        return hasPermissionLevel(source, level);
+        if (level < 0 || level > 4) return false;
+        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.byId(level)));
     }
-
     public static boolean check(ServerPlayer player, String node, int fallbackLevel) {
         return check(player.createCommandSourceStack(), node, fallbackLevel);
     }
-
-    public static boolean user(CommandSourceStack source, String node) {
-        return check(source, node, 0);
-    }
-
-    public static boolean user(ServerPlayer player, String node) {
-        return check(player, node, 0);
-    }
-
+    public static boolean user(CommandSourceStack source, String node) { return check(source, node, 0); }
+    public static boolean user(ServerPlayer player, String node) { return check(player, node, 0); }
     public static boolean category(ServerPlayer player, String categoryId) {
         return check(player, "guishop.category." + sanitize(categoryId), 0);
     }
-
-    private static boolean hasPermissionLevel(CommandSourceStack source, int level) {
-        if (level <= 0) return true;
-
-        if (hasAllPermissions(source)) return true;
-        if (hasVanillaOperatorLevel(source)) return true;
-
-        ServerPlayer player = null;
-        try {
-            player = source.getPlayer();
-        } catch (RuntimeException ignored) {
-            // Older mappings may throw for non-player sources. Non-player command sources are handled below.
-        }
-
-        if (player != null && hasAllPermissions(player)) return true;
-        if (player == null) return true;
-
-        return hasLegacyPermissionLevel(source, level);
-    }
-
-    private static boolean hasVanillaOperatorLevel(CommandSourceStack source) {
-        try {
-            ServerPlayer player = source.getPlayer();
-            if (player == null) return true;
-
-            Object playerList = source.getServer().getPlayerList();
-            Object[] candidates = new Object[] {
-                invokeNoArg(player, "getNameAndId"),
-                invokeNoArg(player, "nameAndId"),
-                invokeNoArg(source, "getNameAndId"),
-                invokeNoArg(source, "nameAndId"),
-                player.getGameProfile()
-            };
-
-            for (Method method : playerList.getClass().getMethods()) {
-                if (!method.getName().equals("isOp") || method.getReturnType() != boolean.class) continue;
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length != 1) continue;
-
-                for (Object candidate : candidates) {
-                    if (candidate == null || !parameterTypes[0].isInstance(candidate)) continue;
-                    Object result = method.invoke(playerList, candidate);
-                    if (result instanceof Boolean allowed && allowed) return true;
-                }
-            }
-        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-            return false;
-        }
-        return false;
-    }
-
-    private static boolean hasAllPermissions(Object target) {
-        if (ALL_PERMISSIONS == null || target == null) return false;
-        Object permissions = invokeNoArg(target, "permissions");
-        if (permissions == ALL_PERMISSIONS || ALL_PERMISSIONS.equals(permissions)) return true;
-
-        Object levels = invokeNoArg(target, "levels");
-        if (!(levels instanceof Collection<?> collection)) return false;
-        for (Object entry : collection) {
-            if (entry == ALL_PERMISSIONS || ALL_PERMISSIONS.equals(entry)) return true;
-        }
-        return false;
-    }
-
-    private static boolean hasLegacyPermissionLevel(CommandSourceStack source, int level) {
-        for (Method method : LEGACY_PERMISSION_METHODS) {
-            try {
-                Object result = method.invoke(source, level);
-                if (result instanceof Boolean value && value) return true;
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-                // Try the next boolean(int) method candidate.
-            }
-        }
-
-        for (Field field : LEGACY_PERMISSION_LEVEL_FIELDS) {
-            try {
-                if (field.getInt(source) >= level) return true;
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-                // Try the next int field candidate.
-            }
-        }
-        return false;
-    }
-
-    private static Object invokeNoArg(Object target, String methodName) {
-        Class<?> type = target == null ? null : target.getClass();
-        while (type != null && type != Object.class) {
-            try {
-                Method method = type.getDeclaredMethod(methodName);
-                method.setAccessible(true);
-                return method.invoke(target);
-            } catch (NoSuchMethodException ignored) {
-                type = type.getSuperclass();
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private static List<Method> findLegacyPermissionMethods() {
-        List<Method> methods = new ArrayList<>();
-        Class<?> type = CommandSourceStack.class;
-        while (type != null && type != Object.class) {
-            for (Method method : type.getDeclaredMethods()) {
-                if (method.getReturnType() != boolean.class) continue;
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length != 1 || parameterTypes[0] != int.class) continue;
-                method.setAccessible(true);
-                methods.add(method);
-            }
-            type = type.getSuperclass();
-        }
-        return List.copyOf(methods);
-    }
-
-    private static List<Field> findLegacyPermissionLevelFields() {
-        List<Field> fields = new ArrayList<>();
-        Class<?> type = CommandSourceStack.class;
-        while (type != null && type != Object.class) {
-            for (Field field : type.getDeclaredFields()) {
-                if (field.getType() != int.class) continue;
-                if (Modifier.isStatic(field.getModifiers())) continue;
-                field.setAccessible(true);
-                fields.add(field);
-            }
-            type = type.getSuperclass();
-        }
-        return List.copyOf(fields);
-    }
-
-    private static Object findStaticFieldValue(String className, String fieldName) {
-        try {
-            Class<?> type = Class.forName(className);
-            Field field = type.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return field.get(null);
-        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-            return null;
-        }
-    }
-
-    private static String sanitize(String value) {
-        return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_.-]", "_");
+    private static String sanitize(String categoryId) {
+        return categoryId.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_.-]", "_");
     }
 }

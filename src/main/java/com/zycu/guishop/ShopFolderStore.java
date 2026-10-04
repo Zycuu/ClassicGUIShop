@@ -50,19 +50,44 @@ public final class ShopFolderStore {
 
     public synchronized void save() {
         try {
-            normalize();
-            Files.createDirectories(DIRECTORY);
-            Path temporary = FILE.resolveSibling(FILE.getFileName() + ".tmp");
-            Files.writeString(temporary, GSON.toJson(this), StandardCharsets.UTF_8);
-            try {
-                Files.move(temporary, FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (Exception ignored) {
-                Files.move(temporary, FILE, StandardCopyOption.REPLACE_EXISTING);
-            }
+            saveChecked();
         } catch (Exception exception) {
             System.err.println("[ClassicGUIShop] Could not save folders.json.");
             exception.printStackTrace();
         }
+    }
+
+    public synchronized void saveChecked() throws Exception {
+        normalize();
+        Files.createDirectories(DIRECTORY);
+        Path temporary = FILE.resolveSibling(FILE.getFileName() + ".tmp");
+        Files.writeString(temporary, GSON.toJson(this), StandardCharsets.UTF_8);
+        try { Files.move(temporary, FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE); }
+        catch (java.nio.file.AtomicMoveNotSupportedException ignored) { Files.move(temporary, FILE, StandardCopyOption.REPLACE_EXISTING); }
+    }
+
+    public synchronized Map<String, com.zycu.guishop.admin.AdminDocument.FolderLayout> editorLayout() {
+        Map<String, com.zycu.guishop.admin.AdminDocument.FolderLayout> result = new LinkedHashMap<>();
+        for (var entry : categories.entrySet()) {
+            var layout = new com.zycu.guishop.admin.AdminDocument.FolderLayout();
+            layout.folders = GSON.fromJson(GSON.toJson(entry.getValue().folders),
+                new com.google.gson.reflect.TypeToken<List<Folder>>() {}.getType());
+            layout.assignments = new LinkedHashMap<>(entry.getValue().assignments);
+            result.put(entry.getKey(), layout);
+        }
+        return result;
+    }
+
+    /** Called only after the complete editor document has passed server validation. */
+    public static ShopFolderStore fromEditorLayout(Map<String, com.zycu.guishop.admin.AdminDocument.FolderLayout> source) {
+        ShopFolderStore store = new ShopFolderStore();
+        for (var entry : source.entrySet()) {
+            CategoryFolders layout = new CategoryFolders();
+            layout.folders = entry.getValue().folders;
+            layout.assignments = entry.getValue().assignments;
+            store.categories.put(entry.getKey(), layout);
+        }
+        return store;
     }
 
     public synchronized void sync(ShopConfig config) {
@@ -167,6 +192,7 @@ public final class ShopFolderStore {
                 folder.id = sanitize(folder.id);
                 if (folder.name == null || folder.name.isBlank()) folder.name = folder.id;
                 if (folder.icon == null || folder.icon.isBlank()) folder.icon = "minecraft:chest";
+                if (folder.description == null) folder.description = "";
             }
         }
     }
@@ -197,5 +223,6 @@ public final class ShopFolderStore {
         public String id;
         public String name;
         public String icon;
+        public String description = "";
     }
 }

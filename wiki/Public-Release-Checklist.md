@@ -1,16 +1,15 @@
 # Public Release Checklist
 
-The stripped 1.4.0 development base is not a public release candidate. Administrator setup and item discovery are awaiting a redesign.
+1.4.0 Alpha 1 is a testing build, not an approved public release.
 
-Before publishing 1.4.0:
+Before a stable release:
 
-- Complete and review the replacement features with Zycu.
-- Verify player GUI navigation, purchases, selling, payments, and balance persistence.
-- Test full inventory delivery and exact component matching.
-- Verify the replacement administrator permissions with operator and non-operator accounts.
-- Test existing configurations, manual prices, folders, and unavailable-listing restoration.
-- Complete recipe pricing and exploit review for the final preset design.
-- Pass local and GitHub compatibility checks on supported Minecraft versions.
-- Obtain Zycu's explicit release approval before publishing a tag or release.
+- Review the Adminshop layout and behavior with Zycu on an actual server.
+- Verify purchases, sales, payments, balance persistence, inventory overflow, and exact variants.
+- Review administrator denial and permission revocation, stale drafts, backups, restore, and external edits.
+- Test existing configurations, folders, manual prices, and unavailable listings.
+- Finish the pricing and exploit review and the intended balanced preset design.
+- Pass local and GitHub checks on the declared Minecraft version.
+- Obtain Zycu's explicit approval immediately before publishing a tag or release.
 
-A future 2.0.0 release requires its own milestone readiness review and approval.
+Version policy: x is a completeness milestone, y adds features, z is a minor tweak or bug fix. Alpha suffixes identify previews before the intended 1.4.0 release. A future 2.0.0 requires its own readiness review and explicit approval.

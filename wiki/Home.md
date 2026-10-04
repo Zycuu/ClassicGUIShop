@@ -1,24 +1,20 @@
 # ClassicGUIShop Wiki
 
-This documentation describes **1.4.0-dev.1**, the stripped development base for rebuilding ClassicGUIShop 1.4.0.
+Documentation for **1.4.0 Alpha 1**, targeting Minecraft **26.3** with Java **25+** and Fabric Loader **0.19.5** recommended.
 
-Minecraft support remains 26.1.1 through 26.3.x, using Java 25+. Fabric Loader 0.19.5 is recommended. Fabric API remains optional.
+Player shops use vanilla chest menus and require no client mod. Administrators optionally install ClassicGUIShop on their matching Fabric client and press F8 for the new workbench. All editor access requires OP level 2 or higher on the server.
 
-Player shops, balances, payments, selling, worth checks, existing folders, configured enchanted books, exact item matching, unavailable-listing preservation, and the existing recipe safety pass remain.
-
-Administrator tools and commands, held-item identification, automatic catalog population, automatic enchantment offer discovery, and catalog-generated pricing have been removed. Fresh shops start empty; existing data is retained.
-
-## Documentation
+The workbench includes a shop builder and simulator, server settings, exact permission levels, transaction records, configuration history, and backup restoration through drafts. Automatic item discovery and old administrator commands remain removed. Fresh shops are configured explicitly.
 
 - [Installation](Installation.md)
 - [Quick Start](Quick-Start.md)
 - [Player Guide](Player-Guide.md)
 - [Command Reference](Command-Reference.md)
-- [Administrator rebuild status](Admin-Guide.md)
+- [Admin Guide](Admin-Guide.md)
 - [Configuration](Configuration-Files.md)
 - [Permissions](Permissions.md)
 - [Economy and Pricing](Economy-and-Pricing.md)
 - [Shop Folders](Shop-Folders.md)
-- [Imports](Imports-Mods-and-Data-Packs.md)
+- [Items, Mods, and Data Packs](Imports-Mods-and-Data-Packs.md)
 - [Troubleshooting](Troubleshooting.md)
 - [Release Checklist](Public-Release-Checklist.md)

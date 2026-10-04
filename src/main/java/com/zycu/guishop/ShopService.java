@@ -35,6 +35,15 @@ public final class ShopService {
 
     public static boolean trade(ServerPlayer player, ShopConfig.ShopItem entry, ShopGui.Mode mode, int requestedQuantity) {
         if (!canTransact(player, mode)) return false;
+        var current = GuiShop.CONFIG.findItem(entry.listingId);
+        if (current == null || current.item() != entry) {
+            ShopMessages.warning(player, "The shop was updated. Reopen /shop before trading.");
+            return false;
+        }
+        if (!ShopPermissions.category(player, current.category().id)) {
+            ShopMessages.error(player, "You do not have permission to use that category.");
+            return false;
+        }
         if (!VersionedListingStore.isRuntimeAvailable(entry, player.registryAccess())) {
             ShopMessages.warning(player, "That listing is unavailable in this Minecraft version.");
             return false;
@@ -55,12 +64,14 @@ public final class ShopService {
         if (mode == ShopGui.Mode.BUY) {
             int quantity = Math.max(1, requestedQuantity);
             double total = round(unitPrice * quantity);
+            if (!validTotal(player, total)) return false;
             if (!GuiShop.ECONOMY.withdraw(player.getUUID(), total)) {
                 ShopMessages.error(player, "You cannot afford " + quantity + "x " + entry.name
                     + " for " + GuiShop.CONFIG.money(total) + ".");
                 return false;
             }
             give(player, template, quantity);
+            com.zycu.guishop.admin.TransactionJournal.record(player, "BUY", entry.listingId, entry.item, quantity, unitPrice, total, "");
             ShopMessages.success(player, "Purchased " + quantity + "x " + entry.name
                 + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
                 + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
@@ -75,8 +86,10 @@ public final class ShopService {
 
         int quantity = requestedQuantity == SELL_ALL ? available : Math.min(Math.max(1, requestedQuantity), available);
         double total = round(unitPrice * quantity);
+        if (!validTotal(player, total)) return false;
         remove(player, template, quantity);
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
+        com.zycu.guishop.admin.TransactionJournal.record(player, "SELL", entry.listingId, entry.item, quantity, unitPrice, total, "");
         ShopMessages.success(player, "Sold " + quantity + "x " + entry.name
             + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
             + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
@@ -98,6 +111,10 @@ public final class ShopService {
             ShopMessages.warning(player, "That exact item does not have a sell price.");
             return false;
         }
+        if (!ShopPermissions.category(player, found.category().id)) {
+            ShopMessages.error(player, "You do not have permission to use that category.");
+            return false;
+        }
         if (!VersionedListingStore.isRuntimeAvailable(found.item(), player.registryAccess())) {
             ShopMessages.warning(player, "That listing is unavailable in this Minecraft version.");
             return false;
@@ -110,6 +127,7 @@ public final class ShopService {
 
         double unitPrice = found.item().sell * GuiShop.CONFIG.priceMultiplier;
         double total = round(unitPrice * quantity);
+        if (!validTotal(player, total)) return false;
 
         if (allInventory) {
             remove(player, template, quantity);
@@ -119,6 +137,7 @@ public final class ShopService {
         }
 
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
+        com.zycu.guishop.admin.TransactionJournal.record(player, "SELL", found.item().listingId, found.item().item, quantity, unitPrice, total, allInventory ? "Inventory sale" : "Held-item sale");
         ShopMessages.success(player, "Sold " + quantity + "x " + found.item().name
             + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
             + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
@@ -178,6 +197,12 @@ public final class ShopService {
             if (ItemStackData.same(stack, template)) count += stack.getCount();
         }
         return count;
+    }
+
+    public static boolean validTotal(ServerPlayer player, double total) {
+        if (Double.isFinite(total) && total >= 0.01 && total <= 1_000_000_000_000.0) return true;
+        ShopMessages.warning(player, "That transaction has a zero or invalid total. Ask an admin to check the price.");
+        return false;
     }
 
     public static void remove(ServerPlayer player, ItemStack template, int quantity) {

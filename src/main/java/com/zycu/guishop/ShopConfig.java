@@ -28,6 +28,7 @@ public final class ShopConfig {
     private static final Path ENCHANTMENTS_FILE = DIRECTORY.resolve("enchantments.json");
 
     public String currencySymbol = "$";
+    public String shopTitle = "ClassicGUIShop";
     public double startingBalance = 500.0;
     public double priceMultiplier = 1.0;
     public Boolean allowCreativeTransactions = false;
@@ -90,15 +91,20 @@ public final class ShopConfig {
 
     public synchronized void save() {
         try {
-            normalize();
-            Files.createDirectories(DIRECTORY);
-            atomicWrite(SETTINGS_FILE, GSON.toJson(toSettingsFile()));
-            atomicWrite(SHOPS_FILE, GSON.toJson(toShopsFile()));
-            atomicWrite(ENCHANTMENTS_FILE, GSON.toJson(toEnchantmentsFile()));
+            saveChecked();
         } catch (Exception exception) {
             System.err.println("[ClassicGUIShop] Could not save configuration files.");
             exception.printStackTrace();
         }
+    }
+
+    /** Editor commits must propagate a write failure instead of reporting false success. */
+    public synchronized void saveChecked() throws Exception {
+        normalize();
+        Files.createDirectories(DIRECTORY);
+        atomicWrite(SETTINGS_FILE, GSON.toJson(toSettingsFile()));
+        atomicWrite(SHOPS_FILE, GSON.toJson(toShopsFile()));
+        atomicWrite(ENCHANTMENTS_FILE, GSON.toJson(toEnchantmentsFile()));
     }
 
     public Category category(String id) {
@@ -171,6 +177,7 @@ public final class ShopConfig {
 
     private void normalize() {
         if (currencySymbol == null) currencySymbol = "$";
+        if (shopTitle == null || shopTitle.isBlank()) shopTitle = "ClassicGUIShop";
         if (categories == null) categories = new ArrayList<>();
         if (permissionDefaults == null) permissionDefaults = new LinkedHashMap<>();
         if (enchantments == null) enchantments = new LinkedHashMap<>();
@@ -226,6 +233,7 @@ public final class ShopConfig {
             if (category.id == null || category.id.isBlank()) category.id = "category";
             category.id = sanitizeId(category.id);
             if (category.name == null) category.name = category.id;
+            if (category.description == null) category.description = "";
             if (category.icon == null) category.icon = "minecraft:chest";
             if (category.items == null) category.items = new ArrayList<>();
             addPermissionDefault("guishop.category." + category.id, 0);
@@ -234,6 +242,7 @@ public final class ShopConfig {
                 item.item = normalizeIdentifier(item.item);
                 if (item.listingId == null || item.listingId.isBlank()) item.listingId = item.item;
                 if (item.name == null) item.name = item.item;
+                if (item.description == null) item.description = "";
                 if (!Double.isFinite(item.buy) || item.buy < 0) item.buy = 0;
                 if (!Double.isFinite(item.sell) || item.sell < 0) item.sell = 0;
                 if (item.manualPrice == null) item.manualPrice = item.listingId.contains("#");
@@ -290,6 +299,7 @@ public final class ShopConfig {
     private void applySettings(SettingsFile file) {
         if (file == null) return;
         if (file.general != null) {
+            shopTitle = file.general.shopTitle;
             priceMultiplier = file.general.priceMultiplier;
             allowCreativeTransactions = file.general.allowCreativeTransactions;
             allowOfflinePayments = file.general.allowOfflinePayments;
@@ -335,6 +345,7 @@ public final class ShopConfig {
         file._about = about();
         file._notes = settingsNotes();
         file.general.priceMultiplier = priceMultiplier;
+        file.general.shopTitle = shopTitle;
         file.general.allowCreativeTransactions = allowCreativeTransactions;
         file.general.allowOfflinePayments = allowOfflinePayments;
         file.economy.currencySymbol = currencySymbol;
@@ -387,6 +398,7 @@ public final class ShopConfig {
 
     private static Map<String, String> settingsNotes() {
         Map<String, String> notes = new LinkedHashMap<>();
+        notes.put("general.shopTitle", "Title displayed at the root of the vanilla player shop.");
         notes.put("general.priceMultiplier", "Multiplies every buy and sell price. 1.0 keeps listed prices unchanged, 2.0 doubles them, and 0.5 halves them.");
         notes.put("general.allowCreativeTransactions", "When true, players in Creative mode may buy and sell. When false, Creative transactions require the guishop.creative.bypass permission.");
         notes.put("general.allowOfflinePayments", "When true, /shop pay may send money to a player who is offline but has joined before. When false, the recipient must be online.");
@@ -405,8 +417,8 @@ public final class ShopConfig {
         notes.put("chat.successColor", "Color used for successful purchases, sales, payments, and other completed actions.");
         notes.put("chat.warningColor", "Color used for non-fatal warnings, unavailable listings, and disabled features.");
         notes.put("chat.errorColor", "Color used when an action fails or the player lacks permission or money.");
-        notes.put("chat.adminColor", "Legacy administrator color retained for the planned interface rebuild.");
-        notes.put("permissionDefaults", "Each entry is a fallback Minecraft permission level. 0 allows everyone, 2 allows normal operators, and 4 requires the highest operator level. Permission mods may override these values.");
+        notes.put("chat.adminColor", "Legacy administrator chat color retained for compatibility; Adminshop is a client GUI.");
+        notes.put("permissionDefaults", "Each entry is an exact vanilla command level from 0 to 4. 0 allows everyone, 2 is gamemaster, and 4 is owner. External permission plugins are not integrated in this Alpha.");
         return notes;
     }
 
@@ -415,11 +427,13 @@ public final class ShopConfig {
         notes.put("categories", "List of shop categories shown in /shop. Their order here controls their menu order.");
         notes.put("categories[].id", "Internal category ID used by commands and permissions. Keep it lowercase and unique.");
         notes.put("categories[].name", "Name players see in the shop menu.");
+        notes.put("categories[].description", "Optional tooltip text on the category icon. This does not change purchased item components.");
+        notes.put("categories[].items[].description", "Optional shop tooltip text. Purchased stacks keep their original components.");
         notes.put("categories[].icon", "Minecraft item ID used as the category icon, for example minecraft:bricks.");
         notes.put("categories[].items", "Listings contained in the category. The colored_blocks category is automatically divided into block-type submenus in the GUI.");
         notes.put("categories[].items[].item", "Base Minecraft item ID for the listing.");
         notes.put("categories[].items[].listingId", "Unique listing identifier. Component-rich variants include a #hash so multiple versions of the same base item can coexist.");
-        notes.put("categories[].items[].stack", "Serialized exact ItemStack data. It preserves enchantments, names, lore, trims, potion contents, and other components. Preserve this serialized data when editing listings; the administrator interface is being rebuilt.");
+        notes.put("categories[].items[].stack", "Serialized exact ItemStack data. It preserves enchantments, names, lore, trims, potion contents, and other components. Preserve this data; use Add held item in Adminshop to add exact variants.");
         notes.put("categories[].items[].name", "Display name used in the shop GUI and chat messages.");
         notes.put("categories[].items[].buy", "Price for one item. Set to 0 to hide the listing from buy menus.");
         notes.put("categories[].items[].sell", "Amount paid for one matching item. Set to 0 to prevent players from selling it.");
@@ -446,6 +460,7 @@ public final class ShopConfig {
         public String id;
         public String name;
         public String icon;
+        public String description = "";
         public List<ShopItem> items = new ArrayList<>();
     }
 
@@ -454,6 +469,7 @@ public final class ShopConfig {
         public String listingId;
         public JsonElement stack;
         public String name;
+        public String description = "";
         public double buy;
         public double sell;
         public Boolean manualPrice;
@@ -486,6 +502,7 @@ public final class ShopConfig {
     }
 
     private static final class GeneralSection {
+        String shopTitle = "ClassicGUIShop";
         double priceMultiplier = 1.0;
         Boolean allowCreativeTransactions = false;
         Boolean allowOfflinePayments = true;

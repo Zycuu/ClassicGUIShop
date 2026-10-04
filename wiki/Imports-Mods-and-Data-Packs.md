@@ -1,7 +1,7 @@
-# Imports: Mods and Data Packs
+# Items, Mods, and Data Packs
 
-The old import commands, namespace scanners, recipe-output importer, held-item importer, and import reminders have been removed for the administrator rebuild.
+Automatic catalog scans, namespace scans, recipe-output imports, import commands, and `/ident` remain removed. Installing a mod or data pack does not create shop listings.
 
-Existing imported listings remain in shop configuration and can still be used when their items and components are available on the server. Unavailable listings continue to be parked and restored across game versions or mod changes.
+Adminshop provides explicit **Select item** and **Add held item** controls. The picker adds only the selected registry item. Add held item captures the actual server-held stack and its components. Exact variants remain distinct from plain items. New listings start with prices disabled.
 
-Automatic item discovery is also removed. Installing a mod or data pack will not create shop listings. Fresh installations start empty.
+Existing imported listings remain usable when their items and components are available. Unavailable listings are preserved in `versioned-listings.json`. Client-side icon display also needs the relevant item mod where required by that mod's normal installation rules.

@@ -15,8 +15,18 @@ public final class GuiShop implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        com.zycu.guishop.admin.AdminNetworking.register();
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+            initializedServer = null;
+            initializeStores();
+        });
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
+            com.zycu.guishop.admin.AdminNetworking.clear());
+        // Client installation is an editor, not a second local copy of a remote server's economy.
+    }
+
+    private static void initializeStores() {
         CONFIG = ShopConfig.load();
-        CONFIG.save();
         ECONOMY = new EconomyStore(CONFIG);
         PLAYERS = new PlayerDirectory();
         FOLDERS = SafeShopFolderLoader.load();
@@ -47,6 +57,7 @@ public final class GuiShop implements ModInitializer {
         );
         EconomyExploitScanner.FixReport economy = EconomyExploitScanner.fixGeneratedExploits(server);
         FOLDERS.sync(CONFIG);
+        com.zycu.guishop.admin.AdminEditorService.rememberDiskState();
         System.out.println("[ClassicGUIShop] Runtime listing filter parked " + versioned.parked()
             + ", restored " + versioned.restored() + ", and is preserving "
             + versioned.remainingParked() + " unavailable listing(s).");

@@ -1,29 +1,37 @@
 # Troubleshooting
 
+## F8 does not open Adminshop
+
+Install the Alpha JAR on both the Minecraft 26.3 server and your matching Fabric client. Check the key binding under Controls. The older server builds do not support this client protocol.
+
+## Permission popup
+
+The server requires OP level 2 or higher. Ask the server owner to grant permission. Client installation alone does not grant access.
+
 ## A fresh shop is empty
 
-This is expected in the stripped 1.4.0 development base. Automatic item discovery and enchantment offer creation have been removed. Existing configurations remain usable.
+Automatic discovery remains removed. Create a category and add selected or held items through Shop Builder, set prices, and Apply.
 
-## Old administrator or identification commands are unavailable
+## Apply is rejected
 
-These commands and both old administrator editors have been removed for the rebuild. There are no replacement setup commands yet.
+Correct the reported invalid price, item identity, or folder reference. For stale drafts, review your edits before reloading current server state. If files changed outside the editor, restart the server to load them. The editor preserves the rejected draft.
 
 ## A configured listing is missing
 
-Check whether its price is enabled for the selected mode, its category is accessible, and its exact item/components are available on the server. Unavailable listings are preserved in `versioned-listings.json` and restored when their items are available again.
-
-## The mod does not load
-
-Use Java 25+ and a supported Minecraft version, 26.1.1 through 26.3.x. Use Fabric Loader 0.19.5+ on 26.3. Keep one active ClassicGUIShop JAR in the mods folder. Fabric API is optional; any installed API must match Minecraft.
+Check its enabled Buy/Sell price, category permission, and runtime item/component availability. Unavailable listings remain in `versioned-listings.json`. Build mode shows disabled listings; Simulate filters by mode.
 
 ## Selling or worth checks do not match an item
 
-Listings can match exact item components. A renamed, enchanted, trimmed, or otherwise modified stack can differ from its base item. Check the existing listing and serialized stack data without overwriting it.
-
-## Manual configuration changes do not appear
-
-The reload command is removed. Stop the test server, back up and edit its configuration, then restart.
+Exact components matter. A renamed, enchanted, trimmed, or modified stack can differ from its base listing. Use Add held item to configure that variant.
 
 ## A generated sell price changes on startup
 
-The existing recipe safety pass remains and can correct previously generated sell prices. Listings marked `manualPrice: true` retain their prices. New catalog listings and generated catalog prices are no longer created.
+The retained recipe audit can correct older generated prices. New and repriced editor listings are manual and preserved.
+
+## Older transactions are absent from the GUI
+
+The GUI reads the newest 30 daily files and the last 2 MB of each. Full UTC JSONL journals remain under `config/guishop/transactions/` without automatic pruning. Check those files for older history.
+
+## The mod does not load
+
+Use Minecraft 26.3, Java 25+, and Fabric Loader 0.19.5+. Keep one active ClassicGUIShop JAR. Any separately installed Fabric API must match Minecraft 26.3.
