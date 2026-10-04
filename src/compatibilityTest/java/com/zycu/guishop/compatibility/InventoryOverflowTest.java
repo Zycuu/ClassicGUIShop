@@ -1,0 +1,91 @@
+package com.zycu.guishop.compatibility;
+
+import com.mojang.authlib.GameProfile;
+import com.zycu.guishop.EconomyExploitScanner;
+import com.zycu.guishop.IntegrationImportService;
+import com.zycu.guishop.ShopService;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ClientInformation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.UUID;
+import java.util.function.BooleanSupplier;
+
+/** Executes only on disposable test servers, using the real Minecraft inventory/drop code. */
+@Mixin(MinecraftServer.class)
+public abstract class InventoryOverflowTest {
+    @Unique private boolean guishop$tested;
+    @Unique private boolean guishop$prepared;
+
+    @Inject(method = "tickServer", at = @At("TAIL"))
+    private void guishop$test(BooleanSupplier timeLeft, CallbackInfo callback) {
+        MinecraftServer server = (MinecraftServer) (Object) this;
+        if (guishop$tested || server.getTickCount() < 2) return;
+        if (!guishop$prepared) {
+            server.overworld().setChunkForced(0, 0, true);
+            server.overworld().getChunk(0, 0);
+            guishop$prepared = true;
+            return;
+        }
+        if (server.getTickCount() < 40) return;
+        guishop$tested = true;
+        ServerLevel level = server.overworld();
+        level.getChunk(0, 0);
+        ServerPlayer player = new ServerPlayer(server, level,
+            new GameProfile(UUID.fromString("4812eb9e-d832-46a5-a3e9-963d1391b8a4"), "ShopTest"),
+            ClientInformation.createDefault());
+        player.setPos(8, 128, 8);
+
+        guishop$checkDelivery(player, level, false, 0, 3, 3, 0);
+        guishop$checkDelivery(player, level, true, 63, 3, 64, 2);
+        guishop$checkDelivery(player, level, true, 0, 3, 0, 3);
+        guishop$checkDelivery(player, level, true, 0, 130, 0, 130);
+
+        if (EconomyExploitScanner.audit(server).recipesChecked() <= 0
+            || !IntegrationImportService.recipeNamespaces(server).toList().contains("minecraft")) {
+            throw new AssertionError("Recipe audit/import access did not find vanilla recipes");
+        }
+        System.out.println("[ClassicGUIShop compatibility test] PASS: empty, partial, full, multi-stack overflow; recipe audit/import access");
+    }
+
+    @Unique
+    private static void guishop$checkDelivery(ServerPlayer player, ServerLevel level, boolean fill,
+                                            int initialDiamonds, int quantity,
+                                            int expectedInventory, int expectedDrops) {
+        player.getInventory().clearContent();
+        if (fill) {
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                player.getInventory().setItem(slot, new ItemStack(Items.STONE, 64));
+            }
+        }
+        if (initialDiamonds > 0) player.getInventory().setItem(0, new ItemStack(Items.DIAMOND, initialDiamonds));
+        int before = guishop$droppedDiamonds(level);
+        ShopService.give(player, new ItemStack(Items.DIAMOND), quantity);
+        int inventory = ShopService.count(player, new ItemStack(Items.DIAMOND));
+        int dropped = guishop$droppedDiamonds(level) - before;
+        if (inventory != expectedInventory || dropped != expectedDrops) {
+            throw new AssertionError("Delivery lost or duplicated items: inventory=" + inventory + ", drops=" + dropped);
+        }
+    }
+
+    @Unique
+    private static int guishop$droppedDiamonds(ServerLevel level) {
+        int count = 0;
+        for (Entity entity : level.getAllEntities()) {
+            if (entity instanceof ItemEntity item && item.getItem().is(Items.DIAMOND)) {
+                count += item.getItem().getCount();
+            }
+        }
+        return count;
+    }
+}

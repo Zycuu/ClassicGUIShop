@@ -16,7 +16,8 @@ server_pid=$!
 ready=0
 
 for _ in $(seq 1 150); do
-  if grep -Fq "[ClassicGUIShop] Runtime listing filter parked" "$log_file" 2>/dev/null; then
+  if grep -Fq "[ClassicGUIShop] Runtime listing filter parked" "$log_file" 2>/dev/null \
+    && grep -Fq "[ClassicGUIShop compatibility test] PASS:" "$log_file" 2>/dev/null; then
     ready=1
     break
   fi

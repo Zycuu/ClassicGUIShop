@@ -3,10 +3,10 @@
 ## Requirements
 
 ```text
-Minecraft Java: >=26.1.1 <26.3
+Minecraft Java: >=26.1.1 <26.4
 Java:           25 or newer
-Loader:         Fabric Loader 0.19.3 or newer
-Fabric API:     matching build for your Minecraft version
+Loader:         Fabric Loader 0.19.5 recommended
+Fabric API:     optional; use a matching build if another mod requires it
 ```
 
 ClassicGUIShop is server-side. Players do not need the mod on their clients.
@@ -14,8 +14,8 @@ ClassicGUIShop is server-side. Players do not need the mod on their clients.
 ## Install steps
 
 1. Install a Fabric server for your Minecraft version.
-2. Install the matching Fabric API JAR in the server `mods` folder.
-3. Place `ClassicGUIShop-v1.3.0.jar` in the server `mods` folder.
+2. Use Fabric Loader 0.19.5 or newer for Minecraft 26.3. Fabric API is optional for ClassicGUIShop; if other mods require it, install the build matching your Minecraft version.
+3. Place `ClassicGUIShop-v1.3.17.jar` in the server `mods` folder.
 4. Start the server once.
 5. Confirm that the console shows ClassicGUIShop initialization messages.
 6. Join with an operator account or a permissions setup that grants admin access.
@@ -57,7 +57,7 @@ ClassicGUIShop preserves older `shop.json` files as `shop.json.migrated-backup` 
 
 ## Minecraft version switching
 
-ClassicGUIShop supports Minecraft 26.1.1 through 26.2.x with one JAR. If a shop file contains items that do not exist in the current Minecraft runtime, those listings are moved into:
+ClassicGUIShop supports Minecraft 26.1.1 through 26.3.x with one JAR. If a shop file contains items that do not exist in the current Minecraft runtime, those listings are moved into:
 
 ```text
 config/guishop/versioned-listings.json

@@ -46,17 +46,17 @@ def selected_loader_version(minecraft_version: str, requested: str | None) -> st
 
 
 def main() -> None:
-    if len(sys.argv) not in (4, 6):
+    if len(sys.argv) not in (4, 6, 7):
         raise SystemExit(
             "Usage: setup_fabric_server.py <minecraft-version> <server-directory> <universal-jar> "
-            "[<loader-version> <install-fabric-api:true|false>]"
+            "[<loader-version> <install-fabric-api:true|false> [<compatibility-test-jar>]]"
         )
 
     minecraft_version = sys.argv[1]
     server_directory = Path(sys.argv[2]).resolve()
     universal_jar = Path(sys.argv[3]).resolve()
-    requested_loader = sys.argv[4] if len(sys.argv) == 6 else None
-    install_fabric_api = sys.argv[5].lower() == "true" if len(sys.argv) == 6 else True
+    requested_loader = sys.argv[4] if len(sys.argv) >= 6 else None
+    install_fabric_api = sys.argv[5].lower() == "true" if len(sys.argv) >= 6 else True
 
     if not universal_jar.is_file():
         raise FileNotFoundError(universal_jar)
@@ -102,6 +102,11 @@ def main() -> None:
         raise FileNotFoundError(launcher)
 
     shutil.copy2(universal_jar, mods_directory / universal_jar.name)
+    if len(sys.argv) == 7:
+        test_jar = Path(sys.argv[6]).resolve()
+        if not test_jar.is_file():
+            raise FileNotFoundError(test_jar)
+        shutil.copy2(test_jar, mods_directory / test_jar.name)
     (server_directory / "eula.txt").write_text("eula=true\n", encoding="utf-8")
 
     api_label = api_version if api_version else "not installed"

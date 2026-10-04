@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "guishop_compatibility_test",
+  "version": "1.0.0",
+  "name": "ClassicGUIShop compatibility test (test servers only)",
+  "environment": "server",
+  "mixins": ["guishop-compatibility-test.mixins.json"],
+  "depends": {"guishop": "*"}
+}

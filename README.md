@@ -1,6 +1,6 @@
 # ClassicGUIShop
 
-A server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.2.x, inspired by the original Bukkit GUIShop plugin.
+A server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.3.x, inspired by the original Bukkit GUIShop plugin.
 
 Clients do not need the mod. ClassicGUIShop uses vanilla chest and anvil menus and includes its own persistent economy.
 
@@ -237,3 +237,17 @@ config/guishop/players.json
 ```
 
 Generated configuration files include `_about` and `_notes` documentation. Existing `shop.json` files are migrated automatically and retained as `shop.json.migrated-backup`.
+
+## Building and compatibility checks
+
+Build with Java 25 and Gradle 9.6.0:
+
+```text
+gradle build
+```
+
+The release JAR is built against Minecraft 26.1.1 and supports 26.1.1, 26.2, and 26.3. CI also compiles against each version and runs the same release JAR on dedicated test servers.
+
+`gradle compatibilityTestJar` builds a separate test mod for disposable servers. It checks inventory delivery with empty, partially filled, and full inventories, multi-stack overflow, and recipe audit/import access. This test mod creates test items and must stay out of production servers. It is published as a separate CI artifact and is not included in the release JAR.
+
+CI also checks that newer listings are parked on 26.1.1 and restored on returning to 26.2 or 26.3.

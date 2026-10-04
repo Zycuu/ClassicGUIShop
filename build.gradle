@@ -42,3 +42,16 @@ java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
 }
+
+// Separate test mod: never included in the player/server release JAR.
+sourceSets {
+    compatibilityTest {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    }
+}
+
+tasks.register('compatibilityTestJar', Jar) {
+    dependsOn tasks.named('compatibilityTestClasses')
+    from sourceSets.compatibilityTest.output
+    archiveClassifier.set('compatibility-test')
+}

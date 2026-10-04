@@ -1,19 +1,19 @@
 # ClassicGUIShop Wiki
 
-ClassicGUIShop is a server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.2.x. It is inspired by the original Bukkit GUIShop plugin while adding a persistent economy, visual administration, exact item support, folders, imports, and version-safe catalog handling.
+ClassicGUIShop is a server-side Fabric shop mod for Minecraft Java 26.1.1 through 26.3.x. It is inspired by the original Bukkit GUIShop plugin while adding a persistent economy, visual administration, exact item support, folders, imports, and version-safe catalog handling.
 
 Clients do not need to install ClassicGUIShop. The mod uses vanilla Minecraft chest and anvil menus.
 
 ## Current public release candidate
 
 ```text
-ClassicGUIShop-v1.3.0.jar
-Minecraft: >=26.1.1 <26.3
+ClassicGUIShop-v1.3.17.jar
+Minecraft: >=26.1.1 <26.4
 Java:      25+
-Loader:    Fabric Loader 0.19.3+
+Loader:    Fabric Loader 0.19.5 recommended
 ```
 
-Server owners still need the Fabric API build that matches their Minecraft version.
+Fabric API is optional for ClassicGUIShop. If another mod requires it, use the build matching your Minecraft version.
 
 ## Main features
 
