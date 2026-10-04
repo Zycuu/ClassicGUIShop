@@ -36,6 +36,20 @@ public final class EconomyStore {
         return balances.computeIfAbsent(key, ignored -> config.startingBalance);
     }
 
+    /** Administrator views must not create accounts merely by listing players. */
+    public synchronized double readBalance(UUID player) {
+        return balances.getOrDefault(player.toString(), config.startingBalance);
+    }
+
+    public synchronized java.util.Set<UUID> knownPlayers() {
+        java.util.Set<UUID> result = new java.util.HashSet<>();
+        for (String key : balances.keySet()) {
+            try { result.add(UUID.fromString(key)); }
+            catch (IllegalArgumentException ignored) {}
+        }
+        return result;
+    }
+
     public synchronized boolean withdraw(UUID player, double amount) {
         if (!validAmount(amount)) return false;
         double current = balance(player);

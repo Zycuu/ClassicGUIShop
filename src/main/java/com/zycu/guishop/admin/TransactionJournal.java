@@ -29,6 +29,7 @@ public final class TransactionJournal {
 
     public static void record(ServerPlayer player, String action, String listing, String item,
                               int quantity, double unitPrice, double total, String details) {
+        GuiShop.PLAYERS.remember(player);
         append(new Entry(Instant.now().toString(), player.getName().getString(), player.getUUID().toString(),
             action, listing, item, quantity, unitPrice, total,
             GuiShop.ECONOMY.balance(player.getUUID()), details));
@@ -48,6 +49,12 @@ public final class TransactionJournal {
 
     /** Bounded recent history; older complete records remain in the daily JSONL files. */
     public static Page query(String filter, int offset, boolean changes) throws Exception {
+        return query(filter, offset, changes, null);
+    }
+
+    public static Page query(String filter, int offset, boolean changes, String playerUuid) throws Exception {
+        String player = playerUuid == null || playerUuid.isBlank() ? null : java.util.UUID.fromString(playerUuid).toString();
+        if (changes && player != null) throw new IllegalArgumentException("Player history cannot contain configuration changes");
         String search = filter == null ? "" : filter.toLowerCase(Locale.ROOT);
         if (search.length() > 128 || offset < 0 || offset > 10_000) throw new IllegalArgumentException("Invalid history filter or page");
         if (!Files.isDirectory(DIRECTORY)) return new Page(List.of(), offset, false, error);
@@ -63,6 +70,7 @@ public final class TransactionJournal {
                 try {
                     Entry entry = AdminDocument.JSON.fromJson(line, Entry.class);
                     if (entry == null || entry.action() == null || changes != entry.action().equals("CONFIG_APPLY")) continue;
+                    if (player != null && !player.equals(entry.uuid())) continue;
                     if (!search.isBlank() && !line.toLowerCase(Locale.ROOT).contains(search)) continue;
                     if (skipped++ < offset) continue;
                     matches.add(entry);

@@ -39,7 +39,7 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                 case 2 -> {
                     if (!(screen instanceof ContainerScreen)) return;
                     check(screen.getTitle().getString().equals("Zycu's Shop - Buy"), "Saved shop title survives restart");
-                    Screenshot.grab(client.gameDirectory, "alpha2-client-without-shop-mod.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
+                    Screenshot.grab(client.gameDirectory, "alpha3-client-without-shop-mod.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
                     slot(client, 3); next();
                 }
                 case 3 -> {

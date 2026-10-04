@@ -27,6 +27,8 @@ public final class AlphaServerChecks {
         try {
             server.getPlayerList().getOps().remove(player.nameAndId());
             check(!AdminEditorService.allowed(player), "Non-OP must not access admin tools");
+            try { com.zycu.guishop.admin.AdminPlayers.list(player, "", 0); throw new AssertionError("Non-OP received player balances"); }
+            catch (SecurityException expected) {}
             try { AdminEditorService.snapshot(player); throw new AssertionError("Non-OP received a snapshot"); }
             catch (SecurityException expected) { check(expected.getMessage().equals(AdminEditorService.DENIED), "Exact denial message"); }
             server.getPlayerList().getOps().add(new ServerOpListEntry(player.nameAndId(), LevelBasedPermissionSet.MODERATOR, false));
@@ -103,6 +105,20 @@ public final class AlphaServerChecks {
             var records = TransactionJournal.query(player.getUUID().toString(), 0, false).entries();
             check(records.stream().anyMatch(entry -> entry.action().equals("BUY") && entry.quantity() == 2 && entry.total() == 20), "Purchase journal");
             check(records.stream().anyMatch(entry -> entry.action().equals("SELL") && entry.quantity() == 1 && entry.total() == 2), "Sale journal");
+            var roster = com.zycu.guishop.admin.AdminPlayers.list(player, "", 0);
+            var row = roster.players().stream().filter(value -> value.uuid().equals(player.getUUID().toString())).findFirst().orElseThrow();
+            check(row.name().equalsIgnoreCase(player.getName().getString()), "Directory provides player names");
+            check(row.balance() == GuiShop.ECONOMY.readBalance(player.getUUID()), "Roster uses current balance");
+            int accounts = GuiShop.ECONOMY.knownPlayers().size();
+            GuiShop.ECONOMY.readBalance(java.util.UUID.randomUUID());
+            check(GuiShop.ECONOMY.knownPlayers().size() == accounts, "Balance browsing does not create accounts");
+            // An unrelated actor can mention the selected UUID. Substring filtering must not leak their record.
+            String isolationId = "uuid-probe-" + java.util.UUID.randomUUID();
+            TransactionJournal.append(new TransactionJournal.Entry(java.time.Instant.now().toString(), "Lookalike", java.util.UUID.randomUUID().toString(), "BUY", isolationId, "", 1, 1, 1, 1, player.getUUID().toString()));
+            TransactionJournal.record(player, "BUY", isolationId, "", 1, 1, 1, "Test history only; no trade");
+            var isolated = TransactionJournal.query(isolationId, 0, false, player.getUUID().toString());
+            check(isolated.entries().size() == 1 && isolated.entries().getFirst().uuid().equals(player.getUUID().toString()), "History filters exact actor UUID, not text mentions");
+            check(com.zycu.guishop.admin.AdminPlayers.list(player, row.name(), 0).players().stream().anyMatch(value -> value.uuid().equals(row.uuid())), "Player name search");
             var restricted = saved.document().copy(); restricted.config.permissionDefaults.put("guishop.category.alpha_test", 4);
             var restrictedSaved = AdminEditorService.apply(player, saved.revision(), restricted);
             int beforeDeniedSale = ShopService.count(player, new ItemStack(Items.DIAMOND));
@@ -117,11 +133,10 @@ public final class AlphaServerChecks {
 
             AdminEditorService.apply(player, zeroSaved.revision(), original.document());
             check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
-            check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
             server.getPlayerList().getOps().remove(player.nameAndId());
             try { AdminEditorService.apply(player, "", changed); throw new AssertionError("Revoked OP applied a draft"); }
             catch (SecurityException expected) {}
-            System.out.println("[ClassicGUIShop Alpha test] PASS: OP permissions, bounded Unicode chunks, invalid drafts, backups and restore, external edits, conflicts, category persistence and legacy folder preservation, purchases, sales, journal, zero-value guard, stale-menu guard, revoked permissions");
+            System.out.println("[ClassicGUIShop Alpha test] PASS: OP permissions, bounded Unicode chunks, invalid drafts, backups and restore, external edits, conflicts, category persistence and legacy folder preservation, purchases, sales, journal, player names and current balances, exact UUID history isolation, zero-value guard, stale-menu guard, revoked permissions");
         } catch (Exception exception) { throw new AssertionError("Alpha server checks failed", exception); }
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }

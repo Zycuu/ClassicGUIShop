@@ -23,11 +23,12 @@ public final class AdminShopClient implements ClientModInitializer {
     private static KeyMapping open;
     private static AdminScreen editor;
     private static final class Pending {
-        final String action; final boolean changes; final long started = System.nanoTime();
+        final String action, filter; final com.zycu.guishop.admin.AdminNetworking.Query query; final long started = System.nanoTime();
         AdminPayloads.Assembly assembly;
         Pending(String action, String body) {
             this.action = action;
-            changes = action.equals("logs") && AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminNetworking.Query.class).changes();
+            query = action.equals("logs") ? AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminNetworking.Query.class) : null;
+            filter = action.equals("players") ? AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminNetworking.PlayersQuery.class).filter() : "";
         }
     }
     @Override public void onInitializeClient() {
@@ -95,7 +96,9 @@ public final class AdminShopClient implements ClientModInitializer {
                         Minecraft.getInstance().gui.setScreen(editor);
                     }
                 }
-                case "logs" -> { if (editor != null) editor.logs(AdminDocument.JSON.fromJson(body, TransactionJournal.Page.class), pending.changes); }
+                case "logs" -> { if (editor != null) editor.logs(AdminDocument.JSON.fromJson(body, TransactionJournal.Page.class), pending.query); }
+                case "players" -> { if (editor != null) editor.players(AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminPlayers.Page.class), pending.filter); }
+                case "player_logs" -> { if (editor != null) editor.playerHistory(AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminPlayers.History.class), pending.query); }
                 default -> throw new IllegalArgumentException("Unsupported editor response");
             }
         } catch (Exception exception) {

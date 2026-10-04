@@ -14,7 +14,9 @@ Select a category before adding listings. **Select item** opens a searchable ite
 
 Select a listing to edit its name, description, and prices. Move it through the destination chooser or drag it onto a category. Removing a category removes its listings from the draft, with the previous live configuration backed up on Apply.
 
-**Simulate** previews the draft's chest layout. Navigate categories, enchanted-book levels, pages, and Buy/Sell modes. It makes no trades and does not simulate a specific player's permissions or balance. **Build** includes disabled listings for editing. Enchanted Books appears in both modes, and toggling Build/Simulate keeps the selected enchantment preview.
+The simulator always previews the draft's chest layout. Navigate categories, enchanted-book levels, pages, and Buy/Sell modes. It makes no trades and does not simulate a specific player's permissions or balance. **Arrange mode** includes disabled listings and lets you drag listings and categories without entering them on mouse-down. **Exit arrange mode** returns to the player layout. Drop onto another listing to reorder, a category to move, or an empty content slot to place last. Use the gold/emerald button inside the preview to switch Buy/Sell. Enchantment previews remain selected when toggling arrangement.
+
+Transactions opens a searchable player list showing current balances and online status. Select a name to view only that player's history, matched by UUID. Refresh updates the current balance; Players returns to the selector. The journal keeps its existing recent-history window.
 
 ## Settings and Access
 

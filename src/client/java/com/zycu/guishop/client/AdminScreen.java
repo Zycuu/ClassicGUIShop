@@ -6,6 +6,7 @@ import com.zycu.guishop.ShopConfig;
 import com.zycu.guishop.VersionedListingStore;
 import com.zycu.guishop.admin.AdminDocument;
 import com.zycu.guishop.admin.AdminNetworking;
+import com.zycu.guishop.admin.AdminPlayers;
 import com.zycu.guishop.admin.TransactionJournal;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
@@ -39,7 +40,7 @@ public final class AdminScreen extends WorkbenchScreen {
     private Tab tab = Tab.BUILDER;
     private String categoryId = "", query = "", selectedItem, settingsSection = "Economy";
     private int browserPage, previewPage, accessPage, logPage, logOffset;
-    private boolean simulate, sellMode, busy, logChanges;
+    private boolean arranging, sellMode, busy;
     private boolean enchantPreview;
     private String enchantId;
     private TransactionJournal.Page logData = new TransactionJournal.Page(List.of(), 0, false, "");
@@ -51,14 +52,17 @@ public final class AdminScreen extends WorkbenchScreen {
     private boolean dragged;
     private EditBox search;
     private String heldCategory;
-    private int logRetryTicks;
+    private int logRetryTicks, retryOffset;
+    private double pressedX, pressedY;
+    private AdminPlayers.Page playerData = new AdminPlayers.Page(List.of(), 0, false);
+    private AdminPlayers.Player selectedPlayer;
 
     public AdminScreen(AdminDocument document, String revision) {
         super("ClassicGUIShop Adminshop"); load(document, revision, false);
     }
     public void load(AdminDocument document, String revision, boolean saved) {
         draft = document.copy(); baseline = AdminDocument.JSON.toJson(draft); this.revision = revision;
-        busy = false; errors.clear(); invalidInputs.clear();
+        cancelDrag(); busy = false; errors.clear(); invalidInputs.clear();
         if (!categoryId.isEmpty() && draft.config.category(categoryId) == null) categoryId = "";
         selectedItem = null;
         enchantPreview = false; enchantId = null;
@@ -68,7 +72,7 @@ public final class AdminScreen extends WorkbenchScreen {
     public void status(String value) { status = value; }
     public void restore(com.zycu.guishop.admin.AdminEditorService.RestoreDraft restored) {
         baseline = AdminDocument.JSON.toJson(restored.live()); draft = restored.previous().copy(); revision = restored.revision();
-        categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null;
+        cancelDrag(); categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null;
         previewPage = 0; browserPage = 0; busy = false; errors.clear(); invalidInputs.clear(); tab = Tab.BUILDER;
         status = "Previous configuration loaded into a draft. Review it, then Apply to restore."; rebuildWidgets();
     }
@@ -82,13 +86,28 @@ public final class AdminScreen extends WorkbenchScreen {
         if (category() == null) { status = "Select a category before adding an item."; return; }
         addListing(item); rebuildWidgets();
     }
-    public void logs(TransactionJournal.Page page, boolean changes) {
-        if (changes != (tab == Tab.HISTORY) || tab != Tab.HISTORY && tab != Tab.TRANSACTIONS) return;
+    private boolean matches(AdminNetworking.Query request) {
+        return request != null && (tab == Tab.HISTORY || tab == Tab.TRANSACTIONS)
+            && request.changes() == (tab == Tab.HISTORY)
+            && java.util.Objects.equals(request.playerUuid(), selectedPlayer == null ? null : selectedPlayer.uuid())
+            && java.util.Objects.equals(request.filter(), query);
+    }
+    public void logs(TransactionJournal.Page page, AdminNetworking.Query request) {
+        if (!matches(request)) return;
         logData = page; logOffset = page.offset(); logPage = 0;
         status = page.warning().isBlank() ? "Recent server records loaded. Times are UTC." : page.warning(); rebuildWidgets();
     }
+    public void players(AdminPlayers.Page page, String filter) {
+        if (tab != Tab.TRANSACTIONS || selectedPlayer != null || !query.equals(filter)) return;
+        playerData = page; logOffset = page.offset(); logPage = 0;
+        status = "Select a player to view their transactions. Balances are current at refresh."; rebuildWidgets();
+    }
+    public void playerHistory(AdminPlayers.History history, AdminNetworking.Query request) {
+        if (!matches(request) || !history.player().uuid().equals(request.playerUuid())) return;
+        selectedPlayer = history.player(); logs(history.history(), request);
+    }
     public void tickNetworking() {
-        if (logRetryTicks > 0 && --logRetryTicks == 0 && (tab == Tab.HISTORY || tab == Tab.TRANSACTIONS)) requestLogs(0);
+        if (logRetryTicks > 0 && --logRetryTicks == 0 && (tab == Tab.HISTORY || tab == Tab.TRANSACTIONS)) requestRecords(retryOffset);
     }
     private boolean dirty() { return !errors.isEmpty() || !baseline.equals(AdminDocument.JSON.toJson(draft)); }
     private ShopConfig.Category category() { return draft.config.category(categoryId); }
@@ -105,9 +124,10 @@ public final class AdminScreen extends WorkbenchScreen {
             Tab target = Tab.values()[index];
             var button = addRenderableWidget(new WorkbenchTab(names[index], xs[index], ws[index], icons[index], target == tab, () -> {
                 if (busy) return;
-                tab = target; query = ""; errors.entrySet().removeIf(entry -> entry.getKey().startsWith("view:"));
+                cancelDrag(); tab = target; query = ""; selectedPlayer = null; logPage = 0; logOffset = 0;
+                logData = new TransactionJournal.Page(List.of(), 0, false, ""); playerData = new AdminPlayers.Page(List.of(), 0, false); errors.entrySet().removeIf(entry -> entry.getKey().startsWith("view:"));
                 rebuildWidgets();
-                if (target == Tab.TRANSACTIONS || target == Tab.HISTORY) requestLogs(0);
+                if (target == Tab.TRANSACTIONS || target == Tab.HISTORY) requestRecords(0);
             })); button.active = !busy;
         }
         button("Apply", 464, 352, 88, this::apply).active = !busy;
@@ -135,19 +155,22 @@ public final class AdminScreen extends WorkbenchScreen {
         button("<", 22, 316, 38, () -> { browserPage = Math.max(0, browserPage - 1); rebuildWidgets(); });
         button(">", 108, 316, 38, () -> { browserPage++; rebuildWidgets(); });
         button("Home", 166, 76, 62, this::home);
-        button(simulate ? "Simulate" : "Build", 234, 76, 86, () -> { simulate = !simulate; query = ""; previewPage = 0; selectedItem = null; rebuildWidgets(); });
-        button(sellMode ? "Sell" : "Buy", 326, 76, 65, this::switchMode);
+        button(arranging ? "Exit arrange mode" : "Arrange mode", 234, 76, 157, () -> {
+            cancelDrag(); arranging = !arranging; query = ""; previewPage = 0; selectedItem = null;
+            status = arranging ? "Arrange mode: drag listings or categories. Disabled listings are shown too." : "Shop preview. Use the shop's gold or emerald button to switch Buy/Sell.";
+            rebuildWidgets();
+        });
         button("Up", 397, 76, 55, this::up);
         search = field("Search listings", 166, 107, 286, query, value -> query = value);
         search.setHint(Component.literal("Search by name or item ID..."));
         search.setResponder(value -> { query = value; previewPage = 0; });
-        search.setEditable(!simulate);
+        search.setEditable(arranging);
         button("<", 166, 316, 40, () -> { previewPage = Math.max(0, previewPage - 1); });
         button(">", 412, 316, 40, () -> { previewPage++; });
         inspector();
     }
     private void home() {
-        categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null; previewPage = 0; rebuildWidgets();
+        cancelDrag(); categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null; previewPage = 0; rebuildWidgets();
     }
     private void up() {
         if (enchantPreview) { if (enchantId != null) enchantId = null; else enchantPreview = false; }
@@ -156,7 +179,7 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private void switchMode() {
         sellMode = !sellMode; previewPage = 0;
-        if (simulate && !enchantPreview) { selectedItem = null; }
+        if (!arranging && !enchantPreview) { selectedItem = null; }
         rebuildWidgets();
     }
     private void inspector() {
@@ -212,7 +235,7 @@ public final class AdminScreen extends WorkbenchScreen {
             categoryId = existing.category().id; selectedItem = existing.item().listingId;
             status = "That exact listing already exists. Selected it for editing."; return;
         }
-        category().items.add(item); selectedItem = item.listingId;
+        category().items.add(item); selectedItem = item.listingId; arranging = true;
         status = "Listing added to draft with prices disabled. Set buy and sell prices before applying.";
     }
     private void move(ShopConfig.ShopItem item, String destination) {
@@ -226,6 +249,12 @@ public final class AdminScreen extends WorkbenchScreen {
     private <T> void reorder(List<T> list, T item, int direction) {
         int from = list.indexOf(item), to = from + direction;
         if (from >= 0 && to >= 0 && to < list.size()) { list.remove(from); list.add(to, item); rebuildWidgets(); }
+    }
+    private <T> void placeAt(List<T> list, T item, T target) {
+        int from = list.indexOf(item), destination = list.indexOf(target);
+        if (from < 0 || destination < 0 || from == destination) return;
+        // Capture the destination before removal, so dragging forward reaches that position too.
+        list.remove(from); list.add(destination, item); rebuildWidgets();
     }
 
     private void settings() {
@@ -280,20 +309,34 @@ public final class AdminScreen extends WorkbenchScreen {
         button("Next", 150, 313, 110, () -> { accessPage = Math.min(pages - 1, accessPage + 1); rebuildWidgets(); });
     }
     private void history() {
-        search = field("Filter by player, item, action, or UTC date", 32, 110, 450, query, value -> query = value);
-        search.setHint(Component.literal("Examples: minecraft:diamond, Alex, 2026-10-04"));
-        button("Search", 494, 110, 130, () -> requestLogs(0));
-        button("Previous", 32, 313, 100, () -> { if (logPage > 0) logPage--; else if (logOffset > 0) requestLogs(Math.max(0, logOffset - 100)); });
-        button("Next", 140, 313, 100, () -> {
-            if ((logPage + 1) * 10 < logData.entries().size()) logPage++;
-            else if (logData.more()) requestLogs(logOffset + 100);
+        boolean roster = tab == Tab.TRANSACTIONS && selectedPlayer == null;
+        search = field(roster ? "Search players" : "Filter transactions", 32, 110, 450, query, value -> query = value);
+        search.setMaxLength(128);
+        search.setHint(Component.literal(roster ? "Search player name or UUID..." : "Search item, action, or UTC date..."));
+        if (selectedPlayer != null) button("Players", 494, 76, 130, () -> {
+            selectedPlayer = null; query = ""; logPage = 0; requestRecords(0); rebuildWidgets();
         });
-        button("Refresh", 494, 313, 130, () -> requestLogs(logOffset));
+        button("Search", 494, 110, 130, () -> requestRecords(0));
+        button("Previous", 32, 313, 100, () -> { if (logPage > 0) logPage--; else if (logOffset > 0) requestRecords(Math.max(0, logOffset - 100)); });
+        button("Next", 140, 313, 100, () -> {
+            int count = roster ? playerData.players().size() : logData.entries().size();
+            boolean more = roster ? playerData.more() : logData.more();
+            if ((logPage + 1) * 10 < count) logPage++;
+            else if (more) requestRecords(logOffset + 100);
+        });
+        button("Refresh", 494, 313, 130, () -> requestRecords(logOffset));
     }
-    private void requestLogs(int offset) {
-        logChanges = tab == Tab.HISTORY;
-        logData = new TransactionJournal.Page(List.of(), offset, false, "");
-        if (AdminShopClient.request("logs", "", AdminDocument.JSON.toJson(new AdminNetworking.Query(query, offset, logChanges)))) { status = "Loading server records..."; logRetryTicks = 0; }
+    private void requestRecords(int offset) {
+        retryOffset = offset; logPage = 0;
+        String action, body;
+        if (tab == Tab.TRANSACTIONS && selectedPlayer == null) {
+            playerData = new AdminPlayers.Page(List.of(), offset, false);
+            action = "players"; body = AdminDocument.JSON.toJson(new AdminNetworking.PlayersQuery(query, offset));
+        } else {
+            logData = new TransactionJournal.Page(List.of(), offset, false, "");
+            action = "logs"; body = AdminDocument.JSON.toJson(new AdminNetworking.Query(query, offset, tab == Tab.HISTORY, selectedPlayer == null ? null : selectedPlayer.uuid()));
+        }
+        if (AdminShopClient.request(action, "", body)) { status = "Loading server records..."; logRetryTicks = 0; }
         else logRetryTicks = 6;
     }
     private EditBox field(String label, int x, int y, int width, String value, Consumer<String> changed) {
@@ -358,7 +401,15 @@ public final class AdminScreen extends WorkbenchScreen {
         text(graphics, dirty() ? "Unapplied changes" : "Matches server snapshot", 183, 358, dirty() ? 0xFF75591B : 0xFF365D51);
     }
     @Override protected void afterWidgets(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-        if (dragged && dragging != null && dragging.item != null) graphics.item(stack(dragging.item.item), x - 8, y - 8);
+        if (arranging && dragged && dragging != null) {
+            var category = draft.config.category(dragging.id);
+            ItemStack ghost = dragging.item != null && minecraft.level != null ? dragging.item.createStack(minecraft.level.registryAccess())
+                : category != null ? stack(category.icon) : ItemStack.EMPTY;
+            if (!ghost.isEmpty()) graphics.item(ghost, x - 8, y - 8);
+            for (Hit target : hits) if (target.contains(x, y) && (target.item != null || target.kind.endsWith("category") || target.kind.equals("tile:empty"))) {
+                graphics.outline(target.x, target.y, target.w, target.h, 0xFF65D5C1);
+            }
+        }
         if (busy) {
             graphics.fill(10, 68, W - 10, 337, 0xC0293D40);
             text(graphics, "Applying changes on the server...", 210, 190, 0xFFF0EBCE);
@@ -395,7 +446,7 @@ public final class AdminScreen extends WorkbenchScreen {
             text(graphics, "Tooltip description", 474, 302, 0xFF455449);
         } else {
             multiline(graphics, "Create or select a category to edit it. Drag categories to reorder them.", 477, 112, 151, 0xFF3B4940);
-            multiline(graphics, "Build shows every listing. Simulate uses the active Buy or Sell prices.", 477, 207, 151, 0xFF3B4940);
+            multiline(graphics, "Arrange mode lets you drag categories and listings. Buy/Sell is switched inside the shop preview.", 477, 207, 151, 0xFF3B4940);
         }
     }
     private boolean visible(ShopConfig.ShopItem item) {
@@ -405,14 +456,14 @@ public final class AdminScreen extends WorkbenchScreen {
         var category = category(); List<Tile> tiles = new ArrayList<>();
         if (enchantPreview) return enchantTiles();
         if (category == null) {
-            for (var value : draft.config.categories) if (!simulate || value.items.stream().anyMatch(this::visible)) tiles.add(new Tile("category", value.id, value.name, value.icon, null));
+            for (var value : draft.config.categories) if (arranging || value.items.stream().anyMatch(this::visible)) tiles.add(new Tile("category", value.id, value.name, value.icon, null));
             if (draft.config.enchantmentsEnabled()) tiles.add(new Tile("enchant", "", "Enchanted Books", "minecraft:enchanted_book", null));
             return tiles;
         }
         String search = query.toLowerCase(Locale.ROOT);
         for (var item : category.items) {
-            if (simulate && !visible(item)) continue;
-            if (!simulate && !search.isBlank() && !item.name.toLowerCase(Locale.ROOT).contains(search) && !item.item.contains(search) && !item.listingId.contains(search)) continue;
+            if (!arranging && !visible(item)) continue;
+            if (arranging && !search.isBlank() && !item.name.toLowerCase(Locale.ROOT).contains(search) && !item.item.contains(search) && !item.listingId.contains(search)) continue;
             tiles.add(new Tile("item", item.listingId, item.name, item.item, item));
         }
         return tiles;
@@ -454,7 +505,7 @@ public final class AdminScreen extends WorkbenchScreen {
         panel(graphics, left - 8, top - 17, 178, rows * 18 + 40, 0xFFC6C6C6);
         var previewOffer = draft.config.enchantments.get(enchantId);
         String title = enchantPreview ? previewOffer == null ? "Enchanted Books" : previewOffer.name + " Levels" : root ? draft.config.shopTitle : category().name;
-        if (simulate) title += sellMode ? " - Sell" : " - Buy";
+        title += sellMode ? " - Sell" : " - Buy";
         text(graphics, font.plainSubstrByWidth(title, 156), left, top - 11, 0xFF404040);
         List<Integer> slots = root ? CategoryLayout.slots(shown) : java.util.stream.IntStream.range(0, shown).boxed().toList();
         for (int slot = 0; slot < rows * 9; slot++) {
@@ -478,14 +529,29 @@ public final class AdminScreen extends WorkbenchScreen {
             }
             hits.add(new Hit(x, y, 18, 18, "tile:" + tile.kind, tile.id, categoryId, tile.item));
         }
+        // Blank content slots accept a drop at the end; footer slots always keep their navigation action.
+        if (arranging) for (int slot = 0; slot < (rows - 1) * 9; slot++) {
+            if (slots.contains(slot)) continue;
+            hits.add(new Hit(left + slot % 9 * 18, top + slot / 9 * 18, 18, 18, "tile:empty", "", categoryId, null));
+        }
         int footer = top + (rows - 1) * 18;
         footer(graphics, left + 4 * 18, footer, Items.PAPER, "info");
         footer(graphics, left + 8 * 18, footer, sellMode ? Items.EMERALD : Items.GOLD_INGOT, "mode");
         if (!root) footer(graphics, left, footer, Items.BARRIER, "back");
         if (previewPage > 0) footer(graphics, left + (root ? 0 : 3 * 18), footer, Items.ARROW, "previous");
         if (previewPage + 1 < pages) footer(graphics, left + (root ? 7 : 5) * 18, footer, Items.ARROW, "next");
-        if (shown == 0) text(graphics, "No visible listings", 248, 194, 0xFF404040);
-        text(graphics, "Page " + (previewPage + 1) + "/" + pages + (simulate ? " | Preview only" : " | Drag to arrange"), 214, 322, 0xFF33443B);
+        if (shown == 0) text(graphics, arranging ? "No listings yet" : "No enabled listings", 248, 194, 0xFF404040);
+        for (Hit hit : hits) if (hit.kind.startsWith("preview:") && hit.contains(mouseX, mouseY)) {
+            String hint = switch (hit.kind) {
+                case "preview:mode" -> "Switch to " + (sellMode ? "Buy" : "Sell");
+                case "preview:back" -> "Back";
+                case "preview:previous" -> "Previous page";
+                case "preview:next" -> "Next page";
+                default -> "Preview only. No items or money change.";
+            };
+            text(graphics, hint, 169, 297, 0xFF33443B);
+        }
+        text(graphics, "Page " + (previewPage + 1) + "/" + pages + (arranging ? " | Arrange mode" : " | Preview only"), 214, 322, 0xFF33443B);
     }
     private void footer(GuiGraphicsExtractor graphics, int x, int y, net.minecraft.world.item.Item icon, String action) {
         graphics.item(new ItemStack(icon), x + 1, y + 1);
@@ -521,7 +587,9 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private void paintHistory(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         panel(graphics, 16, 69, 628, 270, 0xFFBDC1B2);
-        text(graphics, tab == Tab.HISTORY ? "Server configuration changes" : "Completed transactions recorded by the server", 32, 82, 0xFF234747);
+        if (tab == Tab.TRANSACTIONS && selectedPlayer == null) { paintPlayers(graphics); return; }
+        String heading = tab == Tab.HISTORY ? "Server configuration changes" : selectedPlayer.name() + " | Balance: " + draft.config.money(selectedPlayer.balance());
+        text(graphics, font.plainSubstrByWidth(heading, selectedPlayer == null ? 590 : 450), 32, 82, 0xFF234747);
         graphics.fill(30, 139, 629, 155, 0xFF566E65);
         text(graphics, "UTC time", 36, 143, 0xFFF0EBCE); text(graphics, "Player", 172, 143, 0xFFF0EBCE);
         text(graphics, "Action", 272, 143, 0xFFF0EBCE); text(graphics, "Listing / change", 373, 143, 0xFFF0EBCE); text(graphics, "Total", 570, 143, 0xFFF0EBCE);
@@ -537,6 +605,21 @@ public final class AdminScreen extends WorkbenchScreen {
         }
         if (logData.entries().isEmpty()) text(graphics, "No matching records in the recent history window.", 32, 181, 0xFF3B4940);
         text(graphics, "Recent view: 30 daily files, last 2 MB each. Full journals stay on the server.", 32, 299, 0xFF3B4940);
+    }
+    private void paintPlayers(GuiGraphicsExtractor graphics) {
+        text(graphics, "Select a player to view their transactions", 32, 82, 0xFF234747);
+        graphics.fill(30, 139, 629, 155, 0xFF566E65);
+        text(graphics, "Player", 36, 143, 0xFFF0EBCE); text(graphics, "Current balance", 390, 143, 0xFFF0EBCE); text(graphics, "Status", 550, 143, 0xFFF0EBCE);
+        for (int row = 0; row < 10 && logPage * 10 + row < playerData.players().size(); row++) {
+            var player = playerData.players().get(logPage * 10 + row); int y = 158 + row * 14;
+            graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0xFFCED1C1 : 0xFFB8BFAE);
+            text(graphics, font.plainSubstrByWidth(player.name(), 330), 36, y + 3, 0xFF303E36);
+            text(graphics, font.plainSubstrByWidth(draft.config.money(player.balance()), 150), 390, y + 3, 0xFF303E36);
+            text(graphics, player.online() ? "Online" : "Offline", 550, y + 3, 0xFF303E36);
+            hits.add(new Hit(30, y, 599, 14, "player", Integer.toString(logPage * 10 + row), "", null));
+        }
+        if (playerData.players().isEmpty()) text(graphics, "No matching players. Refresh or clear the search.", 32, 181, 0xFF3B4940);
+        text(graphics, "Page " + (logOffset / 10 + logPage + 1) + " | Current balances at refresh. History includes offline players.", 32, 299, 0xFF3B4940);
     }
     private void labels(GuiGraphicsExtractor graphics, String[] labels, int x, int[] ys) {
         for (int index = 0; index < labels.length; index++) text(graphics, labels[index], x, ys[index], 0xFF3B4940);
@@ -566,41 +649,58 @@ public final class AdminScreen extends WorkbenchScreen {
                 var entry = logData.entries().get(Integer.parseInt(hit.id));
                 minecraft.gui.setScreen(new JournalEntryScreen(this, entry)); return true;
             }
-            dragging = simulate ? null : hit; dragged = false;
-            if (hit.kind.equals("category") || hit.kind.equals("tile:category")) {
-                enchantPreview = false; enchantId = null;
-                categoryId = hit.id; selectedItem = null; previewPage = 0;
-            } else if (hit.item != null) selectedItem = hit.item.listingId;
-            else if (hit.kind.equals("tile:enchant")) { enchantPreview = true; enchantId = null; previewPage = 0; }
-            else if (hit.kind.equals("tile:offer")) { enchantId = hit.id; previewPage = 0; }
-            else if (hit.kind.equals("tile:level")) status = "Simulator only. No items or money change here.";
-            rebuildWidgets(); return true;
+            if (hit.kind.equals("player")) {
+                selectedPlayer = playerData.players().get(Integer.parseInt(hit.id)); query = ""; requestRecords(0); rebuildWidgets(); return true;
+            }
+            // Mouse-down must not navigate or rebuild the widgets underneath a pending drag.
+            dragging = hit; dragged = false; pressedX = x; pressedY = y; return true;
         }
         return false;
     }
+    private void cancelDrag() { dragging = null; dragged = false; }
+    private void activate(Hit hit) {
+        if (hit.kind.equals("category") || hit.kind.equals("tile:category")) {
+            enchantPreview = false; enchantId = null; categoryId = hit.id; selectedItem = null; previewPage = 0;
+        } else if (hit.item != null) selectedItem = hit.item.listingId;
+        else if (hit.kind.equals("tile:enchant")) { enchantPreview = true; enchantId = null; selectedItem = null; previewPage = 0; }
+        else if (hit.kind.equals("tile:offer")) { enchantId = hit.id; previewPage = 0; }
+        else if (hit.kind.equals("tile:level")) status = "Simulator only. No items or money change here.";
+        rebuildWidgets();
+    }
     @Override public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
-        if (dragging != null && (Math.abs(dx) + Math.abs(dy) > 1 || dragged)) { dragged = true; return true; }
+        if (dragging != null) {
+            double distance = Math.hypot(logicalX(event.x()) - pressedX, logicalY(event.y()) - pressedY);
+            if (distance >= 3) dragged = true;
+            return true;
+        }
         return super.mouseDragged(event, dx, dy);
     }
     @Override protected boolean release(double x, double y, int button) {
-        Hit source = dragging; dragging = null;
-        if (source == null || !dragged) { dragged = false; return false; }
-        dragged = false;
+        if (button != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) return false;
+        Hit source = dragging; boolean moved = dragged || Math.hypot(x - pressedX, y - pressedY) >= 3; cancelDrag();
+        if (source == null) return false;
+        if (!moved) { if (source.contains(x, y)) activate(source); return true; }
+        if (!arranging || busy) { if (!busy) status = "Enable Arrange mode to drag listings and categories."; return true; }
         for (Hit target : hits) if (target.contains(x, y)) {
             if (source.item != null) {
-                if (target.kind.equals("category") || target.kind.equals("tile:category")) {
-                    String destination = target.id;
-                    move(source.item, destination);
-                } else if (target.item != null && !source.item.equals(target.item)) {
-                    var category = draft.config.findItem(source.item.listingId).category();
-                    category.items.remove(source.item); category.items.add(category.items.indexOf(target.item), source.item); rebuildWidgets();
+                if (target.kind.endsWith("category")) move(source.item, target.id);
+                else if (target.item != null && !source.item.equals(target.item)) {
+                    var found = draft.config.findItem(source.item.listingId);
+                    if (found == null || !found.category().items.contains(target.item)) return true;
+                    var list = found.category().items;
+                    selectedItem = source.item.listingId; placeAt(list, source.item, target.item);
+                } else if (target.kind.equals("tile:empty") && !enchantPreview && source.category.equals(categoryId)) {
+                    var list = category().items; list.remove(source.item); list.add(source.item); selectedItem = source.item.listingId; rebuildWidgets();
                 }
             } else if (source.kind.endsWith("category") && target.kind.endsWith("category") && !source.id.equals(target.id)) {
                 var category = draft.config.category(source.id); var destination = draft.config.category(target.id);
-                draft.config.categories.remove(category); draft.config.categories.add(draft.config.categories.indexOf(destination), category); rebuildWidgets();
+                placeAt(draft.config.categories, category, destination);
+            } else if (source.kind.endsWith("category") && target.kind.equals("tile:empty") && categoryId.isEmpty() && !enchantPreview) {
+                var category = draft.config.category(source.id); draft.config.categories.remove(category); draft.config.categories.add(category); rebuildWidgets();
             }
             return true;
         }
-        status = "Drop a listing onto a category or another listing."; return true;
+        status = "Drop onto another listing to reorder, a category to move, or an empty slot to place last."; return true;
     }
+
 }

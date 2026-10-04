@@ -76,6 +76,16 @@ public final class PlayerDirectory {
         return names.keySet().stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
     }
 
+    /** Detached UUID keys prevent renamed players and aliases becoming separate accounts. */
+    public synchronized Map<UUID, String> knownPlayers() {
+        Map<UUID, String> result = new HashMap<>();
+        names.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
+            try { result.putIfAbsent(UUID.fromString(entry.getValue()), entry.getKey()); }
+            catch (IllegalArgumentException ignored) {}
+        });
+        return result;
+    }
+
     private synchronized void load() {
         try {
             Files.createDirectories(directory);

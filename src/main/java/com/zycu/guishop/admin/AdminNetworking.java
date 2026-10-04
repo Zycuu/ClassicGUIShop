@@ -1,5 +1,6 @@
 package com.zycu.guishop.admin;
 
+import com.zycu.guishop.GuiShop;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -13,7 +14,10 @@ public final class AdminNetworking {
     private static final Map<UUID, Long> LAST_REQUEST = new HashMap<>();
     private static java.util.concurrent.ThreadPoolExecutor journalWorker;
     private AdminNetworking() {}
-    public record Query(String filter, int offset, boolean changes) {}
+    public record Query(String filter, int offset, boolean changes, String playerUuid) {
+        public Query(String filter, int offset, boolean changes) { this(filter, offset, changes, null); }
+    }
+    public record PlayersQuery(String filter, int offset) {}
 
     public static void register() {
         PayloadTypeRegistry.serverboundPlay().register(AdminPayloads.Request.TYPE, AdminPayloads.Request.CODEC);
@@ -23,6 +27,7 @@ public final class AdminNetworking {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             PENDING.remove(handler.player.getUUID()); LAST_REQUEST.remove(handler.player.getUUID());
         });
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> GuiShop.PLAYERS.remember(handler.player));
     }
     public static synchronized void clear() {
         PENDING.clear(); LAST_REQUEST.clear();
@@ -78,6 +83,11 @@ public final class AdminNetworking {
                     if (query == null) throw new IllegalArgumentException("Missing history query");
                     queryJournal(player, message.id(), query);
                 }
+                case "players" -> {
+                    var query = AdminDocument.JSON.fromJson(assembly.body(), PlayersQuery.class);
+                    if (query == null) throw new IllegalArgumentException("Missing player query");
+                    reply(player, message.id(), "players", "", AdminDocument.JSON.toJson(AdminPlayers.list(player, query.filter(), query.offset())));
+                }
                 default -> throw new IllegalArgumentException("Unknown editor request");
             }
         } catch (SecurityException denied) {
@@ -91,16 +101,21 @@ public final class AdminNetworking {
     }
     private static void queryJournal(ServerPlayer player, String id, Query query) {
         var server = player.createCommandSourceStack().getServer();
+        String selected = query.playerUuid() == null || query.playerUuid().isBlank() ? null : UUID.fromString(query.playerUuid()).toString();
+        if (selected != null && query.changes()) throw new IllegalArgumentException("Invalid player history query");
         // Journal searches can read multiple daily files. Keep that work off the tick thread.
         journalWorker().execute(() -> {
             String body, action;
-            try { body = AdminDocument.JSON.toJson(TransactionJournal.query(query.filter(), query.offset(), query.changes())); action = "logs"; }
+            try { body = AdminDocument.JSON.toJson(TransactionJournal.query(query.filter(), query.offset(), query.changes(), selected)); action = "logs"; }
             catch (Exception failure) { body = "Could not read server records: " + failure.getMessage(); action = "error"; }
             final String responseBody = body, responseAction = action;
             server.execute(() -> {
                 if (server.getPlayerList().getPlayer(player.getUUID()) != player) return;
                 if (!AdminEditorService.allowed(player)) reply(player, id, "denied", "", AdminEditorService.DENIED);
-                else reply(player, id, responseAction, "", responseBody);
+                else if (selected != null && responseAction.equals("logs")) {
+                    var history = AdminDocument.JSON.fromJson(responseBody, TransactionJournal.Page.class);
+                    reply(player, id, "player_logs", "", AdminDocument.JSON.toJson(new AdminPlayers.History(AdminPlayers.player(player, selected), history)));
+                } else reply(player, id, responseAction, "", responseBody);
             });
         });
     }
