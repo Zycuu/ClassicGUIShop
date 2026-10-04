@@ -1,10 +1,8 @@
 package com.zycu.guishop.client;
 
 import com.zycu.guishop.CategoryLayout;
-import com.zycu.guishop.ColoredBlockGroups;
 import com.zycu.guishop.EnchantmentShopService;
 import com.zycu.guishop.ShopConfig;
-import com.zycu.guishop.ShopFolderStore;
 import com.zycu.guishop.VersionedListingStore;
 import com.zycu.guishop.admin.AdminDocument;
 import com.zycu.guishop.admin.AdminNetworking;
@@ -30,7 +28,7 @@ import java.util.function.DoubleConsumer;
 /** All edits affect a detached draft until the server acknowledges Apply. */
 public final class AdminScreen extends WorkbenchScreen {
     private enum Tab { BUILDER, SETTINGS, ACCESS, TRANSACTIONS, HISTORY }
-    private record Hit(int x, int y, int w, int h, String kind, String id, String category, String folder, ShopConfig.ShopItem item) {
+    private record Hit(int x, int y, int w, int h, String kind, String id, String category, ShopConfig.ShopItem item) {
         boolean contains(double px, double py) { return px >= x && px < x + w && py >= y && py < y + h; }
     }
     private record Tile(String kind, String id, String name, String icon, ShopConfig.ShopItem item, ItemStack preview, String detail) {
@@ -39,7 +37,7 @@ public final class AdminScreen extends WorkbenchScreen {
     private AdminDocument draft;
     private String baseline, revision, status = "Draft ready. Changes stay local until Apply.";
     private Tab tab = Tab.BUILDER;
-    private String categoryId = "", folderId, groupId, query = "", selectedItem, settingsSection = "Economy";
+    private String categoryId = "", query = "", selectedItem, settingsSection = "Economy";
     private int browserPage, previewPage, accessPage, logPage, logOffset;
     private boolean simulate, sellMode, busy, logChanges;
     private boolean enchantPreview;
@@ -52,7 +50,7 @@ public final class AdminScreen extends WorkbenchScreen {
     private Hit dragging;
     private boolean dragged;
     private EditBox search;
-    private String heldCategory, heldFolder;
+    private String heldCategory;
     private int logRetryTicks;
 
     public AdminScreen(AdminDocument document, String revision) {
@@ -70,17 +68,16 @@ public final class AdminScreen extends WorkbenchScreen {
     public void status(String value) { status = value; }
     public void restore(com.zycu.guishop.admin.AdminEditorService.RestoreDraft restored) {
         baseline = AdminDocument.JSON.toJson(restored.live()); draft = restored.previous().copy(); revision = restored.revision();
-        categoryId = ""; folderId = null; groupId = null; selectedItem = null; enchantPreview = false; enchantId = null;
+        categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null;
         previewPage = 0; browserPage = 0; busy = false; errors.clear(); invalidInputs.clear(); tab = Tab.BUILDER;
         status = "Previous configuration loaded into a draft. Review it, then Apply to restore."; rebuildWidgets();
     }
     public void failure(String value) { busy = false; status = value; if (width > 0) rebuildWidgets(); }
     public void addHeld(ShopConfig.ShopItem item) {
         if (heldCategory != null) {
-            String destination = heldCategory, destinationFolder = heldFolder; heldCategory = null; heldFolder = null;
+            String destination = heldCategory; heldCategory = null;
             if (draft.config.category(destination) == null) { status = "The destination was removed. Select a category and add the held item again."; return; }
-            categoryId = destination; folderId = destinationFolder; groupId = null;
-            if (folderId != null && !folderId.isBlank() && folder() == null) folderId = "";
+            categoryId = destination;
         }
         if (category() == null) { status = "Select a category before adding an item."; return; }
         addListing(item); rebuildWidgets();
@@ -95,16 +92,9 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private boolean dirty() { return !errors.isEmpty() || !baseline.equals(AdminDocument.JSON.toJson(draft)); }
     private ShopConfig.Category category() { return draft.config.category(categoryId); }
-    private AdminDocument.FolderLayout layout(String category) {
-        return draft.folders.computeIfAbsent(category, ignored -> new AdminDocument.FolderLayout());
-    }
     private ShopConfig.ShopItem selected() {
         if (category() == null || selectedItem == null) return null;
         return category().items.stream().filter(item -> item.listingId.equals(selectedItem)).findFirst().orElse(null);
-    }
-    private ShopFolderStore.Folder folder() {
-        var layout = draft.folders.get(categoryId);
-        return layout == null || folderId == null ? null : layout.folders.stream().filter(folder -> folder.id.equals(folderId)).findFirst().orElse(null);
     }
     @Override protected void init() {
         fields.clear(); hits.clear();
@@ -125,7 +115,7 @@ public final class AdminScreen extends WorkbenchScreen {
             if (busy) return;
             confirm("Discard draft?", "Your unapplied edits will be discarded. The live server shop stays unchanged.", () -> {
                 draft = AdminDocument.JSON.fromJson(baseline, AdminDocument.class); errors.clear(); invalidInputs.clear(); selectedItem = null; status = "Draft discarded.";
-                categoryId = ""; folderId = null; groupId = null; enchantPreview = false; enchantId = null; previewPage = 0; browserPage = 0;
+                categoryId = ""; enchantPreview = false; enchantId = null; previewPage = 0; browserPage = 0;
             });
         }).active = !busy;
         button("Close", 16, 352, 70, this::onClose).active = !busy;
@@ -142,11 +132,10 @@ public final class AdminScreen extends WorkbenchScreen {
 
     private void builder() {
         button("+ Category", 22, 76, 124, () -> createCategory());
-        if (category() != null) button("+ Folder", 22, 102, 124, this::createFolder);
         button("<", 22, 316, 38, () -> { browserPage = Math.max(0, browserPage - 1); rebuildWidgets(); });
         button(">", 108, 316, 38, () -> { browserPage++; rebuildWidgets(); });
         button("Home", 166, 76, 62, this::home);
-        button(simulate ? "Simulate" : "Build", 234, 76, 86, () -> { simulate = !simulate; enchantPreview = false; enchantId = null; query = ""; previewPage = 0; selectedItem = null; rebuildWidgets(); });
+        button(simulate ? "Simulate" : "Build", 234, 76, 86, () -> { simulate = !simulate; query = ""; previewPage = 0; selectedItem = null; rebuildWidgets(); });
         button(sellMode ? "Sell" : "Buy", 326, 76, 65, this::switchMode);
         button("Up", 397, 76, 55, this::up);
         search = field("Search listings", 166, 107, 286, query, value -> query = value);
@@ -158,74 +147,55 @@ public final class AdminScreen extends WorkbenchScreen {
         inspector();
     }
     private void home() {
-        categoryId = ""; folderId = null; groupId = null; selectedItem = null; enchantPreview = false; enchantId = null; previewPage = 0; rebuildWidgets();
+        categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null; previewPage = 0; rebuildWidgets();
     }
     private void up() {
         if (enchantPreview) { if (enchantId != null) enchantId = null; else enchantPreview = false; }
-        else if (folderId != null || groupId != null) { folderId = null; groupId = null; }
         else categoryId = "";
         selectedItem = null; previewPage = 0; rebuildWidgets();
     }
     private void switchMode() {
         sellMode = !sellMode; previewPage = 0;
-        // Player menus return to the folder/group list when switching mode inside one.
-        if (simulate && !enchantPreview) { folderId = null; groupId = null; selectedItem = null; }
+        if (simulate && !enchantPreview) { selectedItem = null; }
         rebuildWidgets();
     }
     private void inspector() {
-        var item = selected(); var category = category(); var folder = folder();
+        var item = selected(); var category = category();
         if (item != null) {
             field("Display name", 472, 107, 164, item.name, value -> item.name = value);
             number("Buy price", 472, 147, 164, item.buy, value -> { item.buy = value; item.manualPrice = true; });
             number("Sell price", 472, 187, 164, item.sell, value -> { item.sell = value; item.manualPrice = true; });
-            button("Move listing...", 472, 219, 164, () -> minecraft.gui.setScreen(new DestinationScreen(this, draft, (cat, folderId) -> move(item, cat, folderId))));
+            button("Move listing...", 472, 219, 164, () -> minecraft.gui.setScreen(new DestinationScreen(this, draft, cat -> move(item, cat))));
             button("Remove listing", 472, 245, 164, () -> confirm("Remove listing?", item.name + " will be removed when you Apply. The previous configuration will be backed up.", () -> {
-                category.items.remove(item); layout(category.id).assignments.remove(item.listingId.toLowerCase(Locale.ROOT)); selectedItem = null;
+                category.items.remove(item); selectedItem = null;
             }));
             button("Move earlier", 472, 276, 79, () -> reorder(category.items, item, -1));
             button("Move later", 557, 276, 79, () -> reorder(category.items, item, 1));
             field("Tooltip description", 472, 313, 164, item.description, value -> item.description = value).setMaxLength(160);
         } else if (category != null) {
-            field(folder == null ? "Category name" : "Folder name", 472, 107, 164, folder == null ? category.name : folder.name,
-                value -> { if (folder == null) category.name = value; else folder.name = value; });
-            button("Choose icon...", 472, 141, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Choose " + (folder == null ? "category" : "folder") + " icon", icon -> {
-                if (folder == null) category.icon = icon; else folder.icon = icon;
-            })));
+            field("Category name", 472, 107, 164, category.name, value -> category.name = value);
+            button("Choose icon...", 472, 141, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Choose category icon", icon -> category.icon = icon)));
             button("+ Select item", 472, 181, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Add an item listing", id -> {
                 var listing = new ShopConfig.ShopItem(); listing.item = id; listing.listingId = id;
                 listing.name = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.parse(id))).getHoverName().getString();
                 listing.manualPrice = true; addListing(listing);
             })));
             button("+ Add held item", 472, 207, 164, () -> {
-                if (AdminShopClient.request("held", "", "")) { heldCategory = categoryId; heldFolder = folderId; }
+                if (AdminShopClient.request("held", "", "")) { heldCategory = categoryId; }
             });
-            button(folder == null ? "Remove category" : "Remove folder", 472, 245, 164, () -> {
-                if (folder == null) confirm("Remove category?", "This also removes its " + category.items.size() + " listings when you Apply.", () -> {
-                    draft.config.categories.remove(category); draft.folders.remove(category.id); categoryId = ""; selectedItem = null;
-                });
-                else confirm("Remove folder?", "Listings will stay in the category and return to Unsorted.", () -> {
-                    layout(category.id).folders.remove(folder); layout(category.id).assignments.values().removeIf(folder.id::equals); folderId = null;
-                });
-            });
-            button("Move earlier", 472, 276, 79, () -> { if (folder == null) reorder(draft.config.categories, category, -1); else reorder(layout(category.id).folders, folder, -1); });
-            button("Move later", 557, 276, 79, () -> { if (folder == null) reorder(draft.config.categories, category, 1); else reorder(layout(category.id).folders, folder, 1); });
-            field("Tooltip description", 472, 313, 164, folder == null ? category.description : folder.description,
-                value -> { if (folder == null) category.description = value; else folder.description = value; }).setMaxLength(160);
+            button("Remove category", 472, 245, 164, () -> confirm("Remove category?", "This also removes its " + category.items.size() + " listings when you Apply.", () -> {
+                draft.config.categories.remove(category); categoryId = ""; selectedItem = null;
+            }));
+            button("Move earlier", 472, 276, 79, () -> reorder(draft.config.categories, category, -1));
+            button("Move later", 557, 276, 79, () -> reorder(draft.config.categories, category, 1));
+            field("Tooltip description", 472, 313, 164, category.description, value -> category.description = value).setMaxLength(160);
         }
     }
     private void createCategory() {
         minecraft.gui.setScreen(new EditorDialog(this, "Create category", "Choose the name players will see in /shop.", "New Category", name -> {
             var category = new ShopConfig.Category(); category.id = uniqueId(name, draft.config.categories.stream().map(value -> value.id).toList());
             category.name = name; category.icon = "minecraft:chest"; draft.config.categories.add(category);
-            categoryId = category.id; folderId = null; groupId = null; selectedItem = null; previewPage = 0;
-        }));
-    }
-    private void createFolder() {
-        var category = category(); if (category == null) return;
-        minecraft.gui.setScreen(new EditorDialog(this, "Create folder", "Folders organize listings inside " + category.name + ".", "New Folder", name -> {
-            var folder = new ShopFolderStore.Folder(); var layout = layout(category.id);
-            folder.id = uniqueId(name, layout.folders.stream().map(value -> value.id).toList()); folder.name = name; folder.icon = "minecraft:chest";
-            layout.folders.add(folder); folderId = folder.id; selectedItem = null; previewPage = 0;
+            categoryId = category.id; selectedItem = null; previewPage = 0;
         }));
     }
     private static String uniqueId(String name, List<String> used) {
@@ -240,19 +210,17 @@ public final class AdminScreen extends WorkbenchScreen {
         }
         if (existing != null) {
             categoryId = existing.category().id; selectedItem = existing.item().listingId;
-            folderId = assignment(categoryId, selectedItem); status = "That exact listing already exists. Selected it for editing."; return;
+            status = "That exact listing already exists. Selected it for editing."; return;
         }
         category().items.add(item); selectedItem = item.listingId;
-        if (folderId != null && !folderId.isBlank()) layout(categoryId).assignments.put(item.listingId.toLowerCase(Locale.ROOT), folderId);
         status = "Listing added to draft with prices disabled. Set buy and sell prices before applying.";
     }
-    private void move(ShopConfig.ShopItem item, String destination, String targetFolder) {
+    private void move(ShopConfig.ShopItem item, String destination) {
         var old = draft.config.findItem(item.listingId); var target = draft.config.category(destination);
         if (old == null || target == null) return;
-        old.category().items.remove(item); layout(old.category().id).assignments.remove(item.listingId.toLowerCase(Locale.ROOT));
+        old.category().items.remove(item);
         target.items.add(item);
-        if (targetFolder != null && !targetFolder.isBlank()) layout(destination).assignments.put(item.listingId.toLowerCase(Locale.ROOT), targetFolder);
-        categoryId = destination; folderId = targetFolder; groupId = null; selectedItem = item.listingId; previewPage = 0;
+        categoryId = destination; selectedItem = item.listingId; previewPage = 0;
         status = "Listing moved in the draft."; rebuildWidgets();
     }
     private <T> void reorder(List<T> list, T item, int direction) {
@@ -402,46 +370,33 @@ public final class AdminScreen extends WorkbenchScreen {
         panel(graphics, 466, 69, 178, 270, 0xFFB7B9AB);
         List<Hit> browser = new ArrayList<>();
         for (var category : draft.config.categories) {
-            browser.add(new Hit(0, 0, 0, 0, "category", category.id, category.id, null, null));
-            if (category.id.equals(categoryId)) {
-                browser.add(new Hit(0, 0, 0, 0, "folder", "", category.id, "", null));
-                var layout = draft.folders.get(category.id);
-                if (layout != null) for (var folder : layout.folders) browser.add(new Hit(0, 0, 0, 0, "folder", folder.id, category.id, folder.id, null));
-            }
+            browser.add(new Hit(0, 0, 0, 0, "category", category.id, category.id, null));
         }
         browserPage = Math.min(browserPage, Math.max(0, (browser.size() - 1) / 9));
         for (int row = 0; row < 9 && browserPage * 9 + row < browser.size(); row++) {
             var entry = browser.get(browserPage * 9 + row); int y = 133 + row * 19;
             var category = draft.config.category(entry.category);
             String label = category.name, icon = category.icon;
-            if (entry.kind.equals("folder")) {
-                var folder = entry.id.isEmpty() ? null : layout(entry.category).folders.stream().filter(value -> value.id.equals(entry.id)).findFirst().orElse(null);
-                label = "  " + (folder == null ? "Unsorted" : folder.name); icon = folder == null ? "minecraft:paper" : folder.icon;
-            }
-            boolean selected = entry.category.equals(categoryId) && (entry.kind.equals("category") ? folderId == null : entry.id.equals(folderId));
+            boolean selected = entry.category.equals(categoryId);
             graphics.fill(21, y, 147, y + 18, selected ? 0xFF78978B : 0xFFA6AC9D);
             graphics.item(stack(icon), 24, y + 1); text(graphics, font.plainSubstrByWidth(label, 101), 43, y + 5, 0xFF202F2D);
-            hits.add(new Hit(21, y, 126, 18, entry.kind, entry.id, entry.category, entry.folder, null));
+            hits.add(new Hit(21, y, 126, 18, entry.kind, entry.id, entry.category, null));
         }
         text(graphics, Integer.toString(browserPage + 1), 77, 322, 0xFF33443B);
         paintPreview(graphics, mouseX, mouseY);
-        var selected = selected(); var folder = folder(); var category = category();
-        text(graphics, selected != null ? "LISTING" : folder != null ? "FOLDER" : "CATEGORY", 474, 80, 0xFF234747);
+        var selected = selected(); var category = category();
+        text(graphics, selected != null ? "LISTING" : "CATEGORY", 474, 80, 0xFF234747);
         if (selected != null) {
             labels(graphics, new String[]{"Display name", "Buy / item", "Sell / item"}, 474, new int[]{96, 136, 176});
             text(graphics, "Tooltip description", 474, 302, 0xFF455449);
         } else if (category != null) {
             text(graphics, "Display name", 474, 96, 0xFF3B4940);
-            graphics.item(stack(folder == null ? category.icon : folder.icon), 545, 164);
+            graphics.item(stack(category.icon), 545, 164);
             text(graphics, "Tooltip description", 474, 302, 0xFF455449);
         } else {
             multiline(graphics, "Create or select a category to edit it. Drag categories to reorder them.", 477, 112, 151, 0xFF3B4940);
             multiline(graphics, "Build shows every listing. Simulate uses the active Buy or Sell prices.", 477, 207, 151, 0xFF3B4940);
         }
-    }
-    private String assignment(String category, String listing) {
-        var layout = draft.folders.get(category);
-        return layout == null ? "" : layout.assignments.getOrDefault(listing.toLowerCase(Locale.ROOT), "");
     }
     private boolean visible(ShopConfig.ShopItem item) {
         return (sellMode ? item.sell : item.buy) > 0 && (minecraft.level == null || VersionedListingStore.isRuntimeAvailable(item, minecraft.level.registryAccess()));
@@ -451,28 +406,12 @@ public final class AdminScreen extends WorkbenchScreen {
         if (enchantPreview) return enchantTiles();
         if (category == null) {
             for (var value : draft.config.categories) if (!simulate || value.items.stream().anyMatch(this::visible)) tiles.add(new Tile("category", value.id, value.name, value.icon, null));
-            if (simulate && draft.config.enchantmentsEnabled()) tiles.add(new Tile("enchant", "", "Enchanted Books", "minecraft:enchanted_book", null));
-            return tiles;
-        }
-        var layout = draft.folders.get(category.id);
-        boolean folders = layout != null && !layout.folders.isEmpty();
-        if (folderId == null && folders) {
-            if (category.items.stream().anyMatch(item -> assignment(category.id, item.listingId).isEmpty() && (!simulate || visible(item)))) tiles.add(new Tile("folder", "", "Unsorted", "minecraft:chest", null));
-            for (var folder : layout.folders) {
-                boolean populated = category.items.stream().anyMatch(item -> assignment(category.id, item.listingId).equals(folder.id) && (!simulate || visible(item)));
-                if (!simulate || populated) tiles.add(new Tile("folder", folder.id, folder.name, folder.icon, null));
-            }
-            return tiles;
-        }
-        if (simulate && !folders && category.id.equals("colored_blocks") && groupId == null) {
-            for (var group : ColoredBlockGroups.definitions()) if (category.items.stream().anyMatch(item -> visible(item) && ColoredBlockGroups.groupFor(item).equals(group))) tiles.add(new Tile("group", group.id(), group.name(), group.icon(), null));
+            if (draft.config.enchantmentsEnabled()) tiles.add(new Tile("enchant", "", "Enchanted Books", "minecraft:enchanted_book", null));
             return tiles;
         }
         String search = query.toLowerCase(Locale.ROOT);
         for (var item : category.items) {
             if (simulate && !visible(item)) continue;
-            if (folderId != null && !assignment(category.id, item.listingId).equals(folderId)) continue;
-            if (groupId != null && !ColoredBlockGroups.groupFor(item).id().equals(groupId)) continue;
             if (!simulate && !search.isBlank() && !item.name.toLowerCase(Locale.ROOT).contains(search) && !item.item.contains(search) && !item.listingId.contains(search)) continue;
             tiles.add(new Tile("item", item.listingId, item.name, item.item, item));
         }
@@ -515,7 +454,6 @@ public final class AdminScreen extends WorkbenchScreen {
         panel(graphics, left - 8, top - 17, 178, rows * 18 + 40, 0xFFC6C6C6);
         var previewOffer = draft.config.enchantments.get(enchantId);
         String title = enchantPreview ? previewOffer == null ? "Enchanted Books" : previewOffer.name + " Levels" : root ? draft.config.shopTitle : category().name;
-        if (folder() != null) title += " / " + folder().name;
         if (simulate) title += sellMode ? " - Sell" : " - Buy";
         text(graphics, font.plainSubstrByWidth(title, 156), left, top - 11, 0xFF404040);
         List<Integer> slots = root ? CategoryLayout.slots(shown) : java.util.stream.IntStream.range(0, shown).boxed().toList();
@@ -538,7 +476,7 @@ public final class AdminScreen extends WorkbenchScreen {
                 if (tile.item != null) text(graphics, "Buy " + number(tile.item.buy * draft.config.priceMultiplier) + " | Sell " + number(tile.item.sell * draft.config.priceMultiplier), 169, 308, 0xFF33443B);
                 else if (!tile.detail.isBlank()) text(graphics, font.plainSubstrByWidth(tile.detail, 278), 169, 308, 0xFF33443B);
             }
-            hits.add(new Hit(x, y, 18, 18, "tile:" + tile.kind, tile.id, categoryId, folderId, tile.item));
+            hits.add(new Hit(x, y, 18, 18, "tile:" + tile.kind, tile.id, categoryId, tile.item));
         }
         int footer = top + (rows - 1) * 18;
         footer(graphics, left + 4 * 18, footer, Items.PAPER, "info");
@@ -551,7 +489,7 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private void footer(GuiGraphicsExtractor graphics, int x, int y, net.minecraft.world.item.Item icon, String action) {
         graphics.item(new ItemStack(icon), x + 1, y + 1);
-        hits.add(new Hit(x, y, 18, 18, "preview:" + action, "", "", null, null));
+        hits.add(new Hit(x, y, 18, 18, "preview:" + action, "", "", null));
     }
     private void paintSettings(GuiGraphicsExtractor graphics) {
         panel(graphics, 16, 69, 628, 270, 0xFFBDC1B2);
@@ -595,7 +533,7 @@ public final class AdminScreen extends WorkbenchScreen {
             text(graphics, entry.action(), 272, y + 3, 0xFF303E36);
             text(graphics, font.plainSubstrByWidth(entry.action().equals("CONFIG_APPLY") ? entry.details() : entry.listing(), 184), 373, y + 3, 0xFF303E36);
             text(graphics, font.plainSubstrByWidth(number(entry.total()), 53), 570, y + 3, 0xFF303E36);
-            hits.add(new Hit(30, y, 599, 14, "log", Integer.toString(logPage * 10 + row), "", null, null));
+            hits.add(new Hit(30, y, 599, 14, "log", Integer.toString(logPage * 10 + row), "", null));
         }
         if (logData.entries().isEmpty()) text(graphics, "No matching records in the recent history window.", 32, 181, 0xFF3B4940);
         text(graphics, "Recent view: 30 daily files, last 2 MB each. Full journals stay on the server.", 32, 299, 0xFF3B4940);
@@ -631,12 +569,8 @@ public final class AdminScreen extends WorkbenchScreen {
             dragging = simulate ? null : hit; dragged = false;
             if (hit.kind.equals("category") || hit.kind.equals("tile:category")) {
                 enchantPreview = false; enchantId = null;
-                categoryId = hit.id; folderId = null; groupId = null; selectedItem = null; previewPage = 0;
-            } else if (hit.kind.equals("folder") || hit.kind.equals("tile:folder")) {
-                enchantPreview = false; enchantId = null;
-                categoryId = hit.category; folderId = hit.id; groupId = null; selectedItem = null; previewPage = 0;
-            } else if (hit.kind.equals("tile:group")) { groupId = hit.id; selectedItem = null; previewPage = 0; }
-            else if (hit.item != null) selectedItem = hit.item.listingId;
+                categoryId = hit.id; selectedItem = null; previewPage = 0;
+            } else if (hit.item != null) selectedItem = hit.item.listingId;
             else if (hit.kind.equals("tile:enchant")) { enchantPreview = true; enchantId = null; previewPage = 0; }
             else if (hit.kind.equals("tile:offer")) { enchantId = hit.id; previewPage = 0; }
             else if (hit.kind.equals("tile:level")) status = "Simulator only. No items or money change here.";
@@ -654,9 +588,9 @@ public final class AdminScreen extends WorkbenchScreen {
         dragged = false;
         for (Hit target : hits) if (target.contains(x, y)) {
             if (source.item != null) {
-                if (target.kind.equals("category") || target.kind.equals("folder") || target.kind.equals("tile:folder") || target.kind.equals("tile:category")) {
-                    String destination = target.kind.endsWith("category") ? target.id : target.category;
-                    move(source.item, destination, target.kind.endsWith("folder") ? target.id : "");
+                if (target.kind.equals("category") || target.kind.equals("tile:category")) {
+                    String destination = target.id;
+                    move(source.item, destination);
                 } else if (target.item != null && !source.item.equals(target.item)) {
                     var category = draft.config.findItem(source.item.listingId).category();
                     category.items.remove(source.item); category.items.add(category.items.indexOf(target.item), source.item); rebuildWidgets();
@@ -664,14 +598,9 @@ public final class AdminScreen extends WorkbenchScreen {
             } else if (source.kind.endsWith("category") && target.kind.endsWith("category") && !source.id.equals(target.id)) {
                 var category = draft.config.category(source.id); var destination = draft.config.category(target.id);
                 draft.config.categories.remove(category); draft.config.categories.add(draft.config.categories.indexOf(destination), category); rebuildWidgets();
-            } else if (source.kind.endsWith("folder") && target.kind.endsWith("folder") && source.category.equals(target.category) && !source.id.isEmpty() && !target.id.isEmpty() && !source.id.equals(target.id)) {
-                var list = layout(source.category).folders;
-                var folder = list.stream().filter(value -> value.id.equals(source.id)).findFirst().orElse(null);
-                var destination = list.stream().filter(value -> value.id.equals(target.id)).findFirst().orElse(null);
-                if (folder != null && destination != null) { list.remove(folder); list.add(list.indexOf(destination), folder); rebuildWidgets(); }
             }
             return true;
         }
-        status = "Drop a listing onto a category, folder, or another listing."; return true;
+        status = "Drop a listing onto a category or another listing."; return true;
     }
 }

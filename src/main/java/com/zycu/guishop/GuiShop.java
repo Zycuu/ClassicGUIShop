@@ -11,7 +11,6 @@ public final class GuiShop implements ModInitializer {
     public static ShopConfig CONFIG;
     public static EconomyStore ECONOMY;
     public static PlayerDirectory PLAYERS;
-    public static ShopFolderStore FOLDERS;
 
     @Override
     public void onInitialize() {
@@ -29,8 +28,6 @@ public final class GuiShop implements ModInitializer {
         CONFIG = ShopConfig.load();
         ECONOMY = new EconomyStore(CONFIG);
         PLAYERS = new PlayerDirectory();
-        FOLDERS = SafeShopFolderLoader.load();
-        FOLDERS.sync(CONFIG);
 
         System.out.println("[ShopGUI] Shop is now open!");
         System.out.println("[ClassicGUIShop] Initialized with " + CONFIG.categories.size() + " categories.");
@@ -52,11 +49,9 @@ public final class GuiShop implements ModInitializer {
     private static void runStartupWork(MinecraftServer server) {
         VersionedListingStore.ReconcileResult versioned = VersionedListingStore.reconcile(
             CONFIG,
-            FOLDERS,
             server.registryAccess()
         );
         EconomyExploitScanner.FixReport economy = EconomyExploitScanner.fixGeneratedExploits(server);
-        FOLDERS.sync(CONFIG);
         com.zycu.guishop.admin.AdminEditorService.rememberDiskState();
         System.out.println("[ClassicGUIShop] Runtime listing filter parked " + versioned.parked()
             + ", restored " + versioned.restored() + ", and is preserving "

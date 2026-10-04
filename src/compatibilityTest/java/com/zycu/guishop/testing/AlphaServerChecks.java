@@ -53,23 +53,33 @@ public final class AlphaServerChecks {
             }
             item.name = "Test Diamond"; item.buy = 10; item.sell = 2; item.manualPrice = true; category.items.add(item);
             // A deterministic standalone fixture, never a real player's shop.
-            changed.config.categories.clear(); changed.config.categories.add(category); changed.folders.clear();
-            var folder = new com.zycu.guishop.ShopFolderStore.Folder(); folder.id = "gems"; folder.name = "Gems"; folder.icon = "minecraft:emerald";
-            var layout = new AdminDocument.FolderLayout(); layout.folders.add(folder); layout.assignments.put(item.listingId, folder.id);
-            changed.folders.put(category.id, layout);
+            changed.config.categories.clear(); changed.config.categories.add(category);
+            var legacyPath = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("guishop/folders.json");
+            // A missing legacy file must not have been generated at startup. A present file may even be malformed.
+            if (!Files.exists(legacyPath)) Files.writeString(legacyPath, "Retired folder fixture: keep these bytes unchanged.\n");
+            byte[] legacyBytes = Files.readAllBytes(legacyPath);
+            check(AdminEditorService.snapshot(player).revision().equals(original.revision()), "Legacy data does not affect editor revisions");
+            check(!AdminDocument.JSON.toJson(changed).contains("\"folders\""), "No folders in editor document");
             var invalid = changed.copy(); invalid.config.categories.getFirst().items.getFirst().buy = Double.NaN;
             try { AdminEditorService.validate(invalid, player); throw new AssertionError("NaN price accepted"); }
             catch (IllegalArgumentException expected) {}
-            invalid = changed.copy(); invalid.folders.get(category.id).assignments.put("missing", folder.id);
-            try { AdminEditorService.validate(invalid, player); throw new AssertionError("Dangling assignment accepted"); }
+            invalid = changed.copy(); invalid.config.categories.add(category);
+            try { AdminEditorService.validate(invalid, player); throw new AssertionError("Duplicate category accepted"); }
             catch (IllegalArgumentException expected) {}
             var saved = AdminEditorService.apply(player, original.revision(), changed);
-            check(GuiShop.FOLDERS.folderFor(category.id, item.listingId).equals(folder.id), "Folder assignment saved");
+            check(GuiShop.CONFIG.category(category.id).items.getFirst().listingId.equals(item.listingId), "Category listing saved");
+            check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Apply leaves legacy folder bytes untouched");
             try { AdminEditorService.apply(player, original.revision(), changed); throw new AssertionError("Stale draft accepted"); }
             catch (IllegalStateException expected) {}
             check(Files.isDirectory(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("guishop/backups")), "Backup created");
             var changeRecords = TransactionJournal.query(player.getUUID().toString(), 0, true).entries();
             String backupId = changeRecords.getFirst().details().split(" ")[1];
+            var backup = legacyPath.getParent().resolve("backups").resolve(backupId);
+            check(java.util.Arrays.equals(Files.readAllBytes(backup.resolve("folders.json")), legacyBytes), "Legacy data copied into backup unchanged");
+            // Documents from Alpha 1 may still contain folder fields; they must restore categories safely.
+            var oldDocument = AdminDocument.JSON.toJsonTree(original.document()).getAsJsonObject();
+            oldDocument.add("folders", com.google.gson.JsonParser.parseString("{\"alpha_test\":{\"folders\":[{\"id\":\"gems\"}],\"assignments\":{\"minecraft:diamond\":\"gems\"}}}"));
+            Files.writeString(backup.resolve("editor-before.json"), oldDocument.toString());
             var restored = AdminEditorService.restoreDraft(player, backupId);
             check(AdminDocument.JSON.toJson(restored.previous()).equals(AdminDocument.JSON.toJson(original.document())), "Backup restores previous draft");
             check(GuiShop.CONFIG.category("alpha_test") != null, "Loading a backup does not change the live shop");
@@ -106,10 +116,12 @@ public final class AlphaServerChecks {
             check(!ShopService.trade(player, live, com.zycu.guishop.ShopGui.Mode.BUY, 1), "Old menu cannot transact after Apply");
 
             AdminEditorService.apply(player, zeroSaved.revision(), original.document());
+            check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
+            check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
             server.getPlayerList().getOps().remove(player.nameAndId());
             try { AdminEditorService.apply(player, "", changed); throw new AssertionError("Revoked OP applied a draft"); }
             catch (SecurityException expected) {}
-            System.out.println("[ClassicGUIShop Alpha test] PASS: OP permissions, bounded Unicode chunks, invalid drafts, backups and restore, external edits, conflicts, folder persistence, purchases, sales, journal, zero-value guard, stale-menu guard, revoked permissions");
+            System.out.println("[ClassicGUIShop Alpha test] PASS: OP permissions, bounded Unicode chunks, invalid drafts, backups and restore, external edits, conflicts, category persistence and legacy folder preservation, purchases, sales, journal, zero-value guard, stale-menu guard, revoked permissions");
         } catch (Exception exception) { throw new AssertionError("Alpha server checks failed", exception); }
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }

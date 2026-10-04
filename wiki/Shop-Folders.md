@@ -1,9 +1,7 @@
-# Shop Folders
+# Retired Shop Folders
 
-Manage folders in Adminshop's Shop Builder. Select a category, create a folder, choose its icon, and edit its display name and tooltip description. Reorder folders by dragging or with Move earlier/later. Move listings with the destination chooser or drag them onto a folder.
+Folders were removed in 1.4.0 Alpha 2. Shop Builder and the vanilla player shop use categories only. Listings previously assigned to folders appear directly in their parent category, with their prices and exact item data retained.
 
-Removing a folder returns its listings to Unsorted in the draft. Apply updates the server and backs up the previous layout. No folder management commands are registered.
+Existing `config/guishop/folders.json` files are ignored and left untouched. Apply includes a byte-for-byte copy in the configuration backup. Fresh installations do not create the file.
 
-Player menus show folders containing listings enabled for the selected Buy or Sell mode. Unsorted appears first when it contains visible listings. Explicit custom folders take precedence over the older colored-block group layout.
-
-Data stays in `config/guishop/folders.json`, separate from prices and exact stack data.
+Create, name, order, and choose icons for categories through Shop Builder. Move listings directly between categories with the destination chooser or drag and drop.

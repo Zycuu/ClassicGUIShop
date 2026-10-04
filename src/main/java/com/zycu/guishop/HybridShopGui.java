@@ -106,15 +106,6 @@ public final class HybridShopGui {
             return;
         }
 
-        if ("colored_blocks".equalsIgnoreCase(categoryId) && !GuiShop.FOLDERS.hasFolders(categoryId)) {
-            openColoredBlockGroups(player, requestedMode, requestedPage);
-            return;
-        }
-        if (GuiShop.FOLDERS.hasFolders(categoryId)) {
-            openFolders(player, categoryId, requestedMode, requestedPage);
-            return;
-        }
-
         ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
         if (mode == null) return;
         EnchantmentShopService.rememberMode(player, mode);
@@ -126,177 +117,6 @@ public final class HybridShopGui {
             requestedPage,
             ignored -> openCategories(player, mode),
             targetMode -> openCategory(player, category.id, targetMode, 1)
-        );
-    }
-
-    private static void openFolders(
-        ServerPlayer player,
-        String categoryId,
-        ShopGui.Mode requestedMode,
-        int requestedPage
-    ) {
-        ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
-        ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
-        if (mode == null || category == null) return;
-        EnchantmentShopService.rememberMode(player, mode);
-
-        PageSession session = new PageSession(
-            player,
-            Component.literal(category.name + " Folders - " + modeName(mode)),
-            (screen, requested) -> {
-                List<FolderView> views = folderViews(category, mode);
-                if (views.isEmpty()) {
-                    openItemScreen(
-                        player,
-                        category.name,
-                        availableItems(category, mode),
-                        mode,
-                        1,
-                        ignored -> openCategories(player, mode),
-                        targetMode -> openCategory(player, category.id, targetMode, 1)
-                    );
-                    return;
-                }
-
-                int pages = pageCount(views.size());
-                int page = clampPage(requested, pages);
-                int start = (page - 1) * PAGE_SIZE;
-                int end = Math.min(start + PAGE_SIZE, views.size());
-
-                screen.begin();
-                for (int slot = 0; start + slot < end; slot++) {
-                    FolderView view = views.get(start + slot);
-                    screen.bind(slot,
-                        displayStack(view.icon, view.name + " | " + view.count + " listings", view.description),
-                        false,
-                        ignored -> openFolder(player, category.id, view.id, mode, 1, page)
-                    );
-                }
-                screen.bind(BACK_SLOT, displayStack("minecraft:barrier", "Back to Categories"), false,
-                    ignored -> openCategories(player, mode));
-                screen.pageControls(page, pages,
-                    "Page " + page + "/" + pages + " | Balance " + money(player),
-                    target -> screen.show(target));
-                if (ShopService.canUseMode(player, mode.opposite())) {
-                    screen.bind(MODE_SLOT,
-                        displayStack(mode == ShopGui.Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald",
-                            "Switch to " + modeName(mode.opposite())),
-                        false,
-                        ignored -> openFolders(player, category.id, mode.opposite(), 1)
-                    );
-                }
-                screen.finish();
-            }
-        );
-        session.open(requestedPage);
-    }
-
-    private static void openFolder(
-        ServerPlayer player,
-        String categoryId,
-        String folderId,
-        ShopGui.Mode requestedMode,
-        int requestedPage,
-        int folderMenuPage
-    ) {
-        ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
-        ShopConfig.Category category = GuiShop.CONFIG.category(categoryId);
-        if (mode == null || category == null) return;
-        EnchantmentShopService.rememberMode(player, mode);
-
-        List<ShopConfig.ShopItem> items = new ArrayList<>();
-        for (ShopConfig.ShopItem item : category.items) {
-            String assigned = GuiShop.FOLDERS.folderFor(category.id, item.listingId);
-            if (folderId.equalsIgnoreCase(assigned) && price(item, mode) > 0) items.add(item);
-        }
-
-        String folderName = folderId.isBlank() ? "Unsorted" : folderName(category.id, folderId);
-        openItemScreen(
-            player,
-            folderName,
-            items,
-            mode,
-            requestedPage,
-            ignored -> openFolders(player, category.id, mode, folderMenuPage),
-            targetMode -> openFolders(player, category.id, targetMode, 1)
-        );
-    }
-
-    private static void openColoredBlockGroups(
-        ServerPlayer player,
-        ShopGui.Mode requestedMode,
-        int requestedPage
-    ) {
-        ShopGui.Mode mode = resolveAllowedMode(player, requestedMode);
-        ShopConfig.Category category = GuiShop.CONFIG.category("colored_blocks");
-        if (mode == null || category == null) return;
-        EnchantmentShopService.rememberMode(player, mode);
-
-        PageSession session = new PageSession(
-            player,
-            Component.literal("Colored Blocks - " + modeName(mode)),
-            (screen, requested) -> {
-                List<ColoredView> groups = coloredViews(category, mode);
-                int pages = pageCount(groups.size());
-                int page = clampPage(requested, pages);
-                int start = (page - 1) * PAGE_SIZE;
-                int end = Math.min(start + PAGE_SIZE, groups.size());
-
-                screen.begin();
-                for (int slot = 0; start + slot < end; slot++) {
-                    ColoredView view = groups.get(start + slot);
-                    screen.bind(slot,
-                        displayStack(view.group.icon(), view.group.name() + " | " + view.count + " listings"),
-                        false,
-                        ignored -> openColoredBlockGroup(player, mode, view.group.id(), 1, page)
-                    );
-                }
-                screen.bind(BACK_SLOT, displayStack("minecraft:barrier", "Back to Categories"), false,
-                    ignored -> openCategories(player, mode));
-                screen.pageControls(page, pages,
-                    "Page " + page + "/" + pages + " | Balance " + money(player),
-                    target -> screen.show(target));
-                if (ShopService.canUseMode(player, mode.opposite())) {
-                    screen.bind(MODE_SLOT,
-                        displayStack(mode == ShopGui.Mode.BUY ? "minecraft:gold_ingot" : "minecraft:emerald",
-                            "Switch to " + modeName(mode.opposite())),
-                        false,
-                        ignored -> openColoredBlockGroups(player, mode.opposite(), 1)
-                    );
-                }
-                screen.finish();
-            }
-        );
-        session.open(requestedPage);
-    }
-
-    private static void openColoredBlockGroup(
-        ServerPlayer player,
-        ShopGui.Mode mode,
-        String groupId,
-        int requestedPage,
-        int groupMenuPage
-    ) {
-        ShopConfig.Category category = GuiShop.CONFIG.category("colored_blocks");
-        if (category == null) return;
-        EnchantmentShopService.rememberMode(player, mode);
-        ColoredBlockGroups.Group group = ColoredBlockGroups.byId(groupId);
-        List<ShopConfig.ShopItem> items = new ArrayList<>();
-        for (ShopConfig.ShopItem item : category.items) {
-            if (ColoredBlockGroups.groupFor(item).id().equalsIgnoreCase(group.id())
-                && price(item, mode) > 0) {
-                items.add(item);
-            }
-        }
-
-        openItemScreen(
-            player,
-            group.name(),
-            items,
-            mode,
-            requestedPage,
-            ignored -> openColoredBlockGroups(player, mode, groupMenuPage),
-            targetMode -> openColoredBlockGroups(player, targetMode, 1)
         );
     }
 
@@ -503,48 +323,6 @@ public final class HybridShopGui {
         session.open(requestedPage);
     }
 
-    private static List<FolderView> folderViews(ShopConfig.Category category, ShopGui.Mode mode) {
-        List<FolderView> views = new ArrayList<>();
-        int unsorted = countFolder(category, ShopFolderStore.UNSORTED, mode);
-        if (unsorted > 0) {
-            views.add(new FolderView(ShopFolderStore.UNSORTED, "Unsorted", "minecraft:chest", "", unsorted));
-        }
-        for (ShopFolderStore.Folder folder : GuiShop.FOLDERS.folders(category.id)) {
-            int count = countFolder(category, folder.id, mode);
-            if (count > 0) views.add(new FolderView(folder.id, folder.name, folder.icon, folder.description, count));
-        }
-        return views;
-    }
-
-    private static List<ColoredView> coloredViews(ShopConfig.Category category, ShopGui.Mode mode) {
-        List<ColoredView> groups = new ArrayList<>();
-        for (ColoredBlockGroups.Group group : ColoredBlockGroups.definitions()) {
-            int count = 0;
-            for (ShopConfig.ShopItem item : category.items) {
-                if (ColoredBlockGroups.groupFor(item).id().equalsIgnoreCase(group.id())
-                    && price(item, mode) > 0) {
-                    count++;
-                }
-            }
-            if (count > 0) groups.add(new ColoredView(group, count));
-        }
-        return groups;
-    }
-
-    private static int countFolder(ShopConfig.Category category, String folderId, ShopGui.Mode mode) {
-        int count = 0;
-        for (ShopConfig.ShopItem item : category.items) {
-            if (price(item, mode) <= 0) continue;
-            if (folderId.equalsIgnoreCase(GuiShop.FOLDERS.folderFor(category.id, item.listingId))) count++;
-        }
-        return count;
-    }
-
-    private static String folderName(String categoryId, String folderId) {
-        ShopFolderStore.Folder folder = GuiShop.FOLDERS.folder(categoryId, folderId);
-        return folder == null ? "Unsorted" : folder.name;
-    }
-
     private static List<ShopConfig.ShopItem> availableItems(
         ShopConfig.Category category,
         ShopGui.Mode mode
@@ -677,8 +455,6 @@ public final class HybridShopGui {
     }
 
     private record MenuButton(ItemStack icon, Runnable action) {}
-    private record FolderView(String id, String name, String icon, String description, int count) {}
-    private record ColoredView(ColoredBlockGroups.Group group, int count) {}
     private record Binding(GuiAction action, boolean trade) {}
 
     private static final class PageSession {

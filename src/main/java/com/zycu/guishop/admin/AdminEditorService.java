@@ -3,7 +3,6 @@ package com.zycu.guishop.admin;
 import com.zycu.guishop.GuiShop;
 import com.zycu.guishop.ItemStackData;
 import com.zycu.guishop.ShopConfig;
-import com.zycu.guishop.ShopFolderStore;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -25,7 +24,7 @@ import java.util.UUID;
 
 public final class AdminEditorService {
     public static final String DENIED = "Ask the Server Owner for permission to use the Adminshop tools";
-    private static final List<String> FILES = List.of("settings.json", "shops.json", "enchantments.json", "folders.json");
+    private static final List<String> FILES = List.of("settings.json", "shops.json", "enchantments.json");
     private static final Path DIRECTORY = FabricLoader.getInstance().getConfigDir().resolve("guishop");
     private static String expectedDisk;
     private AdminEditorService() {}
@@ -61,7 +60,6 @@ public final class AdminEditorService {
         if (expectedDisk != null && !expectedDisk.equals(disk)) throw new IllegalStateException("Configuration files changed outside the editor. Restart the server to load those changes before editing.");
         AdminDocument document = new AdminDocument();
         document.config = GuiShop.CONFIG;
-        document.folders = GuiShop.FOLDERS.editorLayout();
         document = document.copy();
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         digest.update(AdminDocument.JSON.toJson(document).getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -107,7 +105,6 @@ public final class AdminEditorService {
             }
             if (old == null || old.buy != item.buy || old.sell != item.sell) item.manualPrice = true;
         }
-        ShopFolderStore folders = ShopFolderStore.fromEditorLayout(draft.folders);
         String backupId = Instant.now().toString().replace(':', '-') + "-" + UUID.randomUUID().toString().substring(0, 8);
         Path backup = DIRECTORY.resolve("backups").resolve(backupId);
         Files.createDirectories(backup);
@@ -115,6 +112,9 @@ public final class AdminEditorService {
             Path original = DIRECTORY.resolve(name);
             if (Files.exists(original)) Files.copy(original, backup.resolve(name));
         }
+        // Legacy folder data is ignored, but retained byte-for-byte in each backup.
+        Path legacy = DIRECTORY.resolve("folders.json");
+        if (Files.exists(legacy)) Files.copy(legacy, backup.resolve(legacy.getFileName()));
         // Preserve unavailable listing metadata in every backup as well.
         Path parked = DIRECTORY.resolve("versioned-listings.json");
         if (Files.exists(parked)) Files.copy(parked, backup.resolve(parked.getFileName()));
@@ -123,7 +123,7 @@ public final class AdminEditorService {
         String changes = describeChanges(before.document(), draft);
         Files.writeString(backup.resolve("changes.txt"), changes);
         try {
-            draft.config.saveChecked(); folders.saveChecked();
+            draft.config.saveChecked();
             expectedDisk = diskRevision();
         } catch (Exception failure) {
             for (String name : FILES) {
@@ -135,14 +135,14 @@ public final class AdminEditorService {
             }
             throw new IllegalStateException("Save failed. Previous configuration was restored where possible; backup: " + backupId, failure);
         }
-        GuiShop.CONFIG = draft.config; GuiShop.FOLDERS = folders;
+        GuiShop.CONFIG = draft.config;
         GuiShop.ECONOMY.updateConfig(draft.config);
         TransactionJournal.record(player, "CONFIG_APPLY", "", "", 0, 0, 0, "Backup " + backupId + " | " + changes.substring(0, Math.min(600, changes.length())));
         return current();
     }
 
     public static void validate(AdminDocument draft, ServerPlayer player) {
-        if (draft == null || draft.config == null || draft.folders == null) fail("Incomplete editor draft");
+        if (draft == null || draft.config == null) fail("Incomplete editor draft");
         ShopConfig config = draft.config;
         text(config.currencySymbol, 32, "Currency symbol");
         text(config.shopTitle, 64, "Shop title");
@@ -206,23 +206,6 @@ public final class AdminEditorService {
             text(offer.name, 120, "Enchantment name"); amount(offer.pricePerLevel, "Enchantment price");
             if (offer.maxLevel < 0 || offer.maxLevel > 255) fail("Invalid maximum enchantment level");
         }
-        for (var entry : draft.folders.entrySet()) {
-            if (!categoryIds.contains(entry.getKey())) fail("Folder references an unknown category");
-            var layout = entry.getValue();
-            if (layout == null || layout.folders == null || layout.assignments == null || layout.folders.size() > 250) fail("Invalid folder layout");
-            Set<String> folderIds = new HashSet<>();
-            for (var folder : layout.folders) {
-                if (folder == null) fail("Empty folder"); id(folder.id, "Folder ID");
-                if (!folderIds.add(folder.id)) fail("Folder IDs must be unique within their category");
-                text(folder.name, 80, "Folder name"); icon(folder.icon);
-                text(folder.description, 160, "Folder description");
-            }
-            Set<String> local = new HashSet<>();
-            for (var item : config.category(entry.getKey()).items) local.add(item.listingId.toLowerCase(java.util.Locale.ROOT));
-            for (var assignment : layout.assignments.entrySet()) {
-                if (!local.contains(assignment.getKey()) || !folderIds.contains(assignment.getValue())) fail("Folder assignment references a missing listing or folder");
-            }
-        }
     }
 
     private static String describeChanges(AdminDocument before, AdminDocument after) {
@@ -246,7 +229,6 @@ public final class AdminEditorService {
         }
         for (String id : oldItems.keySet()) if (!newItems.containsKey(id)) changes.add("Removed " + id);
         if (!AdminDocument.JSON.toJson(before.config.categories).equals(AdminDocument.JSON.toJson(after.config.categories))) changes.add("Category layout or listing details changed");
-        if (!AdminDocument.JSON.toJson(before.folders).equals(AdminDocument.JSON.toJson(after.folders))) changes.add("Folder layout changed");
         return changes.isEmpty() ? "No content changes" : String.join("; ", changes);
     }
     private static String nonNull(String text) { return text == null ? "" : text; }

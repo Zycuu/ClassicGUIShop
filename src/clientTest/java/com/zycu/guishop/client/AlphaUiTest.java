@@ -47,7 +47,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                 case 2 -> {
                     if (!(screen instanceof AdminNoticeScreen)) return;
                     check(get(screen, "message").equals(AdminEditorService.DENIED), "Exact permission popup message");
-                    capture(client, "alpha-permission-denied.png");
+                    capture(client, "alpha2-permission-denied.png");
                     System.out.println("[Alpha UI test] DENIED_READY"); next(); delay = 60;
                 }
                 case 3 -> {
@@ -55,15 +55,18 @@ public final class AlphaUiTest implements ClientModInitializer {
                     click(screen, "+ Category"); next();
                 }
                 case 4 -> { set(screen, "Name", "Materials"); click(screen, "Create"); next(); }
-                case 5 -> { click(screen, "+ Folder"); next(); }
-                case 6 -> { set(screen, "Name", "Gems"); click(screen, "Create"); next(); }
+                case 5 -> {
+                    check(screen.children().stream().noneMatch(widget -> widget instanceof Button button && button.getMessage().getString().contains("Folder")), "Folder controls removed");
+                    check(((AdminDocument) get(screen, "draft")).config.category("materials") != null, "Category created"); next();
+                }
+                case 6 -> { check(hitCount(screen, "tile:item") == 0, "New category opens directly to listings"); next(); }
                 case 7 -> { click(screen, "Choose icon..."); next(); }
                 case 8 -> { set(screen, "Search items", "minecraft:emerald"); at((WorkbenchScreen) screen, 92, 120, false); next(); }
                 case 9 -> { click(screen, "+ Add held item"); next(); }
                 case 10 -> {
                     if (get(screen, "selectedItem") == null) return;
                     if (subphase == 0) { set(screen, "Buy price", "12.5"); set(screen, "Sell price", "3.1"); set(screen, "Tooltip description", "A little sparkle for your next adventure."); subphase = 1; delay = 4; return; }
-                    subphase = 0; capture(client, "alpha-shop-builder.png"); click(screen, "+ Category"); next();
+                    subphase = 0; capture(client, "alpha2-shop-builder.png"); click(screen, "+ Category"); next();
                 }
                 case 11 -> { set(screen, "Name", "Building"); click(screen, "Create"); next(); }
                 case 12 -> { click(screen, "+ Select item"); next(); }
@@ -82,11 +85,11 @@ public final class AlphaUiTest implements ClientModInitializer {
                     check(draft.config.category("building").items.getFirst().item.equals("minecraft:cobblestone"), "Drag reorder");
                     at((WorkbenchScreen) screen, 249, 169, false); click(screen, "Move listing..."); next();
                 }
-                case 19 -> { click(screen, "Materials / Gems"); next(); }
+                case 19 -> { click(screen, "Materials"); next(); }
                 case 20 -> {
                     if (subphase == 0) {
                         AdminDocument draft = (AdminDocument) get(screen, "draft");
-                        check(draft.folders.get("materials").assignments.get("minecraft:stone").equals("gems"), "Move into folder");
+                        check(draft.config.findItem("minecraft:stone").category().id.equals("materials"), "Move into category");
                         click(screen, "Settings"); set(screen, "Shop title", "Zycu's Shop"); click(screen, "Enchantments"); click(screen, "+ Offer"); subphase = 1; delay = 4; return;
                     }
                     if (subphase == 1) { set(screen, "Name", "minecraft:unbreaking"); click(screen, "Create"); subphase = 2; delay = 4; return; }
@@ -98,15 +101,22 @@ public final class AlphaUiTest implements ClientModInitializer {
                 case 21 -> {
                     if ((boolean) get(screen, "busy")) return;
                     check(((String) get(screen, "status")).startsWith("Applied on the server"), "Server acknowledged Apply: " + get(screen, "status"));
-                    if (subphase == 0) { click(screen, "Shop Builder"); click(screen, "Home"); click(screen, "Build"); subphase = 1; delay = 4; return; }
-                    capture(client, "alpha-shop-simulator.png"); subphase = 0; next();
+                    if (subphase == 0) { click(screen, "Shop Builder"); click(screen, "Home"); subphase = 1; delay = 4; return; }
+                    check(hitCount(screen, "tile:enchant") == 1, "Enchantment entry survives Build/Simulate toggle " + subphase);
+                    if (subphase < 4) { click(screen, (boolean) get(screen, "simulate") ? "Simulate" : "Build"); subphase++; delay = 4; return; }
+                    capture(client, "alpha2-shop-simulator.png"); subphase = 0; next();
                 }
                 case 22 -> {
                     if (subphase == 0) { at((WorkbenchScreen) screen, 321, 169, false); subphase = 1; delay = 4; return; }
                     if (subphase == 1) { check((boolean) get(screen, "enchantPreview"), "Enchantment simulator"); at((WorkbenchScreen) screen, 231, 169, false); subphase = 2; delay = 4; return; }
-                    if (subphase == 2) { check(get(screen, "enchantId").equals("minecraft:unbreaking"), "Enchantment level preview"); capture(client, "alpha-enchantment-simulator.png"); click(screen, "Settings"); click(screen, "Economy"); subphase = 3; delay = 4; return; }
+                    if (subphase >= 2 && subphase <= 4) {
+                        check(get(screen, "enchantId").equals("minecraft:unbreaking"), "Enchantment selection survives toggle");
+                        check((boolean) get(screen, "enchantPreview") && hitCount(screen, "tile:level") == 3, "Level preview remains visible in both modes");
+                        if (subphase < 4) { click(screen, (boolean) get(screen, "simulate") ? "Simulate" : "Build"); subphase++; delay = 4; return; }
+                        capture(client, "alpha2-enchantment-simulator.png"); click(screen, "Settings"); click(screen, "Economy"); subphase = 5; delay = 4; return;
+                    }
                     check(((AdminDocument) get(screen, "draft")).config.shopTitle.equals("Zycu's Shop"), "Presentation persisted");
-                    capture(client, "alpha-server-settings.png"); subphase = 0; next();
+                    capture(client, "alpha2-server-settings.png"); subphase = 0; next();
                 }
                 case 23 -> { click(screen, "Transactions"); click(screen, "Changes"); click(screen, "Transactions"); next(); }
                 case 24 -> {
@@ -114,12 +124,12 @@ public final class AlphaUiTest implements ClientModInitializer {
                         var page = (com.zycu.guishop.admin.TransactionJournal.Page) get(screen, "logData");
                         if (page.entries().isEmpty()) return;
                         check(page.entries().stream().noneMatch(entry -> entry.action().equals("CONFIG_APPLY")), "Fast tab switching keeps transaction data separate");
-                        capture(client, "alpha-transaction-journal.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 1; delay = 4; return;
+                        capture(client, "alpha2-transaction-journal.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 1; delay = 4; return;
                     }
                     if (subphase == 1) { check(screen instanceof JournalEntryScreen, "Transaction detail window"); click(screen, "Back"); click(client.gui.screen(), "Changes"); subphase = 2; delay = 20; return; }
                     if (subphase == 2) {
                         var page = (com.zycu.guishop.admin.TransactionJournal.Page) get(screen, "logData"); if (page.entries().isEmpty()) return;
-                        capture(client, "alpha-configuration-history.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 3; delay = 4; return;
+                        capture(client, "alpha2-configuration-history.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 3; delay = 4; return;
                     }
                     if (subphase == 3) { click(screen, "Restore draft..."); subphase = 4; delay = 4; return; }
                     if (subphase == 4) { click(screen, "Confirm"); subphase = 5; delay = 20; return; }
@@ -134,14 +144,14 @@ public final class AlphaUiTest implements ClientModInitializer {
                 }
                 case 25 -> {
                     if (!(screen instanceof ContainerScreen)) return;
-                    capture(client, "alpha-vanilla-player-shop.png"); client.gui.setScreen(null);
+                    capture(client, "alpha2-vanilla-player-shop.png"); client.gui.setScreen(null);
                     System.out.println("[Alpha UI test] REVOKE_READY"); next(); delay = 60;
                 }
                 case 26 -> { openKey(); next(); }
                 case 27 -> {
                     if (!(screen instanceof AdminNoticeScreen)) return;
                     check(get(screen, "message").equals(AdminEditorService.DENIED), "Revoked OP receives exact popup");
-                    System.out.println("[Alpha UI test] PASS: real keybind; permission popup; category and folder creation; icon selection; exact held-item import; pricing; drag reorder; cross-category folder move; server Apply; presentation; item and enchantment simulator; settings; journal; vanilla player shop; revoked permissions");
+                    System.out.println("[Alpha UI test] PASS: real keybind; permission popup; category creation with no folder controls; icon selection; exact held-item import; pricing; drag reorder; cross-category move; server Apply; presentation; item and enchantment simulator with repeated Build toggles; settings; journal; vanilla player shop; revoked permissions");
                     next(); delay = 30;
                 }
                 case 28 -> { done = true; client.stop(); }
@@ -175,6 +185,11 @@ public final class AlphaUiTest implements ClientModInitializer {
     private static void capture(Minecraft client, String name) {
         Screenshot.grab(client.gameDirectory, name, client.gameRenderer.mainRenderTarget(), 1,
             message -> System.out.println("[Alpha UI test] Screenshot " + name + ": " + message.getString()));
+    }
+    private static long hitCount(Screen screen, String kind) throws Exception {
+        long count = 0;
+        for (Object hit : (java.util.List<?>) get(screen, "hits")) if (get(hit, "kind").equals(kind)) count++;
+        return count;
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
 }

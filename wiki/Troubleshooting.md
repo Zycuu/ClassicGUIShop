@@ -14,7 +14,7 @@ Automatic discovery remains removed. Create a category and add selected or held 
 
 ## Apply is rejected
 
-Correct the reported invalid price, item identity, or folder reference. For stale drafts, review your edits before reloading current server state. If files changed outside the editor, restart the server to load them. The editor preserves the rejected draft.
+Correct the reported invalid price, item identity, or category structure. For stale drafts, review your edits before reloading current server state. If files changed outside the editor, restart the server to load them. The editor preserves the rejected draft.
 
 ## A configured listing is missing
 

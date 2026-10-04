@@ -39,7 +39,6 @@ public final class VersionedListingStore {
 
     public static ReconcileResult reconcile(
         ShopConfig config,
-        ShopFolderStore folders,
         RegistryAccess registryAccess
     ) {
         ParkedFile parkedFile = load();
@@ -79,10 +78,6 @@ public final class VersionedListingStore {
             parkedIterator.remove();
             restored++;
             changed = true;
-
-            if (folders != null && stored.folderId != null && !stored.folderId.isBlank()) {
-                folders.assign(category.id, stored.listing.listingId, stored.folderId);
-            }
         }
 
         for (ShopConfig.Category category : config.categories) {
@@ -91,12 +86,8 @@ public final class VersionedListingStore {
                 ShopConfig.ShopItem listing = listingIterator.next();
                 if (isRuntimeAvailable(listing, registryAccess)) continue;
 
-                String folderId = folders == null
-                    ? ShopFolderStore.UNSORTED
-                    : folders.folderFor(category.id, listing.listingId);
                 ParkedListing stored = new ParkedListing();
                 stored.categoryId = category.id;
-                stored.folderId = folderId;
                 stored.listing = listing;
                 parkedById.put(key(listing), stored);
                 listingIterator.remove();
@@ -203,7 +194,6 @@ public final class VersionedListingStore {
 
     private static final class ParkedListing {
         String categoryId;
-        String folderId;
         ShopConfig.ShopItem listing;
     }
 }

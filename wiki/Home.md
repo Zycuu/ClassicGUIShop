@@ -14,7 +14,7 @@ The workbench includes a shop builder and simulator, server settings, exact perm
 - [Configuration](Configuration-Files.md)
 - [Permissions](Permissions.md)
 - [Economy and Pricing](Economy-and-Pricing.md)
-- [Shop Folders](Shop-Folders.md)
+- [Retired Folder Data](Shop-Folders.md)
 - [Items, Mods, and Data Packs](Imports-Mods-and-Data-Packs.md)
 - [Troubleshooting](Troubleshooting.md)
 - [Release Checklist](Public-Release-Checklist.md)

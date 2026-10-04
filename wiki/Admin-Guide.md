@@ -8,13 +8,13 @@ Without sufficient OP permission, a separate popup says:
 
 ## Shop Builder
 
-Create categories and folders, choose item icons, and edit their names and tooltip descriptions. Their order controls the player menu. Use Move earlier/later or drag to reorder.
+Create categories, choose item icons, and edit their names and tooltip descriptions. Their order controls the player menu. Use Move earlier/later or drag to reorder.
 
-Select a category or folder before adding listings. **Select item** opens a searchable item picker and adds only your selection. **Add held item** captures the server's exact held stack, including components. New listings start with buy and sell prices of zero, so they stay unavailable until you configure prices. Set either side to zero to disable that side. The editor rejects a sell price higher than that listing's enabled buy price.
+Select a category before adding listings. **Select item** opens a searchable item picker and adds only your selection. **Add held item** captures the server's exact held stack, including components. New listings start with buy and sell prices of zero, so they stay unavailable until you configure prices. Set either side to zero to disable that side. The editor rejects a sell price higher than that listing's enabled buy price.
 
-Select a listing to edit its name, description, and prices. Move it through the destination chooser or drag it onto a category or folder. Removing a folder returns its listings to Unsorted. Removing a category removes its listings from the draft, with the previous live configuration backed up on Apply.
+Select a listing to edit its name, description, and prices. Move it through the destination chooser or drag it onto a category. Removing a category removes its listings from the draft, with the previous live configuration backed up on Apply.
 
-**Simulate** previews the draft's chest layout. Navigate categories, folders, enchanted-book levels, pages, and Buy/Sell modes. It makes no trades and does not simulate a specific player's permissions or balance. **Build** includes disabled listings for editing.
+**Simulate** previews the draft's chest layout. Navigate categories, enchanted-book levels, pages, and Buy/Sell modes. It makes no trades and does not simulate a specific player's permissions or balance. **Build** includes disabled listings for editing. Enchanted Books appears in both modes, and toggling Build/Simulate keeps the selected enchantment preview.
 
 ## Settings and Access
 

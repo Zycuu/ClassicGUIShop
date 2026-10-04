@@ -6,7 +6,7 @@
 - [Player Guide](Player-Guide.md)
 - [Admin Guide](Admin-Guide.md)
 - [Command Reference](Command-Reference.md)
-- [Shop Folders](Shop-Folders.md)
+- [Retired Folder Data](Shop-Folders.md)
 - [Imports: Mods and Data Packs](Imports-Mods-and-Data-Packs.md)
 - [Economy and Pricing](Economy-and-Pricing.md)
 - [Permissions](Permissions.md)

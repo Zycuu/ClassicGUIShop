@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 env:
-  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.1
+  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.2
 
 jobs:
   build:
@@ -38,6 +38,10 @@ jobs:
           jar tf "build/libs/$ARTIFACT_BASE.jar" > jar-contents.txt
           if grep -E 'AlphaUiTest|PlayerShopUiTest|AlphaServerChecks|InventoryOverflowTest|guishop_alpha_test' jar-contents.txt; then
             echo "Test harness entered release JAR" >&2
+            exit 1
+          fi
+          if grep -E 'com/zycu/guishop/(ShopFolderStore|SafeShopFolderLoader|FolderAwareShopGui|CursorStableShopGui|ColoredBlockGroups)' jar-contents.txt; then
+            echo "Retired folder implementation entered release JAR" >&2
             exit 1
           fi
           grep -F 'com/zycu/guishop/client/AdminShopClient.class' jar-contents.txt
@@ -88,7 +92,11 @@ jobs:
       - name: Check startup, editor integrity, transactions, and restart
         shell: bash
         run: |
+          mkdir -p server/config/guishop
+          printf 'Retired data must remain untouched.\n' > server/config/guishop/folders.json
+          cp server/config/guishop/folders.json folders-original.json
           bash .github/scripts/boot_fabric_server.sh server startup.log
+          cmp folders-original.json server/config/guishop/folders.json
           grep -F '[ClassicGUIShop Alpha test] PASS:' server/startup.log
           grep -F 'Command integrity verified' server/startup.log
           cp server/config/guishop/shops.json shops-before-restart.json

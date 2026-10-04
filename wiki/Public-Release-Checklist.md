@@ -7,7 +7,7 @@ Before a stable release:
 - Review the Adminshop layout and behavior with Zycu on an actual server.
 - Verify purchases, sales, payments, balance persistence, inventory overflow, and exact variants.
 - Review administrator denial and permission revocation, stale drafts, backups, restore, and external edits.
-- Test existing configurations, folders, manual prices, and unavailable listings.
+- Test existing configurations, retired folder data preservation, manual prices, and unavailable listings.
 - Finish the pricing and exploit review and the intended balanced preset design.
 - Pass local and GitHub checks on the declared Minecraft version.
 - Obtain Zycu's explicit approval immediately before publishing a tag or release.

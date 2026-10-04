@@ -5,27 +5,25 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 final class DestinationScreen extends WorkbenchScreen {
-    private record Destination(String category, String folder, String label) {}
+    private record Destination(String category, String label) {}
     private final Screen parent;
-    private final BiConsumer<String, String> selected;
+    private final Consumer<String> selected;
     private final List<Destination> destinations = new ArrayList<>();
     private int page;
-    DestinationScreen(Screen parent, AdminDocument document, BiConsumer<String, String> selected) {
+    DestinationScreen(Screen parent, AdminDocument document, Consumer<String> selected) {
         super("Move listing"); this.parent = parent; this.selected = selected;
         for (var category : document.config.categories) {
-            destinations.add(new Destination(category.id, "", category.name + " / Unsorted"));
-            var layout = document.folders.get(category.id);
-            if (layout != null) for (var folder : layout.folders) destinations.add(new Destination(category.id, folder.id, category.name + " / " + folder.name));
+            destinations.add(new Destination(category.id, category.name));
         }
     }
     @Override protected void init() {
         for (int row = 0; row < 10 && page * 10 + row < destinations.size(); row++) {
             var value = destinations.get(page * 10 + row);
             button(font.plainSubstrByWidth(value.label, 476), 80, 74 + row * 24, 500, () -> {
-                selected.accept(value.category, value.folder); minecraft.gui.setScreen(parent);
+                selected.accept(value.category); minecraft.gui.setScreen(parent);
             });
         }
         button("Previous", 80, 322, 110, () -> { page = Math.max(0, page - 1); rebuildWidgets(); });

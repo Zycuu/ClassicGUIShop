@@ -39,17 +39,17 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                 case 2 -> {
                     if (!(screen instanceof ContainerScreen)) return;
                     check(screen.getTitle().getString().equals("Zycu's Shop - Buy"), "Saved shop title survives restart");
-                    Screenshot.grab(client.gameDirectory, "alpha-client-without-shop-mod.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
+                    Screenshot.grab(client.gameDirectory, "alpha2-client-without-shop-mod.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
                     slot(client, 3); next();
                 }
                 case 3 -> {
-                    if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().contains("Folders")) return;
+                    if (!(screen instanceof ContainerScreen)) return;
+                    check(screen.getTitle().getString().equals("Materials - Buy"), "Category opens directly without folders");
+                    check(client.player.containerMenu.getSlot(0).getItem().is(Items.DIAMOND), "Former folder item is visible in category");
+                    check(client.player.containerMenu.getSlot(1).getItem().is(Items.STONE), "Moved category listing visible");
                     slot(client, 0); next();
                 }
-                case 4 -> {
-                    if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().contains("Gems")) return;
-                    slot(client, 0); next();
-                }
+                case 4 -> { next(); }
                 case 5 -> {
                     check(client.player.getInventory().countItem(Items.DIAMOND) == 1, "Plain client purchase delivered one diamond");
                     // Configured descriptions decorate the menu copy, never the delivered item.
@@ -64,12 +64,12 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                 }
                 case 6 -> {
                     if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().endsWith("Sell")) return;
-                    if (screen.getTitle().getString().contains("Folders")) { slot(client, 0); delay = 25; return; }
+                    check(screen.getTitle().getString().equals("Materials - Sell"), "Sell stays in category");
                     slot(client, 0); next();
                 }
                 case 7 -> {
                     check(client.player.getInventory().countItem(Items.DIAMOND) == 0, "Plain client sale removed matching diamond");
-                    System.out.println("[Player UI test] PASS: client has no ClassicGUIShop; restart persistence; vanilla menus; real purchase and sale; delivered identity preserved"); next();
+                    System.out.println("[Player UI test] PASS: client has no ClassicGUIShop; restart persistence; category-only vanilla menus; real purchase and sale; delivered identity preserved"); next();
                 }
                 case 8 -> { done = true; client.stop(); }
             }

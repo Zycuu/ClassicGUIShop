@@ -12,7 +12,6 @@ config/guishop/
 settings.json
 shops.json
 enchantments.json
-folders.json
 versioned-listings.json
 balances.json
 players.json
@@ -64,9 +63,7 @@ Each enchantment can have:
 
 ## `folders.json`
 
-Stores folder layout, names, icons, tooltip descriptions, order, and listing assignments.
-
-Folder data is separate from `shops.json`, so moving listings between folders does not rewrite item prices or stack data.
+Retired legacy data. The mod does not create, load, or update this file. Existing files are left untouched and copied into editor backups. Listings now appear directly in their parent categories in `shops.json`.
 
 ## `versioned-listings.json`
 
