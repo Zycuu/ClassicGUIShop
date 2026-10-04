@@ -26,6 +26,7 @@ import java.util.function.BooleanSupplier;
 public abstract class InventoryOverflowTest {
     @Unique private boolean guishop$tested;
     @Unique private boolean guishop$prepared;
+    @Unique private ItemEntity guishop$readinessProbe;
 
     @Inject(method = "tickServer", at = @At("TAIL"))
     private void guishop$test(BooleanSupplier timeLeft, CallbackInfo callback) {
@@ -34,10 +35,20 @@ public abstract class InventoryOverflowTest {
         if (!guishop$prepared) {
             server.overworld().setChunkForced(0, 0, true);
             server.overworld().getChunk(0, 0);
+            guishop$readinessProbe = new ItemEntity(server.overworld(), 8, 128, 8, new ItemStack(Items.STONE));
+            if (!server.overworld().addFreshEntity(guishop$readinessProbe)) {
+                throw new AssertionError("Could not add test chunk readiness probe");
+            }
             guishop$prepared = true;
             return;
         }
-        if (server.getTickCount() < 40) return;
+        // Loading a chunk does not guarantee its entities are visible yet, particularly on CI.
+        boolean probeVisible = false;
+        for (Entity entity : server.overworld().getAllEntities()) {
+            if (entity == guishop$readinessProbe) probeVisible = true;
+        }
+        if (!probeVisible) return;
+        guishop$readinessProbe.discard();
         guishop$tested = true;
         ServerLevel level = server.overworld();
         level.getChunk(0, 0);
