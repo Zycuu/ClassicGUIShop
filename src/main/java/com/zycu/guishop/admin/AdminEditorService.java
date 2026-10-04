@@ -97,9 +97,9 @@ public final class AdminEditorService {
         validate(draft, player);
         // Preserve existing component identity; new variants must pass codec and identity validation.
         Map<String, ShopConfig.ShopItem> originals = new LinkedHashMap<>();
-        for (var category : before.document().config.categories) for (var item : category.items) originals.put(item.listingId, item);
+        for (var category : before.document().config.categories) for (var item : category.items) originals.put(item.listingId.toLowerCase(java.util.Locale.ROOT), item);
         for (var category : draft.config.categories) for (var item : category.items) {
-            var old = originals.get(item.listingId);
+            var old = originals.get(item.listingId.toLowerCase(java.util.Locale.ROOT));
             if (old != null && (!old.item.equals(item.item) || !java.util.Objects.equals(old.stack, item.stack))) {
                 throw new IllegalArgumentException("Existing exact item data cannot be changed. Add a new held-item listing instead.");
             }
@@ -163,12 +163,14 @@ public final class AdminEditorService {
         if (config.categories == null || config.categories.size() > 250) fail("At most 250 categories are supported");
         Set<String> categoryIds = new HashSet<>(), listingIds = new HashSet<>();
         int listings = 0;
+        Map<Integer, java.util.List<PriceGroup>> identities = new LinkedHashMap<>();
         for (var category : config.categories) {
             if (category == null) fail("Empty category");
             id(category.id, "Category ID");
             if (!categoryIds.add(category.id)) fail("Category IDs must be unique");
             text(category.name, 80, "Category name"); icon(category.icon);
             text(category.description, 160, "Category description");
+            if (category.detectedSource != null) text(category.detectedSource, 120, "Detected source");
             if (category.items == null) fail("Missing category listings");
             for (var item : category.items) {
                 if (++listings > 10000 || item == null) fail("Invalid or oversized listing collection");
@@ -188,9 +190,18 @@ public final class AdminEditorService {
                         stack = net.minecraft.world.item.ItemStack.CODEC.parse(player.registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE), item.stack).getOrThrow();
                     }
                     if (stack.isEmpty() || !BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().equals(item.item)
-                        || !ItemStackData.listingId(stack, player.registryAccess()).equals(item.listingId)) fail("New listing does not match its exact item identity: " + item.listingId);
+                        || !ItemStackData.validListingId(ItemStackData.listingId(stack, player.registryAccess()), item.listingId)) fail("New listing does not match its exact item identity: " + item.listingId);
                 }
                 if (item.stack != null && AdminDocument.JSON.toJson(item.stack).length() > 32000) fail("Exact item data is too large");
+                if (com.zycu.guishop.VersionedListingStore.isRuntimeAvailable(item, player.registryAccess())) {
+                    var stack = item.createStack(player.registryAccess());
+                    var bucket = identities.computeIfAbsent(net.minecraft.world.item.ItemStack.hashItemAndComponents(stack), ignored -> new java.util.ArrayList<>());
+                    var group = bucket.stream().filter(value -> ItemStackData.same(value.stack, stack)).findFirst().orElse(null);
+                    if (group == null) { group = new PriceGroup(stack); bucket.add(group); }
+                    if (item.buy > 0) group.minimumBuy = Math.min(group.minimumBuy, item.buy);
+                    group.maximumSell = Math.max(group.maximumSell, item.sell);
+                    if (group.maximumSell > group.minimumBuy) fail("Identical item listings cannot sell for more than their cheapest enabled buy price: " + item.name);
+                }
             }
         }
         if (config.enchantments == null || config.enchantments.size() > 1000) fail("Invalid enchantment offers");
@@ -206,6 +217,12 @@ public final class AdminEditorService {
             text(offer.name, 120, "Enchantment name"); amount(offer.pricePerLevel, "Enchantment price");
             if (offer.maxLevel < 0 || offer.maxLevel > 255) fail("Invalid maximum enchantment level");
         }
+    }
+
+    private static final class PriceGroup {
+        final net.minecraft.world.item.ItemStack stack;
+        double minimumBuy = Double.POSITIVE_INFINITY, maximumSell;
+        PriceGroup(net.minecraft.world.item.ItemStack stack) { this.stack = stack; }
     }
 
     private static String describeChanges(AdminDocument before, AdminDocument after) {
@@ -239,7 +256,12 @@ public final class AdminEditorService {
         if (value == null || !value.matches("[a-z0-9_.-]{1,80}")) fail(label + " must use lowercase letters, numbers, underscores, dots, or dashes");
     }
     private static void icon(String value) {
-        try { if (!BuiltInRegistries.ITEM.containsKey(Identifier.parse(value))) fail("Unknown icon: " + value); }
+        text(value, 200, "Category icon");
+        try {
+            var id = Identifier.parse(value);
+            // Absent mod icons are harmless presentation metadata and must survive backup restoration.
+            if (id.getNamespace().equals("minecraft") && !BuiltInRegistries.ITEM.containsKey(id)) fail("Unknown icon: " + value);
+        }
         catch (RuntimeException exception) { fail("Unknown icon: " + value); }
     }
     private static void amount(double value, String label) {

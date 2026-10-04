@@ -5,6 +5,7 @@ import com.zycu.guishop.EnchantmentShopService;
 import com.zycu.guishop.ShopConfig;
 import com.zycu.guishop.VersionedListingStore;
 import com.zycu.guishop.admin.AdminDocument;
+import com.zycu.guishop.admin.DetectedContent;
 import com.zycu.guishop.admin.AdminNetworking;
 import com.zycu.guishop.admin.AdminPlayers;
 import com.zycu.guishop.admin.TransactionJournal;
@@ -28,7 +29,7 @@ import java.util.function.DoubleConsumer;
 
 /** All edits affect a detached draft until the server acknowledges Apply. */
 public final class AdminScreen extends WorkbenchScreen {
-    private enum Tab { BUILDER, SETTINGS, ACCESS, TRANSACTIONS, HISTORY }
+    private enum Tab { BUILDER, SETTINGS, ACCESS, DETECTED, TRANSACTIONS, HISTORY }
     private record Hit(int x, int y, int w, int h, String kind, String id, String category, ShopConfig.ShopItem item) {
         boolean contains(double px, double py) { return px >= x && px < x + w && py >= y && py < y + h; }
     }
@@ -56,13 +57,19 @@ public final class AdminScreen extends WorkbenchScreen {
     private double pressedX, pressedY;
     private AdminPlayers.Page playerData = new AdminPlayers.Page(List.of(), 0, false);
     private AdminPlayers.Player selectedPlayer;
+    private DetectedContent.Page detectedData = new DetectedContent.Page(List.of(), List.of(), 0, false, false, "", 0);
+    private String detectedSource = "", importSource;
+    private int sourcePage, detectedOffset, detectionRetry, importOffset, importAdded;
+    private boolean detectionRefresh;
+    private DetectedContent.Entry detectedSelection;
+    private long detectionGeneration;
 
     public AdminScreen(AdminDocument document, String revision) {
         super("ClassicGUIShop Adminshop"); load(document, revision, false);
     }
     public void load(AdminDocument document, String revision, boolean saved) {
         draft = document.copy(); baseline = AdminDocument.JSON.toJson(draft); this.revision = revision;
-        cancelDrag(); busy = false; errors.clear(); invalidInputs.clear();
+        cancelDrag(); importSource = null; detectionRetry = 0; busy = false; errors.clear(); invalidInputs.clear();
         if (!categoryId.isEmpty() && draft.config.category(categoryId) == null) categoryId = "";
         selectedItem = null;
         enchantPreview = false; enchantId = null;
@@ -72,11 +79,11 @@ public final class AdminScreen extends WorkbenchScreen {
     public void status(String value) { status = value; }
     public void restore(com.zycu.guishop.admin.AdminEditorService.RestoreDraft restored) {
         baseline = AdminDocument.JSON.toJson(restored.live()); draft = restored.previous().copy(); revision = restored.revision();
-        cancelDrag(); categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null;
+        cancelDrag(); importSource = null; detectionRetry = 0; categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null;
         previewPage = 0; browserPage = 0; busy = false; errors.clear(); invalidInputs.clear(); tab = Tab.BUILDER;
         status = "Previous configuration loaded into a draft. Review it, then Apply to restore."; rebuildWidgets();
     }
-    public void failure(String value) { busy = false; status = value; if (width > 0) rebuildWidgets(); }
+    public void failure(String value) { importSource = null; detectionRetry = 0; busy = false; status = value; if (width > 0) rebuildWidgets(); }
     public void addHeld(ShopConfig.ShopItem item) {
         if (heldCategory != null) {
             String destination = heldCategory; heldCategory = null;
@@ -106,7 +113,56 @@ public final class AdminScreen extends WorkbenchScreen {
         if (!matches(request) || !history.player().uuid().equals(request.playerUuid())) return;
         selectedPlayer = history.player(); logs(history.history(), request);
     }
+    public void detected(DetectedContent.Page page, DetectedContent.Query request) {
+        if (tab != Tab.DETECTED || request == null || request.generation() != detectionGeneration) return;
+        if (request.importing()) {
+            if (importSource == null || !importSource.equals(request.source()) || request.offset() != importOffset) return;
+            if (!page.ready()) { detectionRetry = 10; return; }
+            var source = page.sources().stream().filter(value -> value.id().equals(importSource)).findFirst().orElseThrow();
+            for (var entry : page.entries()) if (importDetected(entry, source.name())) importAdded++;
+            if (page.more()) { importOffset = page.offset() + page.entries().size(); detectionRetry = 6; }
+            else { importSource = null; status = "Imported " + importAdded + " new listings into the draft. Buy 0 / Sell 0. Review in Shop Builder, then Apply."; }
+            rebuildWidgets(); return;
+        }
+        if (importSource != null || !request.source().equals(detectedSource) || !request.filter().equals(query) || request.offset() != detectedOffset) return;
+        detectedData = page; detectedOffset = page.offset(); detectedSelection = null;
+        if (!page.ready()) { detectionRetry = 10; status = page.warning(); }
+        else status = page.warning().isBlank() ? "Loaded content detected. Imports stay in the draft with Buy 0 / Sell 0." : page.warning();
+        rebuildWidgets();
+    }
+    private boolean importDetected(DetectedContent.Entry entry, String sourceName) {
+        var category = draft.config.categories.stream().filter(value -> entry.source().equals(value.detectedSource)).findFirst().orElse(null);
+        if (category == null) {
+            if (draft.config.categories.size() >= 250) throw new IllegalArgumentException("Category limit reached. Remove an unused category before importing.");
+            category = new ShopConfig.Category(); category.id = uniqueId("detected_" + entry.source(), draft.config.categories.stream().map(value -> value.id).toList());
+            String name = sourceName.replaceAll("[\\p{Cntrl}]", " ");
+            category.name = name.length() > 80 ? name.substring(0, 80) : name;
+            category.icon = entry.listing().item; category.detectedSource = entry.source(); draft.config.categories.add(category);
+        }
+        var access = minecraft.level.registryAccess(); var template = entry.listing().createStack(access);
+        if (category.items.stream().anyMatch(item -> com.zycu.guishop.ItemStackData.same(item.createStack(access), template))) return false;
+        if (draft.config.categories.stream().mapToInt(value -> value.items.size()).sum() >= 10000) throw new IllegalArgumentException("Listing limit reached. Review this partial import before applying.");
+        var listing = AdminDocument.JSON.fromJson(AdminDocument.JSON.toJson(entry.listing()), ShopConfig.ShopItem.class);
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (var existing : draft.config.categories) for (var item : existing.items) used.add(item.listingId.toLowerCase(Locale.ROOT));
+        listing.listingId = com.zycu.guishop.ItemStackData.unusedListingId(listing.listingId, used);
+        listing.name = template.getHoverName().getString().replaceAll("[\\p{Cntrl}]", " ");
+        if (listing.name.length() > 120) listing.name = listing.name.substring(0, 120);
+        listing.buy = 0; listing.sell = 0; listing.manualPrice = true;
+        category.items.add(listing); return true;
+    }
+    private void requestDetected(int offset, boolean refresh) {
+        if (importSource == null) detectionGeneration++;
+        detectedOffset = offset; detectionRefresh = refresh; detectedSelection = null;
+        var request = importSource == null ? new DetectedContent.Query(detectedSource, query, offset, refresh, false, detectionGeneration)
+            : new DetectedContent.Query(importSource, "", importOffset, false, true, detectionGeneration);
+        if (AdminShopClient.request("detected", "", AdminDocument.JSON.toJson(request))) {
+            detectionRetry = 0; detectionRefresh = false;
+            status = importSource == null ? "Loading detected content..." : "Importing into the draft... " + importAdded + " listings added, all prices 0.";
+        } else detectionRetry = 6;
+    }
     public void tickNetworking() {
+        if (detectionRetry > 0 && --detectionRetry == 0 && tab == Tab.DETECTED) requestDetected(detectedOffset, detectionRefresh);
         if (logRetryTicks > 0 && --logRetryTicks == 0 && (tab == Tab.HISTORY || tab == Tab.TRANSACTIONS)) requestRecords(retryOffset);
     }
     private boolean dirty() { return !errors.isEmpty() || !baseline.equals(AdminDocument.JSON.toJson(draft)); }
@@ -117,23 +173,25 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     @Override protected void init() {
         fields.clear(); hits.clear();
-        String[] names = {"Shop Builder", "Settings", "Access", "Transactions", "Changes"};
-        net.minecraft.world.item.Item[] icons = {Items.CRAFTING_TABLE, Items.COMPARATOR, Items.IRON_DOOR, Items.GOLD_INGOT, Items.WRITABLE_BOOK};
-        int[] xs = {16, 143, 256, 359, 494}, ws = {121, 107, 97, 129, 150};
+        String[] names = {"Shop Builder", "Settings", "Access", "Detected Content", "Transactions", "Changes"};
+        net.minecraft.world.item.Item[] icons = {Items.CRAFTING_TABLE, Items.COMPARATOR, Items.IRON_DOOR, Items.SPYGLASS, Items.GOLD_INGOT, Items.WRITABLE_BOOK};
+        int[] xs = {16, 133, 225, 305, 439, 557}, ws = {111, 86, 74, 128, 112, 87};
         for (int index = 0; index < names.length; index++) {
             Tab target = Tab.values()[index];
             var button = addRenderableWidget(new WorkbenchTab(names[index], xs[index], ws[index], icons[index], target == tab, () -> {
                 if (busy) return;
-                cancelDrag(); tab = target; query = ""; selectedPlayer = null; logPage = 0; logOffset = 0;
+                cancelDrag(); importSource = null; detectionRetry = 0; tab = target; query = ""; selectedPlayer = null; logPage = 0; logOffset = 0;
                 logData = new TransactionJournal.Page(List.of(), 0, false, ""); playerData = new AdminPlayers.Page(List.of(), 0, false); errors.entrySet().removeIf(entry -> entry.getKey().startsWith("view:"));
                 rebuildWidgets();
                 if (target == Tab.TRANSACTIONS || target == Tab.HISTORY) requestRecords(0);
+                if (target == Tab.DETECTED) requestDetected(0, false);
             })); button.active = !busy;
         }
-        button("Apply", 464, 352, 88, this::apply).active = !busy;
+        button("Apply", 464, 352, 88, this::apply).active = !busy && importSource == null;
         button("Discard", 558, 352, 86, () -> {
             if (busy) return;
             confirm("Discard draft?", "Your unapplied edits will be discarded. The live server shop stays unchanged.", () -> {
+                importSource = null; detectionRetry = 0;
                 draft = AdminDocument.JSON.fromJson(baseline, AdminDocument.class); errors.clear(); invalidInputs.clear(); selectedItem = null; status = "Draft discarded.";
                 categoryId = ""; enchantPreview = false; enchantId = null; previewPage = 0; browserPage = 0;
             });
@@ -146,6 +204,7 @@ public final class AdminScreen extends WorkbenchScreen {
         if (tab == Tab.BUILDER) builder();
         else if (tab == Tab.SETTINGS) settings();
         else if (tab == Tab.ACCESS) access();
+        else if (tab == Tab.DETECTED) detection();
         else history();
         if (busy) for (var field : fields) field.setEditable(false);
     }
@@ -227,14 +286,10 @@ public final class AdminScreen extends WorkbenchScreen {
         String id = base; for (int suffix = 2; used.contains(id); suffix++) id = base + "_" + suffix; return id;
     }
     private void addListing(ShopConfig.ShopItem item) {
-        ShopConfig.FoundItem existing = null;
-        for (var category : draft.config.categories) for (var listing : category.items) {
-            if (listing.listingId.equalsIgnoreCase(item.listingId)) existing = new ShopConfig.FoundItem(category, listing);
-        }
-        if (existing != null) {
-            categoryId = existing.category().id; selectedItem = existing.item().listingId;
-            status = "That exact listing already exists. Selected it for editing."; return;
-        }
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (var category : draft.config.categories) for (var listing : category.items) used.add(listing.listingId.toLowerCase(Locale.ROOT));
+        item.listingId = com.zycu.guishop.ItemStackData.unusedListingId(item.listingId, used);
+        item.buy = 0; item.sell = 0; item.manualPrice = true;
         category().items.add(item); selectedItem = item.listingId; arranging = true;
         status = "Listing added to draft with prices disabled. Set buy and sell prices before applying.";
     }
@@ -308,6 +363,65 @@ public final class AdminScreen extends WorkbenchScreen {
         button("Previous", 32, 313, 110, () -> { accessPage = Math.max(0, accessPage - 1); rebuildWidgets(); });
         button("Next", 150, 313, 110, () -> { accessPage = Math.min(pages - 1, accessPage + 1); rebuildWidgets(); });
     }
+    private void detection() {
+        search = field("Search detected items", 184, 110, 346, query, value -> query = value); search.setMaxLength(128);
+        search.setHint(Component.literal("Search item name, ID, or source path...")); search.setEditable(importSource == null);
+        button("Search", 536, 110, 94, () -> requestDetected(0, false)).active = importSource == null;
+        button("Rescan", 536, 76, 94, () -> requestDetected(0, true)).active = importSource == null;
+        button("<", 24, 313, 40, () -> { sourcePage = Math.max(0, sourcePage - 1); rebuildWidgets(); });
+        button(">", 118, 313, 40, () -> { sourcePage++; rebuildWidgets(); });
+        button("Previous", 184, 313, 84, () -> requestDetected(Math.max(0, detectedOffset - DetectedContent.PAGE_SIZE), false)).active = importSource == null && detectedOffset > 0;
+        button("Next", 274, 313, 68, () -> requestDetected(detectedOffset + DetectedContent.PAGE_SIZE, false)).active = importSource == null && detectedData.more();
+        button("Import item", 350, 313, 102, () -> {
+            if (detectedSelection == null) return;
+            String name = detectedData.sources().stream().filter(value -> value.id().equals(detectedSelection.source())).findFirst().orElseThrow().name();
+            try {
+                boolean added = importDetected(detectedSelection, name);
+                status = added ? "Imported to its source category in the draft. Buy 0 / Sell 0. Review, then Apply." : "That exact variant is already in its source category. Existing prices were preserved.";
+            } catch (IllegalArgumentException invalid) { status = invalid.getMessage(); }
+            rebuildWidgets();
+        }).active = importSource == null && detectedSelection != null;
+        button(importSource == null ? "Import source" : "Cancel import", 460, 313, 170, () -> {
+            if (importSource != null) { importSource = null; detectionRetry = 0; status = "Import stopped. Items already added remain in the draft with prices 0."; rebuildWidgets(); }
+            else confirm("Import detected source?", "Add all detected variants from this source to its own category. New prices stay 0. Existing listings are preserved. Apply saves later.", () -> {
+                detectionGeneration++; importSource = detectedSource; importOffset = 0; importAdded = 0; requestDetected(0, false);
+            });
+        }).active = importSource != null || !detectedSource.isBlank() && detectedData.ready();
+    }
+    private void paintDetected(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        panel(graphics, 16, 69, 148, 270, 0xFFB7B9AB); panel(graphics, 172, 69, 472, 270, 0xFFC6C8BB);
+        text(graphics, "CONTENT SOURCES", 24, 82, 0xFF234747);
+        text(graphics, "New imports: Buy 0 / Sell 0", 184, 82, 0xFF234747);
+        text(graphics, "Select an item, or select a source to import its variants.", 184, 96, 0xFF3B4940);
+        var sources = new ArrayList<>(detectedData.sources());
+        sourcePage = Math.min(sourcePage, Math.max(0, (sources.size() - 1) / 9));
+        graphics.fill(22, 109, 158, 127, detectedSource.isBlank() ? 0xFF78978B : 0xFFA6AC9D);
+        text(graphics, "All sources", 28, 114, 0xFF202F2D); hits.add(new Hit(22, 109, 136, 18, "detected:source", "", "", null));
+        for (int row = 0; row < 9 && sourcePage * 9 + row < sources.size(); row++) {
+            var source = sources.get(sourcePage * 9 + row); int y = 133 + row * 19;
+            graphics.fill(22, y, 158, y + 18, source.id().equals(detectedSource) ? 0xFF78978B : 0xFFA6AC9D);
+            text(graphics, font.plainSubstrByWidth(source.name() + " (" + source.count() + ")", 126), 28, y + 5, 0xFF202F2D);
+            hits.add(new Hit(22, y, 136, 18, "detected:source", source.id(), "", null));
+        }
+        text(graphics, Integer.toString(sourcePage + 1), 85, 322, 0xFF33443B);
+        text(graphics, "Page " + (detectedOffset / DetectedContent.PAGE_SIZE + 1) + " | Unsupported definitions: " + detectedData.skipped(), 184, 283, 0xFF303E36);
+        text(graphics, "Missing a variant? Use Add held item in Shop Builder.", 184, 296, 0xFF303E36);
+        for (int index = 0; index < detectedData.entries().size(); index++) {
+            var entry = detectedData.entries().get(index); int x = 184 + index % 4 * 112, y = 141 + index / 4 * 23;
+            ItemStack item = entry.listing().createStack(minecraft.level.registryAccess());
+            boolean selected = entry.equals(detectedSelection);
+            graphics.fill(x, y, x + 108, y + 22, selected ? 0xFF78978B : 0xFFB8BFAE);
+            graphics.item(item, x + 2, y + 3);
+            text(graphics, font.plainSubstrByWidth(item.getHoverName().getString(), 86), x + 21, y + 7, 0xFF202F2D);
+            hits.add(new Hit(x, y, 108, 22, "detected:item", Integer.toString(index), "", null));
+            if (x <= mouseX && mouseX < x + 108 && y <= mouseY && mouseY < y + 22) {
+                graphics.fill(182, 281, 634, 310, 0xFFC6C8BB);
+                text(graphics, font.plainSubstrByWidth(item.getHoverName().getString() + " | " + entry.listing().item, 440), 184, 283, 0xFF303E36);
+                text(graphics, font.plainSubstrByWidth(entry.origin(), 440), 184, 296, 0xFF303E36);
+            }
+        }
+        if (detectedData.entries().isEmpty()) text(graphics, detectedData.ready() ? "No matching detected items. Held-item import is also available." : "Inspecting server content...", 184, 169, 0xFF3B4940);
+    }
     private void history() {
         boolean roster = tab == Tab.TRANSACTIONS && selectedPlayer == null;
         search = field(roster ? "Search players" : "Filter transactions", 32, 110, 450, query, value -> query = value);
@@ -367,6 +481,7 @@ public final class AdminScreen extends WorkbenchScreen {
     private static String number(double value) { return value == Math.rint(value) ? Long.toString((long) value) : Double.toString(value); }
     private void apply() {
         if (busy) return;
+        if (importSource != null) { status = "Wait for the import to finish, or cancel it before applying."; return; }
         if (!errors.isEmpty()) { status = errors.values().iterator().next(); return; }
         if (!dirty()) { status = "No changes to apply."; return; }
         if (AdminShopClient.request("apply", revision, AdminDocument.JSON.toJson(draft))) {
@@ -378,8 +493,8 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     @Override public void onClose() {
         if (busy) { status = "Wait for the server to finish applying this draft."; return; }
-        if (dirty()) confirm("Close without applying?", "Unapplied edits will be discarded. The live server shop stays unchanged.", () -> minecraft.gui.setScreen(null));
-        else minecraft.gui.setScreen(null);
+        if (dirty()) confirm("Close without applying?", "Unapplied edits will be discarded. The live server shop stays unchanged.", () -> { importSource = null; detectionRetry = 0; minecraft.gui.setScreen(null); });
+        else { importSource = null; detectionRetry = 0; minecraft.gui.setScreen(null); }
     }
     @Override public boolean keyPressed(KeyEvent event) {
         if (busy) return true;
@@ -396,6 +511,7 @@ public final class AdminScreen extends WorkbenchScreen {
         if (tab == Tab.BUILDER) paintBuilder(graphics, mouseX, mouseY);
         else if (tab == Tab.SETTINGS) paintSettings(graphics);
         else if (tab == Tab.ACCESS) paintAccess(graphics);
+        else if (tab == Tab.DETECTED) paintDetected(graphics, mouseX, mouseY);
         else paintHistory(graphics, mouseX, mouseY);
         text(graphics, font.plainSubstrByWidth(status, 620), 20, 339, busy ? 0xFF75591B : 0xFF344442);
         text(graphics, dirty() ? "Unapplied changes" : "Matches server snapshot", 183, 358, dirty() ? 0xFF75591B : 0xFF365D51);
@@ -635,6 +751,14 @@ public final class AdminScreen extends WorkbenchScreen {
         if (busy) return true;
         if (button != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) return false;
         for (Hit hit : hits) if (hit.contains(x, y)) {
+            if (hit.kind.equals("detected:source")) {
+                if (importSource == null) { detectedSource = hit.id; query = ""; requestDetected(0, false); rebuildWidgets(); }
+                return true;
+            }
+            if (hit.kind.equals("detected:item")) {
+                if (importSource == null) { detectedSelection = detectedData.entries().get(Integer.parseInt(hit.id)); rebuildWidgets(); }
+                return true;
+            }
             if (hit.kind.startsWith("preview:")) {
                 switch (hit.kind) {
                     case "preview:back" -> up();

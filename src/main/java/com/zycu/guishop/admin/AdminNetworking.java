@@ -20,6 +20,7 @@ public final class AdminNetworking {
     public record PlayersQuery(String filter, int offset) {}
 
     public static void register() {
+        DetectedContent.register();
         PayloadTypeRegistry.serverboundPlay().register(AdminPayloads.Request.TYPE, AdminPayloads.Request.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminPayloads.Reply.TYPE, AdminPayloads.Reply.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(AdminPayloads.Request.TYPE,
@@ -30,7 +31,7 @@ public final class AdminNetworking {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> GuiShop.PLAYERS.remember(handler.player));
     }
     public static synchronized void clear() {
-        PENDING.clear(); LAST_REQUEST.clear();
+        PENDING.clear(); LAST_REQUEST.clear(); DetectedContent.clear();
         if (journalWorker != null) { journalWorker.shutdownNow(); journalWorker = null; }
     }
     private static synchronized java.util.concurrent.Executor journalWorker() {
@@ -75,6 +76,11 @@ public final class AdminNetworking {
                     var draft = AdminDocument.JSON.fromJson(assembly.body(), AdminDocument.class);
                     var saved = AdminEditorService.apply(player, message.revision(), draft);
                     reply(player, message.id(), "saved", saved.revision(), AdminDocument.JSON.toJson(saved.document()));
+                }
+                case "detected" -> {
+                    var query = AdminDocument.JSON.fromJson(assembly.body(), DetectedContent.Query.class);
+                    if (query == null) throw new IllegalArgumentException("Missing detection query");
+                    reply(player, message.id(), "detected", "", AdminDocument.JSON.toJson(DetectedContent.list(player, query)));
                 }
                 case "held" -> reply(player, message.id(), "held", "", AdminDocument.JSON.toJson(AdminEditorService.heldListing(player)));
                 case "restore" -> reply(player, message.id(), "restored", "", AdminDocument.JSON.toJson(AdminEditorService.restoreDraft(player, assembly.body())));

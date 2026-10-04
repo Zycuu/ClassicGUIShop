@@ -29,11 +29,28 @@ public abstract class InventoryOverflowTest {
     @Unique private boolean guishop$tested;
     @Unique private boolean guishop$prepared;
     @Unique private ItemEntity guishop$readinessProbe;
+    @Unique private ServerPlayer guishop$testPlayer;
+    @Unique private net.minecraft.server.packs.resources.ResourceManager guishop$resources;
+    @Unique private boolean guishop$reloadStarted;
 
     @Inject(method = "tickServer", at = @At("TAIL"))
     private void guishop$test(BooleanSupplier timeLeft, CallbackInfo callback) {
         MinecraftServer server = (MinecraftServer) (Object) this;
-        if (guishop$tested || server.getTickCount() < 2) return;
+        if (server.getTickCount() < 2) return;
+        if (guishop$tested) {
+            if (guishop$resources == server.getResourceManager()) return;
+            boolean ready = com.zycu.guishop.testing.DetectedContentChecks.ready(server, guishop$testPlayer);
+            if (!guishop$reloadStarted) {
+                if (ready) throw new AssertionError("Reload reused an old detected catalog");
+                guishop$reloadStarted = true;
+            }
+            if (!ready) return;
+            try { com.zycu.guishop.testing.DetectedContentChecks.run(server, guishop$testPlayer); }
+            catch (Exception failure) { throw new AssertionError("Reload detection failed", failure); }
+            guishop$resources = server.getResourceManager(); guishop$reloadStarted = false;
+            System.out.println("[Detected content reload test] PASS: old catalog invalidated, loaded resources rescanned, exact variants preserved");
+            return;
+        }
         if (!guishop$prepared) {
             server.overworld().setChunkForced(0, 0, true);
             server.overworld().getChunk(0, 0);
@@ -50,13 +67,14 @@ public abstract class InventoryOverflowTest {
             if (entity == guishop$readinessProbe) probeVisible = true;
         }
         if (!probeVisible) return;
-        guishop$readinessProbe.discard();
-        guishop$tested = true;
+
         ServerLevel level = server.overworld();
         level.getChunk(0, 0);
         ServerPlayer player = new ServerPlayer(server, level,
             new GameProfile(UUID.fromString("4812eb9e-d832-46a5-a3e9-963d1391b8a4"), "ShopTest"),
             ClientInformation.createDefault());
+        if (!com.zycu.guishop.testing.DetectedContentChecks.ready(server, player)) return;
+        guishop$readinessProbe.discard(); guishop$tested = true;
         player.setPos(8, 128, 8);
 
         guishop$checkDelivery(player, level, false, 0, 3, 3, 0);
@@ -86,6 +104,9 @@ public abstract class InventoryOverflowTest {
             }
         }
         com.zycu.guishop.testing.AlphaServerChecks.run(server, player);
+        try { com.zycu.guishop.testing.DetectedContentChecks.run(server, player); }
+        catch (Exception failure) { throw new AssertionError("Detection integration failed", failure); }
+        guishop$testPlayer = player; guishop$resources = server.getResourceManager();
         System.out.println("[ClassicGUIShop compatibility test] PASS: inventory delivery; recipe audit; player commands retained; admin and identification commands absent; no enchantment discovery");
     }
 

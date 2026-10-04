@@ -6,6 +6,8 @@ Listing buy and sell prices are edited in Shop Builder. Zero disables a side. Th
 
 The retained startup recipe audit may reduce unsafe sell prices on older generated listings while preserving manual prices. Balanced presets and a broader exploit review remain future work. The price checks are not a guarantee against every recipe, mod, or economy exploit.
 
+Detected content imports start at buy 0 and sell 0 with manual pricing enabled, so startup auditing does not assign or alter their prices. Repeated imports preserve configured prices. Multiple categories may contain identical stacks, but the editor rejects selling above their cheapest positive buy price anywhere in the shop. Different component variants have independent identities. Held sales choose the highest enabled sell price among exact matches in categories the player can access.
+
 Configure enchanted-book offers explicitly under Settings / Enchantments. Buy cost is price per level times level times the multiplier, rounded to cents. Sell cost is that buy cost times the configured sell ratio. Zero maximum level means the natural maximum; higher configured maxima cannot exceed the natural limit in the shop.
 
 Successful buys, sales, enchanted-book trades, and payments are logged on the server. Adminshop can search recent records and open their details.

@@ -50,6 +50,8 @@ Listings include:
 
 Do not manually edit exact stack data unless you know the Minecraft component format.
 
+`listingId` identifies one listing, separately from its exact stack. Repeated stacks can use an `@` suffix for independent listings; component variants retain their `#` hash. The optional category field `detectedSource` keeps repeated imports in the same source category after saving or restarting. Imported stacks keep their complete components and manual zero prices until an administrator enables trading.
+
 ## `enchantments.json`
 
 Stores enchanted book shop configuration.

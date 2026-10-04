@@ -51,6 +51,20 @@ public final class ItemStackData {
         return itemId + "#" + shortHash(encode(stack, access).toString());
     }
 
+    /** A listing is a location in the shop; the stack remains the item identity. */
+    public static String unusedListingId(String identity, java.util.Set<String> used) {
+        String result = identity;
+        while (used.contains(result.toLowerCase(java.util.Locale.ROOT))) {
+            result = identity + "@" + java.util.UUID.randomUUID().toString().replace("-", "");
+        }
+        return result;
+    }
+
+    public static boolean validListingId(String identity, String listingId) {
+        return identity.equals(listingId) || listingId.startsWith(identity + "@")
+            && listingId.substring(identity.length() + 1).matches("[0-9a-f]{32}");
+    }
+
     public static String shortHash(String value) {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));

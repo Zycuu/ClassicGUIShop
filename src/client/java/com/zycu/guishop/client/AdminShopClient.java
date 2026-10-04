@@ -24,9 +24,11 @@ public final class AdminShopClient implements ClientModInitializer {
     private static AdminScreen editor;
     private static final class Pending {
         final String action, filter; final com.zycu.guishop.admin.AdminNetworking.Query query; final long started = System.nanoTime();
+        final com.zycu.guishop.admin.DetectedContent.Query detection;
         AdminPayloads.Assembly assembly;
         Pending(String action, String body) {
             this.action = action;
+            detection = action.equals("detected") ? AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.DetectedContent.Query.class) : null;
             query = action.equals("logs") ? AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminNetworking.Query.class) : null;
             filter = action.equals("players") ? AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminNetworking.PlayersQuery.class).filter() : "";
         }
@@ -89,6 +91,7 @@ public final class AdminShopClient implements ClientModInitializer {
                     } else editor.load(document, message.revision(), message.action().equals("saved"));
                     Minecraft.getInstance().gui.setScreen(editor);
                 }
+                case "detected" -> { if (editor != null) editor.detected(AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.DetectedContent.Page.class), pending.detection); }
                 case "held" -> { if (editor != null) editor.addHeld(AdminDocument.JSON.fromJson(body, ShopConfig.ShopItem.class)); }
                 case "restored" -> {
                     if (editor != null) {

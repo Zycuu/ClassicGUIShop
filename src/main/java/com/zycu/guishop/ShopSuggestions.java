@@ -17,8 +17,14 @@ public final class ShopSuggestions {
         return SharedSuggestionProvider.suggest(values, builder);
     };
 
-    public static final SuggestionProvider<CommandSourceStack> ITEMS = (context, builder) ->
-        SharedSuggestionProvider.suggest(itemAndListingIds(), builder);
+    public static final SuggestionProvider<CommandSourceStack> ITEMS = (context, builder) -> {
+        String prefix = builder.getRemainingLowerCase().replaceFirst("^\"", "");
+        // Namespaces, component hashes and duplicate suffixes need quoting in a vanilla string argument.
+        itemAndListingIds().filter(id -> id.toLowerCase(java.util.Locale.ROOT).startsWith(prefix)
+            || id.substring(id.indexOf(':') + 1).toLowerCase(java.util.Locale.ROOT).startsWith(prefix))
+            .forEach(id -> builder.suggest(com.mojang.brigadier.arguments.StringArgumentType.escapeIfRequired(id)));
+        return builder.buildFuture();
+    };
 
     public static final SuggestionProvider<CommandSourceStack> PRICES = (context, builder) ->
         SharedSuggestionProvider.suggest(new String[]{"0", "0.25", "1", "5", "10", "25", "50", "100", "250", "500", "1000"}, builder);

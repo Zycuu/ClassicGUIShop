@@ -11,6 +11,7 @@ parser.add_argument('server_dir', type=pathlib.Path)
 parser.add_argument('--java-home', type=pathlib.Path, required=True)
 parser.add_argument('--gradle', type=pathlib.Path, required=True)
 parser.add_argument('--player-client', action='store_true', help='Disable ClassicGUIShop on the client and test player trading')
+parser.add_argument('--usefulfood-jar', type=pathlib.Path, help='Optional 26.3 Fabric fixture, installed on this disposable server too')
 parser.add_argument('--disposable', action='store_true', help='Confirm this server and its contents are test fixtures')
 args = parser.parse_args()
 if not args.disposable:
@@ -27,6 +28,9 @@ client_log = server_dir / ('player-ui-client.log' if args.player_client else 'ad
 marker = '[Player UI test]' if args.player_client else '[Alpha UI test]'
 java_name = 'java.exe' if os.name == 'nt' else 'java'
 client_command = [str(gradle), '-PplayerUiTest=true' if args.player_client else '-PalphaUiTest=true', 'runClient', '--console=plain']
+if args.usefulfood_jar:
+    client_command.extend(['-PusefulFoodTestJar=' + str(args.usefulfood_jar.resolve()),
+                           '-PfullFabricApiTestJar=' + str(server_dir / 'mods' / 'fabric-api.jar')])
 if os.name == 'nt' and gradle.suffix.lower() in ('.bat', '.cmd'):
     client_command = ['cmd.exe', '/d', '/c', *client_command]
 env = os.environ.copy()

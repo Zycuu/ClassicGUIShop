@@ -105,7 +105,7 @@ public final class ShopService {
             return false;
         }
 
-        ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
+        ShopConfig.FoundItem found = findSellable(player, held);
         if (found == null || found.item().sell <= 0) {
             if (EnchantmentShopService.sellHeld(player, held, requestedQuantity, allInventory)) return true;
             ShopMessages.warning(player, "That exact item does not have a sell price.");
@@ -151,7 +151,8 @@ public final class ShopService {
             return false;
         }
 
-        ShopConfig.FoundItem found = GuiShop.CONFIG.findItem(held, player.registryAccess());
+        ShopConfig.FoundItem found = findSellable(player, held);
+        if (found == null) found = GuiShop.CONFIG.findItem(held, player.registryAccess());
         if (found == null) {
             if (EnchantmentShopService.showWorth(player, held, held.getCount())) return true;
             ShopMessages.warning(player, "No shop listing exists for that exact item.");
@@ -187,6 +188,20 @@ public final class ShopService {
         ShopMessages.info(player, "Sell: " + sellText);
         ShopMessages.info(player, "Category: " + found.category().name + " | Quantity checked: " + quantity);
         return true;
+    }
+
+    private static ShopConfig.FoundItem findSellable(ServerPlayer player, ItemStack held) {
+        ShopConfig.FoundItem best = null;
+        for (var category : GuiShop.CONFIG.categories) {
+            if (!ShopPermissions.category(player, category.id)) continue;
+            for (var item : category.items) {
+                if (!(item.sell > 0) || !Double.isFinite(item.sell)
+                    || !VersionedListingStore.isRuntimeAvailable(item, player.registryAccess())) continue;
+                if (ItemStackData.same(item.createStack(player.registryAccess()), held)
+                    && (best == null || item.sell > best.item().sell)) best = new ShopConfig.FoundItem(category, item);
+            }
+        }
+        return best;
     }
 
     public static int count(ServerPlayer player, ItemStack template) {

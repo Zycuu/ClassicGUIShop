@@ -135,12 +135,6 @@ public final class ShopConfig {
 
     public FoundItem findItem(ItemStack stack, RegistryAccess access) {
         if (stack == null || stack.isEmpty()) return null;
-        String listingId = ItemStackData.listingId(stack.copyWithCount(1), access);
-        for (Category category : categories) {
-            for (ShopItem item : category.items) {
-                if (listingId.equalsIgnoreCase(item.listingId)) return new FoundItem(category, item);
-            }
-        }
         for (Category category : categories) {
             for (ShopItem item : category.items) {
                 if (ItemStackData.same(item.createStack(access), stack)) return new FoundItem(category, item);
@@ -461,6 +455,7 @@ public final class ShopConfig {
         public String name;
         public String icon;
         public String description = "";
+        public String detectedSource;
         public List<ShopItem> items = new ArrayList<>();
     }
 

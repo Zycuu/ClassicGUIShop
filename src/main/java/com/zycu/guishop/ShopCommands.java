@@ -45,7 +45,7 @@ public final class ShopCommands {
             .requires(source -> ShopPermissions.user(source, "guishop.command.worth"))
             .executes(context -> worthHeld(context, false))
             .then(Commands.literal("all").executes(context -> worthHeld(context, true)))
-            .then(Commands.argument("item", StringArgumentType.word())
+            .then(Commands.argument("item", StringArgumentType.string())
                 .suggests(ShopSuggestions.ITEMS)
                 .executes(context -> worthItem(context, 1))
                 .then(Commands.argument("amount", IntegerArgumentType.integer(1, 6400))
