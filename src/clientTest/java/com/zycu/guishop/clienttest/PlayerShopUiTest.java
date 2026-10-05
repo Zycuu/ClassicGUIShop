@@ -39,7 +39,7 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                 case 2 -> {
                     if (!(screen instanceof ContainerScreen)) return;
                     check(screen.getTitle().getString().equals("Zycu's Shop - Buy"), "Saved shop title survives restart");
-                    Screenshot.grab(client.gameDirectory, "alpha3-client-without-shop-mod.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
+                    Screenshot.grab(client.gameDirectory, "alpha5-client-without-shop-mod.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
                     slot(client, 3); next();
                 }
                 case 3 -> {
@@ -69,9 +69,39 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                 }
                 case 7 -> {
                     check(client.player.getInventory().countItem(Items.DIAMOND) == 0, "Plain client sale removed matching diamond");
-                    System.out.println("[Player UI test] PASS: client has no ClassicGUIShop; restart persistence; category-only vanilla menus; real purchase and sale; delivered identity preserved"); next();
+                    client.gui.setScreen(null); client.getConnection().sendCommand("shop enchant"); next();
                 }
-                case 8 -> { done = true; client.stop(); }
+                case 8 -> {
+                    if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().endsWith("Buy")) return;
+                    slot(client, 0); next();
+                }
+                case 9 -> {
+                    if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().equals("Unbreaking Levels - Buy")) return;
+                    var holder = client.player.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT).getOrThrow(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ENCHANTMENT, net.minecraft.resources.Identifier.parse("minecraft:unbreaking")));
+                    var icon = client.player.containerMenu.getSlot(4).getItem();
+                    check(icon.get(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS).getLevel(holder) == 5, "Live player menu includes level V above vanilla limit");
+                    Screenshot.grab(client.gameDirectory, "alpha5-player-enchantment-levels.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
+                    slot(client, 4); next();
+                }
+                case 10 -> {
+                    check(client.player.getInventory().countItem(Items.ENCHANTED_BOOK) == 1, "Plain client receives purchased level V book");
+                    var holder = client.player.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT).getOrThrow(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ENCHANTMENT, net.minecraft.resources.Identifier.parse("minecraft:unbreaking")));
+                    boolean exact = false;
+                    for (int i = 0; i < client.player.getInventory().getContainerSize(); i++) {
+                        var item = client.player.getInventory().getItem(i);
+                        if (item.is(Items.ENCHANTED_BOOK) && item.get(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS).getLevel(holder) == 5) exact = true;
+                    }
+                    check(exact, "Delivered book retains exact level V"); slot(client, 53); next();
+                }
+                case 11 -> {
+                    if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().equals("Unbreaking Levels - Sell")) return;
+                    slot(client, 4); next();
+                }
+                case 12 -> {
+                    check(client.player.getInventory().countItem(Items.ENCHANTED_BOOK) == 0, "Plain client sale consumes exact level V book");
+                    System.out.println("[Player UI test] PASS: client has no ClassicGUIShop; restart persistence; category-only vanilla menus; real purchase and sale; delivered identity preserved; live level V menu, exact purchase and sale"); next();
+                }
+                case 13 -> { done = true; client.stop(); }
             }
         } catch (Throwable failure) { done = true; System.err.println("[Player UI test] FAIL at phase " + phase); failure.printStackTrace(); client.stop(); }
     }

@@ -22,7 +22,7 @@ Transactions opens a searchable player list showing current balances and online 
 
 ## Detected Content
 
-Open the tab to inspect the server's loaded content. Choose a source, search names or IDs, and select an item to import it, or use **Import source** to add all its detected variants. Each source receives its own category. New listings have **buy 0, sell 0, manual pricing enabled**. Review them in Shop Builder using Arrange mode, set prices deliberately, then Apply. Detection and import do not change the live shop before Apply.
+Open the tab to inspect the server's loaded content. Choose **Vanilla Minecraft**, a mod namespace, or a named **Pack:** row. Search names or IDs and select an item to import it. **Import source** imports a namespace; **Import pack** gathers all detected variants from that datapack into one category, including variants from multiple namespaces. Select **All sources** and **Import all** to collect the entire detected list into one category. Whole imports include every page and ignore the search filter. Repeat imports reuse the same category and skip exact stacks already there. New listings have **buy 0, sell 0, manual pricing enabled**. Review them in Shop Builder using Arrange mode, set prices deliberately, then Apply. Detection and import do not change the live shop before Apply.
 
 Repeat imports skip exact variants already in that source category and preserve their prices. Cancel stops further batches while keeping items already added in the draft. Discard removes the unapplied import. Apply is unavailable while a bulk import is running.
 
@@ -32,7 +32,7 @@ Resource reading runs off the tick thread. Codec work is divided across ticks; s
 
 ## Settings and Access
 
-Edit the shop title, currency display, starting balance for new players, global multiplier, creative transaction behavior, offline payments, chat colors, and explicit enchantment offers. A maximum enchantment level of zero uses the enchantment's natural maximum; configured values are capped by that natural maximum in the player shop.
+Edit the shop title, currency display, starting balance for new players, global multiplier, creative transaction behavior, offline payments, chat colors, and explicit enchantment offers. A maximum enchantment level of zero uses the enchantment's natural maximum. Values 1 to 255 set the shop maximum explicitly, including levels above vanilla. For example, Looting with maximum 5 offers levels I through V in both the simulator and the live shop. Delivered books retain the purchased level. This does not change vanilla anvil rules.
 
 Access controls player command, transaction, and category requirements using vanilla command levels 0 to 4. Adminshop stays fixed at level 2 or higher.
 

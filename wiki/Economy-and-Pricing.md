@@ -8,6 +8,6 @@ The retained startup recipe audit may reduce unsafe sell prices on older generat
 
 Detected content imports start at buy 0 and sell 0 with manual pricing enabled, so startup auditing does not assign or alter their prices. Repeated imports preserve configured prices. Multiple categories may contain identical stacks, but the editor rejects selling above their cheapest positive buy price anywhere in the shop. Different component variants have independent identities. Held sales choose the highest enabled sell price among exact matches in categories the player can access.
 
-Configure enchanted-book offers explicitly under Settings / Enchantments. Buy cost is price per level times level times the multiplier, rounded to cents. Sell cost is that buy cost times the configured sell ratio. Zero maximum level means the natural maximum; higher configured maxima cannot exceed the natural limit in the shop.
+Configure enchanted-book offers explicitly under Settings / Enchantments. Buy cost is price per level times level times the multiplier, rounded to cents. Sell cost is that buy cost times the configured sell ratio. Zero maximum level means the natural maximum. Configured values from 1 to 255 allow higher shop levels, such as Looting V, with matching purchases and exact-book sales. Higher levels use the same price-per-level formula. Vanilla anvil rules are unchanged.
 
 Successful buys, sales, enchanted-book trades, and payments are logged on the server. Adminshop can search recent records and open their details.

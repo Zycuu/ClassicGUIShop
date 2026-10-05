@@ -26,4 +26,10 @@ with zipfile.ZipFile(target, 'x', compression=zipfile.ZIP_DEFLATED) as archive:
     archive.writestr('data/guishop_detection_test/loot_table/items/static.json', json.dumps(table([component])))
     archive.writestr('data/guishop_detection_test/loot_table/items/unsupported.json', json.dumps(table([
         component, {'type': 'minecraft:set_count', 'count': 1}])))
+    extra = {'type': 'minecraft:set_components', 'components': {
+        'minecraft:item_name': {'text': 'Second Namespace Fixture'},
+        'minecraft:custom_data': {'marker': 'guishop_detection_test_second'}}}
+    archive.writestr('data/guishop_detection_second/loot_table/items/static.json', json.dumps(table([extra])))
+    # The same exact variant in another namespace must not double the pack count.
+    archive.writestr('data/guishop_detection_second/loot_table/items/repeated.json', json.dumps(table([component])))
 print('Installed disposable detection fixture:', target)

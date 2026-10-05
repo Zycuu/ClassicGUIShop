@@ -2,7 +2,7 @@
 
 A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.0 Alpha 4** adds controlled content detection and independent listings across categories. Ordinary players can use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** to open the workbench. The server requires OP level 2 or higher for every editor request.
+**1.4.0 Alpha 5** includes vanilla item detection, whole datapack imports into one category, and configured enchantment levels above vanilla limits. Ordinary players can use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** to open the workbench. The server requires OP level 2 or higher for every editor request.
 
 ## Adminshop
 
@@ -10,7 +10,7 @@ A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a p
 - Simulator: navigate a chest-style preview of the draft in Buy or Sell mode, including category pages and configured enchantment levels. Preview clicks do not transact. It previews layout and enabled offers, rather than a particular player's permissions or balance.
 - Settings: shop title, currency display, starting balance, multiplier, enchanted-book ratio and offers, creative transactions, offline payments, and message colors.
 - Access: configure the exact vanilla command level required for player actions and categories. Adminshop access stays fixed at OP level 2 or higher.
-- Detected Content: inspect registered mod items and static custom datapack loot variants, then import one item or an entire source into its own category. Every new import starts at **Buy 0 / Sell 0** and stays in the draft until Apply. Repeat imports preserve existing listings and prices.
+- Detected Content: inspect vanilla items, registered mod items, and static custom datapack loot variants. Select a named Pack row and use Import pack to collect its detected variants into one category across namespaces. Import all collects the full detected list into one category. Every new import starts at **Buy 0 / Sell 0** and stays in the draft until Apply. Repeat imports preserve existing listings and prices.
 - Transactions: select a known online or offline player by name and current balance, then view only their transactions. Search their purchases, sales, enchanted books, and payments; select a row for details.
 - Changes: configuration history and backup details. Load a previous configuration into a draft, review it, then Apply to restore it.
 
@@ -29,7 +29,7 @@ Folders have been removed. Listings appear directly in their parent category. Ex
 Use Minecraft **26.3**, Java **25+**, and Fabric Loader **0.19.5+**. This Alpha targets 26.3 specifically; the previous compatibility JARs remain separate builds.
 
 1. Stop the server and back up `config/guishop/` before updating.
-2. Replace the old server JAR with `ClassicGUIShop-v1.4.0-alpha.4.jar`, then start the server.
+2. Replace the old server JAR with `ClassicGUIShop-v1.4.0-alpha.5.jar`, then start the server.
 3. For administrators, install that same JAR on a matching Fabric client and press F8 in-game. Rebind it under Controls if needed.
 
 The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching Minecraft 26.3.

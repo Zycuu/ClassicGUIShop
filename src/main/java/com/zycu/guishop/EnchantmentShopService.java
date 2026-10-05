@@ -275,9 +275,10 @@ public final class EnchantmentShopService {
         return null;
     }
 
-    private static int maximumLevel(Enchantment enchantment, ShopConfig.EnchantmentOffer configured) {
+    public static int maximumLevel(Enchantment enchantment, ShopConfig.EnchantmentOffer configured) {
         int configuredMax = configured.maxLevel <= 0 ? enchantment.getMaxLevel() : configured.maxLevel;
-        return Math.min(configuredMax, enchantment.getMaxLevel());
+        // The component codec supports levels through 255, including levels above vanilla.
+        return Math.min(configuredMax, 255);
     }
 
     private static double price(ShopConfig.EnchantmentOffer configured, int level, ShopGui.Mode mode) {

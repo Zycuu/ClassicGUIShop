@@ -118,8 +118,8 @@ public final class AdminScreen extends WorkbenchScreen {
         if (request.importing()) {
             if (importSource == null || !importSource.equals(request.source()) || request.offset() != importOffset) return;
             if (!page.ready()) { detectionRetry = 10; return; }
-            var source = page.sources().stream().filter(value -> value.id().equals(importSource)).findFirst().orElseThrow();
-            for (var entry : page.entries()) if (importDetected(entry, source.name())) importAdded++;
+            String name = sourceName(page, importSource);
+            for (var entry : page.entries()) if (importDetected(entry, importSource.isBlank() ? "all_detected" : importSource, name)) importAdded++;
             if (page.more()) { importOffset = page.offset() + page.entries().size(); detectionRetry = 6; }
             else { importSource = null; status = "Imported " + importAdded + " new listings into the draft. Buy 0 / Sell 0. Review in Shop Builder, then Apply."; }
             rebuildWidgets(); return;
@@ -130,14 +130,17 @@ public final class AdminScreen extends WorkbenchScreen {
         else status = page.warning().isBlank() ? "Loaded content detected. Imports stay in the draft with Buy 0 / Sell 0." : page.warning();
         rebuildWidgets();
     }
-    private boolean importDetected(DetectedContent.Entry entry, String sourceName) {
-        var category = draft.config.categories.stream().filter(value -> entry.source().equals(value.detectedSource)).findFirst().orElse(null);
+    private static String sourceName(DetectedContent.Page page, String source) {
+        return source.isBlank() ? "All detected content" : page.sources().stream().filter(value -> value.id().equals(source)).map(DetectedContent.Source::name).findFirst().orElse(source);
+    }
+    private boolean importDetected(DetectedContent.Entry entry, String destination, String sourceName) {
+        var category = draft.config.categories.stream().filter(value -> destination.equals(value.detectedSource)).findFirst().orElse(null);
         if (category == null) {
             if (draft.config.categories.size() >= 250) throw new IllegalArgumentException("Category limit reached. Remove an unused category before importing.");
-            category = new ShopConfig.Category(); category.id = uniqueId("detected_" + entry.source(), draft.config.categories.stream().map(value -> value.id).toList());
+            category = new ShopConfig.Category(); category.id = uniqueId("detected_" + destination, draft.config.categories.stream().map(value -> value.id).toList());
             String name = sourceName.replaceAll("[\\p{Cntrl}]", " ");
             category.name = name.length() > 80 ? name.substring(0, 80) : name;
-            category.icon = entry.listing().item; category.detectedSource = entry.source(); draft.config.categories.add(category);
+            category.icon = entry.listing().item; category.detectedSource = destination; draft.config.categories.add(category);
         }
         var access = minecraft.level.registryAccess(); var template = entry.listing().createStack(access);
         if (category.items.stream().anyMatch(item -> com.zycu.guishop.ItemStackData.same(item.createStack(access), template))) return false;
@@ -374,25 +377,27 @@ public final class AdminScreen extends WorkbenchScreen {
         button("Next", 274, 313, 68, () -> requestDetected(detectedOffset + DetectedContent.PAGE_SIZE, false)).active = importSource == null && detectedData.more();
         button("Import item", 350, 313, 102, () -> {
             if (detectedSelection == null) return;
-            String name = detectedData.sources().stream().filter(value -> value.id().equals(detectedSelection.source())).findFirst().orElseThrow().name();
+            String destination = detectedSource.isBlank() ? detectedSelection.source() : detectedSource;
+            String name = sourceName(detectedData, destination);
             try {
-                boolean added = importDetected(detectedSelection, name);
+                boolean added = importDetected(detectedSelection, destination, name);
                 status = added ? "Imported to its source category in the draft. Buy 0 / Sell 0. Review, then Apply." : "That exact variant is already in its source category. Existing prices were preserved.";
             } catch (IllegalArgumentException invalid) { status = invalid.getMessage(); }
             rebuildWidgets();
         }).active = importSource == null && detectedSelection != null;
-        button(importSource == null ? "Import source" : "Cancel import", 460, 313, 170, () -> {
+        String action = detectedSource.isBlank() ? "Import all" : detectedSource.startsWith("datapack_") ? "Import pack" : "Import source";
+        button(importSource == null ? action : "Cancel import", 460, 313, 170, () -> {
             if (importSource != null) { importSource = null; detectionRetry = 0; status = "Import stopped. Items already added remain in the draft with prices 0."; rebuildWidgets(); }
-            else confirm("Import detected source?", "Add all detected variants from this source to its own category. New prices stay 0. Existing listings are preserved. Apply saves later.", () -> {
+            else confirm("Import into one category?", "Add ALL items across ALL pages to one category. Search is ignored. New prices stay 0; existing prices are preserved. Apply saves later.", () -> {
                 detectionGeneration++; importSource = detectedSource; importOffset = 0; importAdded = 0; requestDetected(0, false);
             });
-        }).active = importSource != null || !detectedSource.isBlank() && detectedData.ready();
+        }).active = importSource != null || detectedData.ready();
     }
     private void paintDetected(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         panel(graphics, 16, 69, 148, 270, 0xFFB7B9AB); panel(graphics, 172, 69, 472, 270, 0xFFC6C8BB);
         text(graphics, "CONTENT SOURCES", 24, 82, 0xFF234747);
         text(graphics, "New imports: Buy 0 / Sell 0", 184, 82, 0xFF234747);
-        text(graphics, "Select an item, or select a source to import its variants.", 184, 96, 0xFF3B4940);
+        text(graphics, "Select a Pack: row, then Import pack for one category.", 184, 96, 0xFF3B4940);
         var sources = new ArrayList<>(detectedData.sources());
         sourcePage = Math.min(sourcePage, Math.max(0, (sources.size() - 1) / 9));
         graphics.fill(22, 109, 158, 127, detectedSource.isBlank() ? 0xFF78978B : 0xFFA6AC9D);
@@ -405,7 +410,7 @@ public final class AdminScreen extends WorkbenchScreen {
         }
         text(graphics, Integer.toString(sourcePage + 1), 85, 322, 0xFF33443B);
         text(graphics, "Page " + (detectedOffset / DetectedContent.PAGE_SIZE + 1) + " | Unsupported definitions: " + detectedData.skipped(), 184, 283, 0xFF303E36);
-        text(graphics, "Missing a variant? Use Add held item in Shop Builder.", 184, 296, 0xFF303E36);
+        text(graphics, detectedData.ready() ? font.plainSubstrByWidth(sourceName(detectedData, detectedSource) + " | Whole imports include every page.", 440) : "Missing a variant? Use Add held item in Shop Builder.", 184, 296, 0xFF303E36);
         for (int index = 0; index < detectedData.entries().size(); index++) {
             var entry = detectedData.entries().get(index); int x = 184 + index % 4 * 112, y = 141 + index / 4 * 23;
             ItemStack item = entry.listing().createStack(minecraft.level.registryAccess());
@@ -592,7 +597,7 @@ public final class AdminScreen extends WorkbenchScreen {
             var offer = entry.getValue(); if (!offer.enabled() || enchantId != null && !entry.getKey().equals(enchantId)) continue;
             try {
                 var holder = registry.getOrThrow(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ENCHANTMENT, Identifier.parse(entry.getKey())));
-                int max = Math.min(offer.maxLevel <= 0 ? holder.value().getMaxLevel() : offer.maxLevel, holder.value().getMaxLevel());
+                int max = EnchantmentShopService.maximumLevel(holder.value(), offer);
                 double first = enchantPrice(offer, 1), last = enchantPrice(offer, max);
                 if (enchantId == null && max > 0 && last > 0) {
                     tiles.add(new Tile("offer", entry.getKey(), offer.name, "minecraft:enchanted_book", null,

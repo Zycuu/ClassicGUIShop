@@ -443,7 +443,7 @@ public final class ShopConfig {
         notes.put("offers", "Map of enchantment IDs to the books offered by the shop.");
         notes.put("offers.<enchantment>.name", "Display name shown to players for that enchantment.");
         notes.put("offers.<enchantment>.pricePerLevel", "Base cost multiplied by the selected level. For example, 100.0 makes level III cost 300.0 before the global price multiplier.");
-        notes.put("offers.<enchantment>.maxLevel", "Highest level the shop offers. 0 uses the enchantment's normal registered maximum.");
+        notes.put("offers.<enchantment>.maxLevel", "Highest level the shop offers: 1-255, including above vanilla limits. 0 uses the enchantment's normal registered maximum. This does not change anvil rules.");
         notes.put("offers.<enchantment>.enabled", "When false, this enchantment is hidden from the shop. When true, players may select its available levels.");
         return notes;
     }

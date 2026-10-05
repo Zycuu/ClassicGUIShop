@@ -1,6 +1,7 @@
 package com.zycu.guishop.testing;
 
 import com.zycu.guishop.GuiShop;
+import com.zycu.guishop.EnchantmentShopService;
 import com.zycu.guishop.ItemStackData;
 import com.zycu.guishop.ShopConfig;
 import com.zycu.guishop.ShopGui;
@@ -46,9 +47,20 @@ public final class DetectedContentChecks {
             offset += page.entries().size();
         }
         check(AdminEditorService.snapshot(player).revision().equals(original.revision()), "Detection does not alter the shop");
+        var vanillaIds = net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet().stream().filter(id -> id.getNamespace().equals("minecraft") && net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(id) != Items.AIR).toList();
+        for (var id : vanillaIds) check(detected.stream().anyMatch(entry -> entry.source().equals("minecraft") && entry.listing().item.equals(id.toString()) && ItemStackData.same(entry.listing().createStack(player.registryAccess()), new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(id)))), "Vanilla base item detected: " + id);
         if (server.getResourceManager().getResource(Identifier.parse("guishop_detection_test:loot_table/items/static.json")).isPresent()) {
             check(detected.stream().anyMatch(entry -> entry.origin().contains("items/static.json")), "Static variant with literal nbt metadata is detected");
             check(detected.stream().noneMatch(entry -> entry.origin().contains("items/unsupported.json")), "Unsupported modifier never creates a partial variant");
+            if (server.getResourceManager().getResource(Identifier.parse("guishop_detection_second:loot_table/items/static.json")).isPresent()) {
+                var firstVariant = detected.stream().filter(entry -> entry.listing().name.equals("Detection Fixture")).findFirst().orElseThrow();
+                var secondVariant = detected.stream().filter(entry -> entry.listing().name.equals("Second Namespace Fixture")).findFirst().orElseThrow();
+                check(firstVariant.namespaces().containsAll(List.of("guishop_detection_test", "guishop_detection_second")), "Duplicate keeps both contributing namespaces");
+                check(firstVariant.packs().size() == 1 && firstVariant.packs().equals(secondVariant.packs()), "Pack groups combine multiple namespaces");
+                var pack = DetectedContent.list(player, new DetectedContent.Query(firstVariant.packs().getFirst(), "", 0, false, false));
+                check(pack.entries().size() == 2 && !pack.more(), "Whole-pack query contains both unique variants with no repeated stack");
+                check(pack.sources().stream().anyMatch(source -> source.id().equals(firstVariant.packs().getFirst()) && source.count() == 2 && source.name().startsWith("Pack: ")), "Pack count and label match unique variants");
+            }
         }
         for (var entry : detected) {
             check(entry.listing().buy == 0 && entry.listing().sell == 0 && Boolean.TRUE.equals(entry.listing().manualPrice), "Every detected item starts disabled");
@@ -98,7 +110,7 @@ public final class DetectedContentChecks {
         check(ShopService.sellHand(player, 1, false), "Held sale finds enabled, accessible duplicate after a restricted disabled listing");
         check(GuiShop.ECONOMY.balance(player.getUUID()) == balance + 2, "Duplicate sale uses the correct price");
         List<DetectedContent.Entry> tradeCases = new ArrayList<>();
-        if (!detected.isEmpty()) tradeCases.add(detected.getFirst());
+        detected.stream().filter(entry -> entry.source().equals("moldomre") || entry.namespaces().contains("guishop_detection_test")).findFirst().ifPresent(tradeCases::add);
         detected.stream().filter(entry -> entry.source().equals("usefulfood")).findFirst().ifPresent(tradeCases::add);
         for (var tradeCase : tradeCases) {
             var imported = saved.document().copy(); var category = imported.config.categories.getLast();
@@ -119,9 +131,33 @@ public final class DetectedContentChecks {
             check(ShopService.trade(player, live, ShopGui.Mode.SELL, 1), "Exact custom variant can be sold");
             saved = pricedSaved;
         }
-        AdminEditorService.apply(player, saved.revision(), original.document());
+        var enchantDraft = saved.document().copy(); enchantDraft.config.enchantmentsEnabled = true;
+        var looting = new ShopConfig.EnchantmentOffer(); looting.name = "Looting"; looting.maxLevel = 5; looting.pricePerLevel = 2;
+        enchantDraft.config.enchantments.put("minecraft:looting", looting);
+        var enchantSaved = AdminEditorService.apply(player, saved.revision(), enchantDraft);
+        var holder = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse("minecraft:looting")));
+        check(EnchantmentShopService.maximumLevel(holder.value(), GuiShop.CONFIG.enchantmentOffer("minecraft:looting")) == 5, "Configured maximum above vanilla is honored");
+        check(EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.BUY).size() == 5, "Buy offers include Looting IV and V");
+        check(EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.SELL).size() == 5, "Sell offers include Looting IV and V");
+        EnchantmentShopService.rememberMode(player, ShopGui.Mode.BUY); player.getInventory().clearContent();
+        double enchantBalance = GuiShop.ECONOMY.balance(player.getUUID());
+        double fifthPrice = EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.BUY).getLast().cost();
+        check(EnchantmentShopService.purchase(player, "minecraft:looting", 5), "Looting V purchase succeeds");
+        var fifthBook = EnchantmentShopService.createBook(holder, 5);
+        check(fifthBook.get(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS).getLevel(holder) == 5, "Delivered book stores level V exactly");
+        check(ShopService.count(player, fifthBook) == 1 && GuiShop.ECONOMY.balance(player.getUUID()) == enchantBalance - fifthPrice, "Real purchase delivers exact Looting V and charges its price");
+        check(!EnchantmentShopService.purchase(player, "minecraft:looting", 6), "Purchase above configured maximum is denied");
+        check(EnchantmentShopService.sell(player, "minecraft:looting", 5, 1), "Exact Looting V can be sold");
+        check(ShopService.count(player, fifthBook) == 0, "Sale consumes exact Looting V");
+        player.getInventory().setItem(0, fifthBook.copy());
+        check(EnchantmentShopService.sellHeld(player, player.getMainHandItem(), 1, false), "Held Looting V sale is recognized");
+        looting.maxLevel = 0; check(EnchantmentShopService.maximumLevel(holder.value(), looting) == 3, "Zero retains natural maximum");
+        looting.maxLevel = 255;
+        check(EnchantmentShopService.createBook(holder, 255).get(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS).getLevel(holder) == 255, "Component supports upper configured bound");
+        check(ItemStackData.same(ItemStackData.decode(ItemStackData.encode(EnchantmentShopService.createBook(holder, 255), player.registryAccess()), "minecraft:enchanted_book", player.registryAccess()), EnchantmentShopService.createBook(holder, 255)), "Upper bound survives exact stack codec");
+        AdminEditorService.apply(player, enchantSaved.revision(), original.document());
         server.getPlayerList().getOps().remove(player.nameAndId());
-        System.out.println("[Detected content test] PASS: read-only scan; zero prices; exact codec data; " + matched + " supplied pack variants match actual loot; " + usefulIds.size() + " UsefulFood items detected; independent duplicate listings; price exploit guard; permitted duplicate sale; exact custom trades");
+        System.out.println("[Detected content test] PASS: read-only scan; " + vanillaIds.size() + " vanilla items; multi-namespace pack grouping; zero prices; exact codec data; " + matched + " supplied pack variants match actual loot; " + usefulIds.size() + " UsefulFood items detected; independent duplicate listings; price exploit guard; permitted duplicate sale; exact custom trades; Looting V purchase, sale and held sale; configured level ceiling");
     }
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
 }

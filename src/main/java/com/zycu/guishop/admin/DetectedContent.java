@@ -39,7 +39,8 @@ public final class DetectedContent {
         public Query(String source, String filter, int offset, boolean refresh, boolean importing) { this(source, filter, offset, refresh, importing, 0); }
     }
     public record Source(String id, String name, int count) {}
-    public record Entry(String source, String origin, ShopConfig.ShopItem listing) {}
+    public record Entry(String source, String origin, ShopConfig.ShopItem listing, List<String> packs, List<String> namespaces) {}
+    private record Identity(ItemStack stack, int index) {}
     public record Page(List<Source> sources, List<Entry> entries, int offset, boolean more, boolean ready, String warning, int skipped) {}
     private record Input(Identifier id, JsonElement json, String pack) {}
     private record Inputs(List<Input> files, int skipped, String warning) {}
@@ -60,7 +61,7 @@ public final class DetectedContent {
             clear(); active = new Scan(server);
         }
         if (!active.ready) return new Page(List.of(), List.of(), 0, false, false, "Inspecting loaded content... " + (active.cursor + active.registryCursor) + " definitions checked.", active.skipped);
-        var entries = active.entries.stream().filter(entry -> source.isEmpty() || entry.source().equals(source))
+        var entries = active.entries.stream().filter(entry -> source.isEmpty() || entry.namespaces().contains(source) || entry.packs().contains(source))
             .filter(entry -> searchMatches(entry, filter)).toList();
         int offset = Math.min(query.offset(), entries.size()), end = Math.min(entries.size(), offset + PAGE_SIZE);
         return new Page(active.sources, entries.subList(offset, end), offset, end < entries.size(), true, active.warning, active.skipped);
@@ -79,7 +80,7 @@ public final class DetectedContent {
         final CompletableFuture<Inputs> read;
         final List<Identifier> registryItems;
         final List<Entry> entries = new ArrayList<>();
-        final Map<Integer, List<ItemStack>> identities = new HashMap<>();
+        final Map<Integer, List<Identity>> identities = new HashMap<>();
         final Map<String, String> sourceNames = new HashMap<>();
         List<Source> sources = List.of();
         List<Input> files;
@@ -88,17 +89,29 @@ public final class DetectedContent {
         String warning = "";
         Scan(MinecraftServer server) {
             this.server = server; manager = server.getResourceManager();
-            registryItems = BuiltInRegistries.ITEM.keySet().stream().filter(id -> !id.getNamespace().equals("minecraft"))
+            sourceNames.put("minecraft", "Vanilla Minecraft");
+            registryItems = BuiltInRegistries.ITEM.keySet().stream().filter(id -> BuiltInRegistries.ITEM.getValue(id) != Items.AIR)
                 .sorted(Comparator.comparing(Identifier::toString)).toList();
             read = CompletableFuture.supplyAsync(() -> readDefinitions(manager));
         }
-        void add(String source, String origin, ItemStack stack) {
+        void add(String source, String origin, ItemStack stack, String pack) {
             if (full) return;
             if (entries.size() >= MAX_ITEMS) { full = true; warning = "Detection reached the 10,000 item limit. Use Add held item for additional content."; return; }
             if (stack.isEmpty()) return;
             stack = stack.copyWithCount(1);
             var bucket = identities.computeIfAbsent(ItemStack.hashItemAndComponents(stack), ignored -> new ArrayList<>());
-            for (var existing : bucket) if (ItemStackData.same(existing, stack)) return;
+            String packId = pack == null ? null : "datapack_" + ItemStackData.shortHash(pack);
+            if (packId != null) sourceNames.put(packId, "Pack: " + pack.replaceFirst("^file/", ""));
+            for (var existing : bucket) if (ItemStackData.same(existing.stack(), stack)) {
+                // Keep one exact stack, but retain every contributing pack for whole-pack imports.
+                var entry = entries.get(existing.index());
+                var packs = new ArrayList<>(entry.packs());
+                if (packId != null && !packs.contains(packId)) packs.add(packId);
+                var namespaces = new ArrayList<>(entry.namespaces());
+                if (!namespaces.contains(source)) namespaces.add(source);
+                entries.set(existing.index(), new Entry(entry.source(), entry.origin(), entry.listing(), List.copyOf(packs), List.copyOf(namespaces)));
+                return;
+            }
             var data = ItemStackData.encode(stack, server.registryAccess());
             if (data.toString().length() > 32000) throw new IllegalArgumentException("Exact item data is too large");
             int bytes = data.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
@@ -107,12 +120,16 @@ public final class DetectedContent {
             listing.item = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
             listing.listingId = ItemStackData.listingId(stack, server.registryAccess());
             listing.stack = data; listing.name = stack.getHoverName().getString(); listing.manualPrice = true;
-            entries.add(new Entry(source, origin, listing)); bucket.add(stack); catalogBytes += bytes;
+            bucket.add(new Identity(stack, entries.size()));
+            entries.add(new Entry(source, origin, listing, packId == null ? List.of() : List.of(packId), List.of(source))); catalogBytes += bytes;
         }
         void finish() {
             entries.sort(Comparator.comparing(Entry::source).thenComparing(Entry::origin).thenComparing(entry -> entry.listing().listingId));
             var counts = new java.util.TreeMap<String, Integer>();
-            for (var entry : entries) counts.merge(entry.source(), 1, Integer::sum);
+            for (var entry : entries) {
+                for (String namespace : entry.namespaces()) counts.merge(namespace, 1, Integer::sum);
+                for (String pack : entry.packs()) if (!entry.namespaces().contains(pack)) counts.merge(pack, 1, Integer::sum);
+            }
             sources = counts.entrySet().stream().map(entry -> new Source(entry.getKey(),
                 sourceNames.getOrDefault(entry.getKey(), FabricLoader.getInstance().getModContainer(entry.getKey()).map(mod -> mod.getMetadata().getName()).orElse(entry.getKey())), entry.getValue())).toList();
             if (skipped > 0) warning = (warning.isBlank() ? "" : warning + " ") + skipped + " unsupported or invalid definitions skipped. Use Add held item for those.";
@@ -144,7 +161,7 @@ public final class DetectedContent {
         long tickStarted = System.nanoTime();
         for (int checked = 0; checked < 64 && scan.registryCursor < scan.registryItems.size(); checked++) {
             var id = scan.registryItems.get(scan.registryCursor++);
-            try { scan.add(id.getNamespace(), "Registered item: " + id, new ItemStack(BuiltInRegistries.ITEM.getValue(id))); }
+            try { scan.add(id.getNamespace(), "Registered item: " + id, new ItemStack(BuiltInRegistries.ITEM.getValue(id)), null); }
             catch (RuntimeException invalid) { scan.skipped++; }
             if (System.nanoTime() - tickStarted > 5_000_000L) return;
         }
@@ -187,9 +204,9 @@ public final class DetectedContent {
         String source = input.id().getNamespace();
         if (source.equals("minecraft")) {
             source = "datapack_" + ItemStackData.shortHash(input.pack());
-            scan.sourceNames.put(source, input.pack().replaceFirst("^file/", ""));
+            scan.sourceNames.put(source, "Pack: " + input.pack().replaceFirst("^file/", ""));
         }
-        for (var stack : candidates) scan.add(source, input.id() + " | " + input.pack(), stack);
+        for (var stack : candidates) scan.add(source, input.id() + " | " + input.pack(), stack, input.pack());
     }
 
     private static void extract(Scan scan, JsonObject entry, List<ItemStack> result, LootContext context, int[] budget, int depth) {
