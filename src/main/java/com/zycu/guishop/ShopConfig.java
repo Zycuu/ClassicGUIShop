@@ -137,7 +137,7 @@ public final class ShopConfig {
         if (stack == null || stack.isEmpty()) return null;
         for (Category category : categories) {
             for (ShopItem item : category.items) {
-                if (ItemStackData.same(item.createStack(access), stack)) return new FoundItem(category, item);
+                if (ShopMaps.matches(item.createStack(access), stack)) return new FoundItem(category, item);
             }
         }
         return null;

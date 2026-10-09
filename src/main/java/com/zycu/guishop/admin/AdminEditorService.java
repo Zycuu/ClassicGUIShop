@@ -204,7 +204,7 @@ public final class AdminEditorService {
                 }
                 if (item.stack != null && AdminDocument.JSON.toJson(item.stack).length() > 32000) fail("Exact item data is too large");
                 if (com.zycu.guishop.VersionedListingStore.isRuntimeAvailable(item, player.registryAccess())) {
-                    var stack = item.createStack(player.registryAccess());
+                    var stack = com.zycu.guishop.ShopMaps.economicIdentity(item.createStack(player.registryAccess()));
                     var bucket = identities.computeIfAbsent(net.minecraft.world.item.ItemStack.hashItemAndComponents(stack), ignored -> new java.util.ArrayList<>());
                     var group = bucket.stream().filter(value -> ItemStackData.same(value.stack, stack)).findFirst().orElse(null);
                     if (group == null) { group = new PriceGroup(stack); bucket.add(group); }
@@ -213,6 +213,11 @@ public final class AdminEditorService {
                     if (group.maximumSell > group.minimumBuy) fail("Identical item listings cannot sell for more than their cheapest enabled buy price: " + item.name);
                 }
             }
+        }
+        double emptyMapBuy = com.zycu.guishop.ShopMaps.cheapestEmptyMap(config, player.registryAccess());
+        for (var category : config.categories) for (var item : category.items) {
+            if (item.sell > emptyMapBuy + 0.000001 && com.zycu.guishop.VersionedListingStore.isRuntimeAvailable(item, player.registryAccess())
+                && item.createStack(player.registryAccess()).is(net.minecraft.tags.ItemTags.CLONABLE_MAPS)) fail("Clonable maps cannot sell for more than the cheapest enabled empty-map buy price: " + item.name);
         }
         if (config.enchantments == null || config.enchantments.size() > 1000) fail("Invalid enchantment offers");
         for (var entry : config.enchantments.entrySet()) {

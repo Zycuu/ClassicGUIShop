@@ -10,4 +10,6 @@ Detected content imports start at buy 0 and sell 0 with manual pricing enabled, 
 
 Configure enchanted-book offers explicitly under Settings / Enchantments. Buy cost is price per level times level times the multiplier, rounded to cents. Sell cost is that buy cost times the configured sell ratio. Zero maximum level means the natural maximum. Configured values from 1 to 255 allow higher shop levels, such as Looting V, with matching purchases and exact-book sales. Higher levels use the same price-per-level formula. Vanilla anvil rules are unchanged.
 
+Alpha 8 treats map offers differing only in generated map ID and destination as overlapping for cross-listing price validation. It also rejects clonable-map sell prices above the cheapest enabled empty-map buy price, because each additional vanilla map copy consumes one empty map. The live GUI and held/inventory sales enforce this guard even for manually edited files. It does not replace the broader recipe or mod economy audit. Map generation happens before payment; failed destination searches or missing saved map data do not charge money.
+
 Successful buys, sales, enchanted-book trades, and payments are logged on the server. Adminshop can search recent records and open their details.

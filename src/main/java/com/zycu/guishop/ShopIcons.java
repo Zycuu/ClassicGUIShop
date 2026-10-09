@@ -35,4 +35,20 @@ public final class ShopIcons {
         icon.remove(DataComponents.TOOLTIP_STYLE);
         return icon;
     }
+
+    /** A disposable display copy. Never use this stack as a purchase or sale template. */
+    public static ItemStack listing(ItemStack template, String name, String detail, double buy, double sell, ShopConfig config, boolean bulkBuy) {
+        var icon = display(template, name, "");
+        var lines = new java.util.ArrayList<Component>();
+        lines.add(Component.literal("Buy: " + priceLabel(buy, config)).withStyle(net.minecraft.ChatFormatting.GOLD));
+        lines.add(Component.literal("Sell: " + priceLabel(sell, config)).withStyle(net.minecraft.ChatFormatting.GREEN));
+        lines.add(Component.literal("Left-click: buy 1 | Right-click: sell 1").withStyle(net.minecraft.ChatFormatting.GRAY));
+        lines.add(Component.literal((bulkBuy ? "Shift-left: buy 64 | " : "") + "Shift-right: sell all matching").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+        if (detail != null && !detail.isBlank()) lines.add(Component.literal(detail).withStyle(net.minecraft.ChatFormatting.GRAY));
+        icon.set(DataComponents.LORE, new ItemLore(lines));
+        return icon;
+    }
+    private static String priceLabel(double value, ShopConfig config) {
+        return value > 0 && Double.isFinite(value) ? config.money(value) + " each" : "Disabled";
+    }
 }

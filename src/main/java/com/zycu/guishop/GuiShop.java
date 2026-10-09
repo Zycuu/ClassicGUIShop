@@ -15,12 +15,14 @@ public final class GuiShop implements ModInitializer {
     @Override
     public void onInitialize() {
         com.zycu.guishop.admin.AdminNetworking.register();
+        HybridShopGui.register();
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             initializedServer = null;
             initializeStores();
         });
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
-            com.zycu.guishop.admin.AdminNetworking.clear());
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            com.zycu.guishop.admin.AdminNetworking.clear(); ShopMaps.clear();
+        });
         // Client installation is an editor, not a second local copy of a remote server's economy.
     }
 

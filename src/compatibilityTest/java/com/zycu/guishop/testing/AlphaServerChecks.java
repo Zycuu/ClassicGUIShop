@@ -109,9 +109,9 @@ public final class AlphaServerChecks {
             check(server.getCommands().getDispatcher().execute("adminshop", player.createCommandSourceStack()) == 0, "Admin without client gets installation response");
             check(server.getCommands().getDispatcher().execute("adminshop", server.createCommandSourceStack()) == 0, "Console receives in-game-only guidance");
             com.zycu.guishop.HybridShopGui.openCategories(player, com.zycu.guishop.ShopGui.Mode.BUY);
-            var menuIcon = player.containerMenu.slots.stream().map(slot -> slot.getItem()).filter(stack -> "Alpha Test | Buy".equals(stack.getHoverName().getString())).findFirst().orElseThrow();
+            var menuIcon = player.containerMenu.slots.stream().map(slot -> slot.getItem()).filter(stack -> "Alpha Test".equals(stack.getHoverName().getString())).findFirst().orElseThrow();
             var iconTooltip = menuIcon.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(server.overworld()), player, net.minecraft.world.item.TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList();
-            check(iconTooltip.equals(List.of("Alpha Test | Buy", "Our category help")), "Actual shop category includes only shop tooltip, without prototype lore");
+            check(iconTooltip.equals(List.of("Alpha Test", "Our category help")), "Actual shop category includes only shop tooltip, without prototype lore");
             player.closeContainer();
             player.getInventory().clearContent();
             double beforeBalance = GuiShop.ECONOMY.balance(player.getUUID());
@@ -150,6 +150,7 @@ public final class AlphaServerChecks {
             check(!ShopService.trade(player, live, com.zycu.guishop.ShopGui.Mode.BUY, 1), "Old menu cannot transact after Apply");
 
             AdminEditorService.apply(player, zeroSaved.revision(), original.document());
+            CombinedShopChecks.run(player);
             check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
             server.getPlayerList().getOps().remove(player.nameAndId());
             try { AdminEditorService.apply(player, "", changed); throw new AssertionError("Revoked OP applied a draft"); }

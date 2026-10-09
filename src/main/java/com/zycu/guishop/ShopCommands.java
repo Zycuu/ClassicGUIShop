@@ -64,7 +64,6 @@ public final class ShopCommands {
     private static int openShop(CommandContext<CommandSourceStack> context, ShopGui.Mode mode) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         remember(player);
-        EnchantmentShopService.rememberMode(player, mode);
         HybridShopGui.openCategories(player, mode);
         return 1;
     }
@@ -72,7 +71,6 @@ public final class ShopCommands {
     private static int openEnchantments(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         remember(player);
-        EnchantmentShopService.rememberMode(player, ShopGui.Mode.BUY);
         HybridShopGui.openEnchantments(player, ShopGui.Mode.BUY, 1);
         return 1;
     }

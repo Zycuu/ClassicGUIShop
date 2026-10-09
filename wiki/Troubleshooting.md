@@ -18,7 +18,7 @@ Correct the reported invalid price, item identity, or category structure. For st
 
 ## A configured listing is missing
 
-Check its enabled Buy/Sell price, category permission, and runtime item/component availability. Unavailable listings remain in `versioned-listings.json`. Arrange mode shows disabled listings; the ordinary preview filters by Buy/Sell mode.
+Check its enabled Buy/Sell price, category permission, and runtime item/component availability. Unavailable listings remain in `versioned-listings.json`. Arrange mode shows disabled listings; the ordinary preview includes listings with either side enabled.
 
 ## Selling or worth checks do not match an item
 

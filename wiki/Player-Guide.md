@@ -8,37 +8,40 @@ This guide covers normal player use.
 /shop
 ```
 
-Opens the shop in Buy mode.
+Opens the unified shop. Listing tooltips show both Buy and Sell prices.
 
 ```text
 /shop buy
 ```
 
-Opens Buy mode directly.
+Compatibility alias for the same unified shop.
 
 ```text
 /shop sell
 ```
 
-Opens Sell mode directly.
+Compatibility alias for the same unified shop.
 
 ```text
 /shop enchant
 ```
 
-Opens the enchanted book shop in Buy mode.
+Opens the enchanted book selector. Choose an enchantment, then buy or sell its exact level.
 
 ## Shop controls
 
 Inside normal shop item pages:
 
 ```text
-Left click     Buy or sell 1
-Right click    Buy or sell 16
-Shift click    Buy 64 or sell all matching items
+Left click          Buy 1
+Right click         Sell 1
+Shift + left click  Buy 64 ordinary items, or 1 enchanted book
+Shift + right click Sell all matching items
 ```
 
-In Sell mode, items must match the listing exactly. A renamed, enchanted, trimmed, potion, or custom-component item may not match a normal base item listing.
+Items must match the listing's original components. A renamed, enchanted, trimmed, potion, or custom-component item may not match a normal base item listing. Generic map listings accept their generated map identity and destination without discarding other components. Shop prices and help text appear only in the shop, while delivered items retain their original lore and native tooltip behavior. A side with price zero is disabled.
+
+Vanilla explorer maps receive a destination and saved data before purchase. If none can be found nearby in the current dimension, the purchase is refused without payment. Ordinary empty maps retain normal right-click behavior. Broken placeholder maps purchased before Alpha 8 need replacement; they are not retroactively repaired.
 
 ## Balance
 
@@ -127,7 +130,7 @@ Players can sell enchanted books through:
 /shop sell
 ```
 
-Then open **Enchanted Books** and select the matching enchantment level.
+Then open **Enchanted Books**, select the matching enchantment level, and right-click it. Buying and selling use the same screen.
 
 `/sellhand`, `/sellhand <amount>`, and `/sellhand all` also recognize exact single-enchantment books that match enabled enchantment offers.
 

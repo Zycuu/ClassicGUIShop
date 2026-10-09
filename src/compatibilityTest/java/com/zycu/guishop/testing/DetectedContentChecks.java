@@ -82,6 +82,7 @@ public final class DetectedContentChecks {
         if (!resources.isEmpty()) check(matched == 189, "All 189 supplied pack definitions match actual items");
         if (!resources.isEmpty()) check(DetectedContent.list(player, new DetectedContent.Query("moldomre", "crab claw", 0, false, false)).entries().stream().anyMatch(entry -> entry.origin().contains("crab_claw")), "Search handles human words in pack definition names");
 
+        CatalogIntegrityChecks.run(player, detected);
         var draft = original.document().copy(); draft.config.categories.clear();
         var first = new ShopConfig.Category(); first.id = "duplicate_first"; first.name = "First"; first.icon = "minecraft:diamond";
         var second = new ShopConfig.Category(); second.id = "duplicate_second"; second.name = "Second"; second.icon = "minecraft:diamond";
@@ -139,7 +140,7 @@ public final class DetectedContentChecks {
         check(EnchantmentShopService.maximumLevel(holder.value(), GuiShop.CONFIG.enchantmentOffer("minecraft:looting")) == 5, "Configured maximum above vanilla is honored");
         check(EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.BUY).size() == 5, "Buy offers include Looting IV and V");
         check(EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.SELL).size() == 5, "Sell offers include Looting IV and V");
-        EnchantmentShopService.rememberMode(player, ShopGui.Mode.BUY); player.getInventory().clearContent();
+        player.getInventory().clearContent();
         double enchantBalance = GuiShop.ECONOMY.balance(player.getUUID());
         double fifthPrice = EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.BUY).getLast().cost();
         check(EnchantmentShopService.purchase(player, "minecraft:looting", 5), "Looting V purchase succeeds");

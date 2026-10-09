@@ -41,7 +41,7 @@ public final class AdminScreen extends WorkbenchScreen {
     private Tab tab = Tab.BUILDER;
     private String categoryId = "", query = "", selectedItem, settingsSection = "Economy";
     private int browserPage, previewPage, accessPage, logPage, logOffset;
-    private boolean arranging, sellMode, busy;
+    private boolean arranging, busy;
     private boolean enchantPreview;
     private String enchantId;
     private TransactionJournal.Page logData = new TransactionJournal.Page(List.of(), 0, false, "");
@@ -220,7 +220,7 @@ public final class AdminScreen extends WorkbenchScreen {
         button("Home", 166, 76, 62, this::home);
         button(arranging ? "Exit arrange mode" : "Arrange mode", 234, 76, 157, () -> {
             cancelDrag(); arranging = !arranging; query = ""; previewPage = 0; selectedItem = null;
-            status = arranging ? "Arrange mode: drag listings or categories. Disabled listings are shown too." : "Shop preview. Use the shop's gold or emerald button to switch Buy/Sell.";
+            status = arranging ? "Arrange mode: drag listings or categories. Disabled listings are shown too." : "Shop preview. Left-click buys; right-click sells in the live shop.";
             rebuildWidgets();
         });
         button("Up", 397, 76, 55, this::up);
@@ -239,11 +239,6 @@ public final class AdminScreen extends WorkbenchScreen {
         if (enchantPreview) { if (enchantId != null) enchantId = null; else enchantPreview = false; }
         else categoryId = "";
         selectedItem = null; previewPage = 0; rebuildWidgets();
-    }
-    private void switchMode() {
-        sellMode = !sellMode; previewPage = 0;
-        if (!arranging && !enchantPreview) { selectedItem = null; }
-        rebuildWidgets();
     }
     private void inspector() {
         var item = selected(); var category = category();
@@ -529,6 +524,17 @@ public final class AdminScreen extends WorkbenchScreen {
         text(graphics, dirty() ? "Unapplied changes" : "Matches server snapshot", 193, 358, dirty() ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
     }
     @Override protected void afterWidgets(GuiGraphicsExtractor graphics, int x, int y, float delta) {
+        for (Hit hit : hits) if (hit.item != null && hit.contains(x, y) && hit.kind.equals("tile:item")) {
+            var item = hit.item;
+            var icon = com.zycu.guishop.ShopIcons.listing(item.createStack(minecraft.level.registryAccess()), item.name, item.description,
+                item.buy * draft.config.priceMultiplier, item.sell * draft.config.priceMultiplier, draft.config, true);
+            graphics.setTooltipForNextFrame(font, icon, (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
+        }
+        for (Hit hit : hits) if (hit.contains(x, y) && (hit.kind.equals("tile:level") || hit.kind.equals("tile:offer"))) {
+            var tile = tiles().stream().filter(value -> value.id.equals(hit.id)).findFirst().orElse(null);
+            if (tile != null && tile.preview != null) graphics.setTooltipForNextFrame(font, tile.preview,
+                (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
+        }
         for (var widget : children()) if (widget instanceof WorkbenchTab rail && (rail.isHovered() || rail.isFocused())) {
             graphics.setTooltipForNextFrame(font, rail.getMessage(), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
@@ -582,11 +588,11 @@ public final class AdminScreen extends WorkbenchScreen {
             text(graphics, "Tooltip description", 474, 302, WorkbenchTheme.MUTED);
         } else {
             multiline(graphics, "Create or select a category to edit it. Drag categories to reorder them.", 477, 112, 151, WorkbenchTheme.MUTED);
-            multiline(graphics, "Arrange mode lets you drag categories and listings. Buy/Sell is switched inside the shop preview.", 477, 207, 151, WorkbenchTheme.MUTED);
+            multiline(graphics, "Arrange mode lets you drag categories and listings. Left-click buys; right-click sells in the live shop.", 477, 207, 151, WorkbenchTheme.MUTED);
         }
     }
     private boolean visible(ShopConfig.ShopItem item) {
-        return (sellMode ? item.sell : item.buy) > 0 && (minecraft.level == null || VersionedListingStore.isRuntimeAvailable(item, minecraft.level.registryAccess()));
+        return (item.sell > 0 || item.buy > 0) && (minecraft.level == null || VersionedListingStore.isRuntimeAvailable(item, minecraft.level.registryAccess()));
     }
     private List<Tile> tiles() {
         var category = category(); List<Tile> tiles = new ArrayList<>();
@@ -616,12 +622,19 @@ public final class AdminScreen extends WorkbenchScreen {
                 int max = EnchantmentShopService.maximumLevel(holder.value(), offer);
                 double first = enchantPrice(offer, 1), last = enchantPrice(offer, max);
                 if (enchantId == null && max > 0 && last > 0) {
+                    var icon = com.zycu.guishop.ShopIcons.display(EnchantmentShopService.createBook(holder, 1), offer.name, "");
+                    icon.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(
+                        Component.literal("Buy: " + draft.config.money(first) + " - " + draft.config.money(last)),
+                        Component.literal("Sell: " + draft.config.money(Math.round(first * draft.config.catalogSellRatio * 100) / 100.0) + " - " + draft.config.money(Math.round(last * draft.config.catalogSellRatio * 100) / 100.0)),
+                        Component.literal("Click to choose a level"))));
                     tiles.add(new Tile("offer", entry.getKey(), offer.name, "minecraft:enchanted_book", null,
-                        EnchantmentShopService.createBook(holder, 1), "Levels 1-" + max + " | " + draft.config.money(first) + " - " + draft.config.money(last)));
+                        icon, "Levels 1-" + max + " | " + draft.config.money(first) + " - " + draft.config.money(last)));
                 } else for (int level = 1; level <= max; level++) {
                     double price = enchantPrice(offer, level); if (price <= 0) continue;
                     tiles.add(new Tile("level", entry.getKey() + ":" + level, offer.name + " " + EnchantmentShopService.roman(level), "minecraft:enchanted_book", null,
-                        EnchantmentShopService.createBook(holder, level), (sellMode ? "Sell " : "Buy ") + draft.config.money(price) + " | Preview only"));
+                        com.zycu.guishop.ShopIcons.listing(EnchantmentShopService.createBook(holder, level), offer.name + " " + EnchantmentShopService.roman(level), "", price,
+                            Math.round(price * draft.config.catalogSellRatio * 100) / 100.0, draft.config, false),
+                        "Buy " + draft.config.money(price) + " | Sell " + draft.config.money(Math.round(price * draft.config.catalogSellRatio * 100) / 100.0)));
                 }
             } catch (RuntimeException unavailable) { /* Keep unavailable offers in configuration, outside the preview. */ }
         }
@@ -630,7 +643,7 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private double enchantPrice(ShopConfig.EnchantmentOffer offer, int level) {
         double buy = Math.round(offer.pricePerLevel * level * draft.config.priceMultiplier * 100.0) / 100.0;
-        return sellMode ? Math.round(buy * draft.config.catalogSellRatio * 100.0) / 100.0 : buy;
+        return buy;
     }
     private void paintPreview(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         List<Tile> tiles = tiles(); boolean root = category() == null && !enchantPreview;
@@ -642,7 +655,6 @@ public final class AdminScreen extends WorkbenchScreen {
         panel(graphics, left - 8, top - 17, 178, rows * 18 + 40, WorkbenchTheme.PREVIEW);
         var previewOffer = draft.config.enchantments.get(enchantId);
         String title = enchantPreview ? previewOffer == null ? "Enchanted Books" : previewOffer.name + " Levels" : root ? draft.config.shopTitle : category().name;
-        title += sellMode ? " - Sell" : " - Buy";
         text(graphics, font.plainSubstrByWidth(title, 156), left, top - 11, WorkbenchTheme.TEXT);
         List<Integer> slots = root ? CategoryLayout.slots(shown) : java.util.stream.IntStream.range(0, shown).boxed().toList();
         for (int slot = 0; slot < rows * 9; slot++) {
@@ -673,14 +685,12 @@ public final class AdminScreen extends WorkbenchScreen {
         }
         int footer = top + (rows - 1) * 18;
         footer(graphics, left + 4 * 18, footer, Items.PAPER, "info");
-        footer(graphics, left + 8 * 18, footer, sellMode ? Items.EMERALD : Items.GOLD_INGOT, "mode");
         if (!root) footer(graphics, left, footer, Items.BARRIER, "back");
         if (previewPage > 0) footer(graphics, left + (root ? 0 : 3 * 18), footer, Items.ARROW, "previous");
         if (previewPage + 1 < pages) footer(graphics, left + (root ? 7 : 5) * 18, footer, Items.ARROW, "next");
         if (shown == 0) text(graphics, arranging ? "No listings yet" : "No enabled listings", 248, 194, WorkbenchTheme.TEXT);
         for (Hit hit : hits) if (hit.kind.startsWith("preview:") && hit.contains(mouseX, mouseY)) {
             String hint = switch (hit.kind) {
-                case "preview:mode" -> "Switch to " + (sellMode ? "Buy" : "Sell");
                 case "preview:back" -> "Back";
                 case "preview:previous" -> "Previous page";
                 case "preview:next" -> "Next page";
@@ -770,6 +780,12 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     @Override protected boolean click(double x, double y, int button) {
         if (busy) return true;
+        if (button == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT) {
+            for (Hit hit : hits) if (hit.contains(x, y) && (hit.kind.equals("tile:item") || hit.kind.equals("tile:level"))) {
+                status = "Simulator only: right-click sells 1 in the live shop. No items or money change here."; return true;
+            }
+            return false;
+        }
         if (button != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) return false;
         for (Hit hit : hits) if (hit.contains(x, y)) {
             if (hit.kind.equals("detected:source")) {
@@ -783,7 +799,6 @@ public final class AdminScreen extends WorkbenchScreen {
             if (hit.kind.startsWith("preview:")) {
                 switch (hit.kind) {
                     case "preview:back" -> up();
-                    case "preview:mode" -> switchMode();
                     case "preview:previous" -> previewPage = Math.max(0, previewPage - 1);
                     case "preview:next" -> previewPage++;
                     default -> status = "Simulator only. No items or money change here.";

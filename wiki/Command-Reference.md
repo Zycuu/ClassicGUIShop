@@ -18,25 +18,25 @@ The only administrator command is `/adminshop`, which launches the client UI. Le
 /shop
 ```
 
-Opens the shop in Buy mode.
+Opens the unified shop. Left-click buys and right-click sells; listing lore shows both prices.
 
 ```text
 /shop buy
 ```
 
-Opens Buy mode.
+Compatibility alias for the same unified shop.
 
 ```text
 /shop sell
 ```
 
-Opens Sell mode. The Enchanted Books path also sells matching enchanted books when opened from Sell mode.
+Compatibility alias for the same unified shop, including enchanted-book trades.
 
 ```text
 /shop enchant
 ```
 
-Opens the enchanted book shop in Buy mode.
+Opens the enchanted book selector. Buy or sell on the matching level's screen.
 
 ```text
 /shop balance

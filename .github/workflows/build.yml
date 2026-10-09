@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 env:
-  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.7
+  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.8
 
 jobs:
   build:
@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           jar tf "build/libs/$ARTIFACT_BASE.jar" > jar-contents.txt
-          if grep -E 'AlphaUiTest|PlayerShopUiTest|AlphaServerChecks|DetectedContentChecks|InventoryOverflowTest|guishop_alpha_test' jar-contents.txt; then
+          if grep -E 'AlphaUiTest|PlayerShopUiTest|AlphaServerChecks|DetectedContentChecks|CombinedShopChecks|CatalogIntegrityChecks|InventoryOverflowTest|guishop_alpha_test' jar-contents.txt; then
             echo "Test harness entered release JAR" >&2
             exit 1
           fi

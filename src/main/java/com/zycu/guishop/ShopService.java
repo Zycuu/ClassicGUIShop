@@ -65,6 +65,13 @@ public final class ShopService {
             int quantity = Math.max(1, requestedQuantity);
             double total = round(unitPrice * quantity);
             if (!validTotal(player, total)) return false;
+            if (GuiShop.ECONOMY.balance(player.getUUID()) < total) {
+                ShopMessages.error(player, "You cannot afford " + quantity + "x " + entry.name + " for " + GuiShop.CONFIG.money(total) + ".");
+                return false;
+            }
+            // Build playable world-dependent maps from the original template, never from menu lore.
+            try { template = ShopMaps.prepare(player, template); }
+            catch (IllegalArgumentException unavailable) { ShopMessages.warning(player, unavailable.getMessage()); return false; }
             if (!GuiShop.ECONOMY.withdraw(player.getUUID(), total)) {
                 ShopMessages.error(player, "You cannot afford " + quantity + "x " + entry.name
                     + " for " + GuiShop.CONFIG.money(total) + ".");
@@ -78,6 +85,7 @@ public final class ShopService {
             return true;
         }
 
+        if (!safeMapSale(player, template, entry)) return false;
         int available = count(player, template);
         if (available <= 0) {
             ShopMessages.warning(player, "You do not have any matching " + entry.name + " to sell.");
@@ -121,6 +129,7 @@ public final class ShopService {
         }
 
         ItemStack template = found.item().createStack(player.registryAccess());
+        if (!safeMapSale(player, template, found.item())) return false;
         int available = allInventory ? count(player, template) : held.getCount();
         int quantity = requestedQuantity == SELL_ALL ? available : Math.min(Math.max(1, requestedQuantity), available);
         if (quantity <= 0) return false;
@@ -141,6 +150,15 @@ public final class ShopService {
         ShopMessages.success(player, "Sold " + quantity + "x " + found.item().name
             + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
             + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
+        return true;
+    }
+
+    private static boolean safeMapSale(ServerPlayer player, ItemStack template, ShopConfig.ShopItem entry) {
+        if (template.is(net.minecraft.tags.ItemTags.CLONABLE_MAPS)
+            && entry.sell > ShopMaps.cheapestEmptyMap(GuiShop.CONFIG, player.registryAccess()) + 0.000001) {
+            ShopMessages.warning(player, "This map's sell price would allow a map-cloning profit loop. Ask an administrator to adjust the map prices. No items were sold.");
+            return false;
+        }
         return true;
     }
 
@@ -197,7 +215,7 @@ public final class ShopService {
             for (var item : category.items) {
                 if (!(item.sell > 0) || !Double.isFinite(item.sell)
                     || !VersionedListingStore.isRuntimeAvailable(item, player.registryAccess())) continue;
-                if (ItemStackData.same(item.createStack(player.registryAccess()), held)
+                if (ShopMaps.matches(item.createStack(player.registryAccess()), held)
                     && (best == null || item.sell > best.item().sell)) best = new ShopConfig.FoundItem(category, item);
             }
         }
@@ -209,7 +227,7 @@ public final class ShopService {
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (ItemStackData.same(stack, template)) count += stack.getCount();
+            if (ShopMaps.matches(template, stack)) count += stack.getCount();
         }
         return count;
     }
@@ -225,7 +243,7 @@ public final class ShopService {
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < inventory.getContainerSize() && remaining > 0; slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (!ItemStackData.same(stack, template)) continue;
+            if (!ShopMaps.matches(template, stack)) continue;
             int removed = Math.min(stack.getCount(), remaining);
             stack.shrink(removed);
             remaining -= removed;
