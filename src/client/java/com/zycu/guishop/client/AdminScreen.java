@@ -67,6 +67,8 @@ public final class AdminScreen extends WorkbenchScreen {
     public AdminScreen(AdminDocument document, String revision) {
         super("ClassicGUIShop Adminshop"); load(document, revision, false);
     }
+    @Override protected int contentOffsetX() { return 48; }
+    @Override protected int canvasWidth() { return W + 48; }
     public void load(AdminDocument document, String revision, boolean saved) {
         draft = document.copy(); baseline = AdminDocument.JSON.toJson(draft); this.revision = revision;
         cancelDrag(); importSource = null; detectionRetry = 0; busy = false; errors.clear(); invalidInputs.clear();
@@ -178,10 +180,9 @@ public final class AdminScreen extends WorkbenchScreen {
         fields.clear(); hits.clear();
         String[] names = {"Shop Builder", "Settings", "Access", "Detected Content", "Transactions", "Changes"};
         net.minecraft.world.item.Item[] icons = {Items.CRAFTING_TABLE, Items.COMPARATOR, Items.IRON_DOOR, Items.SPYGLASS, Items.GOLD_INGOT, Items.WRITABLE_BOOK};
-        int[] xs = {16, 133, 225, 305, 439, 557}, ws = {111, 86, 74, 128, 112, 87};
         for (int index = 0; index < names.length; index++) {
             Tab target = Tab.values()[index];
-            var button = addRenderableWidget(new WorkbenchTab(names[index], xs[index], ws[index], icons[index], target == tab, () -> {
+            var button = addRenderableWidget(new WorkbenchTab(names[index], index, icons[index], target == tab, () -> {
                 if (busy) return;
                 cancelDrag(); importSource = null; detectionRetry = 0; tab = target; query = ""; selectedPlayer = null; logPage = 0; logOffset = 0;
                 logData = new TransactionJournal.Page(List.of(), 0, false, ""); playerData = new AdminPlayers.Page(List.of(), 0, false); errors.entrySet().removeIf(entry -> entry.getKey().startsWith("view:"));
@@ -396,38 +397,38 @@ public final class AdminScreen extends WorkbenchScreen {
         }).active = importSource != null || detectedData.ready();
     }
     private void paintDetected(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        panel(graphics, 16, 69, 148, 270, 0xFFB7B9AB); panel(graphics, 172, 69, 472, 270, 0xFFC6C8BB);
-        text(graphics, "CONTENT SOURCES", 24, 82, 0xFF234747);
-        text(graphics, "New imports: Buy 0 / Sell 0", 184, 82, 0xFF234747);
-        text(graphics, "Select a Pack: row, then Import pack for one category.", 184, 96, 0xFF3B4940);
+        panel(graphics, 16, 69, 148, 270, WorkbenchTheme.PANEL); panel(graphics, 172, 69, 472, 270, WorkbenchTheme.PANEL);
+        text(graphics, "CONTENT SOURCES", 24, 82, WorkbenchTheme.MUTED);
+        text(graphics, "New imports: Buy 0 / Sell 0", 184, 82, WorkbenchTheme.MUTED);
+        text(graphics, "Select a Pack: row, then Import pack for one category.", 184, 96, WorkbenchTheme.MUTED);
         var sources = new ArrayList<>(detectedData.sources());
         sourcePage = Math.min(sourcePage, Math.max(0, (sources.size() - 1) / 9));
-        graphics.fill(22, 109, 158, 127, detectedSource.isBlank() ? 0xFF78978B : 0xFFA6AC9D);
-        text(graphics, "All sources", 28, 114, 0xFF202F2D); hits.add(new Hit(22, 109, 136, 18, "detected:source", "", "", null));
+        graphics.fill(22, 109, 158, 127, detectedSource.isBlank() ? WorkbenchTheme.SELECTED : WorkbenchTheme.ROW);
+        text(graphics, "All sources", 28, 114, WorkbenchTheme.TEXT); hits.add(new Hit(22, 109, 136, 18, "detected:source", "", "", null));
         for (int row = 0; row < 9 && sourcePage * 9 + row < sources.size(); row++) {
             var source = sources.get(sourcePage * 9 + row); int y = 133 + row * 19;
-            graphics.fill(22, y, 158, y + 18, source.id().equals(detectedSource) ? 0xFF78978B : 0xFFA6AC9D);
-            text(graphics, font.plainSubstrByWidth(source.name() + " (" + source.count() + ")", 126), 28, y + 5, 0xFF202F2D);
+            graphics.fill(22, y, 158, y + 18, source.id().equals(detectedSource) ? WorkbenchTheme.SELECTED : WorkbenchTheme.ROW);
+            text(graphics, font.plainSubstrByWidth(source.name() + " (" + source.count() + ")", 126), 28, y + 5, WorkbenchTheme.TEXT);
             hits.add(new Hit(22, y, 136, 18, "detected:source", source.id(), "", null));
         }
-        text(graphics, Integer.toString(sourcePage + 1), 85, 322, 0xFF33443B);
-        text(graphics, "Page " + (detectedOffset / DetectedContent.PAGE_SIZE + 1) + " | Unsupported definitions: " + detectedData.skipped(), 184, 283, 0xFF303E36);
-        text(graphics, detectedData.ready() ? font.plainSubstrByWidth(sourceName(detectedData, detectedSource) + " | Whole imports include every page.", 440) : "Missing a variant? Use Add held item in Shop Builder.", 184, 296, 0xFF303E36);
+        text(graphics, Integer.toString(sourcePage + 1), 85, 322, WorkbenchTheme.MUTED);
+        text(graphics, "Page " + (detectedOffset / DetectedContent.PAGE_SIZE + 1) + " | Unsupported definitions: " + detectedData.skipped(), 184, 283, WorkbenchTheme.TEXT);
+        text(graphics, detectedData.ready() ? font.plainSubstrByWidth(sourceName(detectedData, detectedSource) + " | Whole imports include every page.", 440) : "Missing a variant? Use Add held item in Shop Builder.", 184, 296, WorkbenchTheme.TEXT);
         for (int index = 0; index < detectedData.entries().size(); index++) {
             var entry = detectedData.entries().get(index); int x = 184 + index % 4 * 112, y = 141 + index / 4 * 23;
             ItemStack item = entry.listing().createStack(minecraft.level.registryAccess());
             boolean selected = entry.equals(detectedSelection);
-            graphics.fill(x, y, x + 108, y + 22, selected ? 0xFF78978B : 0xFFB8BFAE);
+            graphics.fill(x, y, x + 108, y + 22, selected ? WorkbenchTheme.SELECTED : WorkbenchTheme.ROW);
             graphics.item(item, x + 2, y + 3);
-            text(graphics, font.plainSubstrByWidth(item.getHoverName().getString(), 86), x + 21, y + 7, 0xFF202F2D);
+            text(graphics, font.plainSubstrByWidth(item.getHoverName().getString(), 86), x + 21, y + 7, WorkbenchTheme.TEXT);
             hits.add(new Hit(x, y, 108, 22, "detected:item", Integer.toString(index), "", null));
             if (x <= mouseX && mouseX < x + 108 && y <= mouseY && mouseY < y + 22) {
-                graphics.fill(182, 281, 634, 310, 0xFFC6C8BB);
-                text(graphics, font.plainSubstrByWidth(item.getHoverName().getString() + " | " + entry.listing().item, 440), 184, 283, 0xFF303E36);
-                text(graphics, font.plainSubstrByWidth(entry.origin(), 440), 184, 296, 0xFF303E36);
+                graphics.fill(182, 281, 634, 310, WorkbenchTheme.PANEL);
+                text(graphics, font.plainSubstrByWidth(item.getHoverName().getString() + " | " + entry.listing().item, 440), 184, 283, WorkbenchTheme.TEXT);
+                text(graphics, font.plainSubstrByWidth(entry.origin(), 440), 184, 296, WorkbenchTheme.TEXT);
             }
         }
-        if (detectedData.entries().isEmpty()) text(graphics, detectedData.ready() ? "No matching detected items. Held-item import is also available." : "Inspecting server content...", 184, 169, 0xFF3B4940);
+        if (detectedData.entries().isEmpty()) text(graphics, detectedData.ready() ? "No matching detected items. Held-item import is also available." : "Inspecting server content...", 184, 169, WorkbenchTheme.MUTED);
     }
     private void history() {
         boolean roster = tab == Tab.TRANSACTIONS && selectedPlayer == null;
@@ -461,7 +462,7 @@ public final class AdminScreen extends WorkbenchScreen {
         else logRetryTicks = 6;
     }
     private EditBox field(String label, int x, int y, int width, String value, Consumer<String> changed) {
-        var field = new EditBox(font, x, y, width, 20, Component.literal(label));
+        var field = new WorkbenchField(font, x, y, width, Component.literal(label));
         field.setMaxLength(200); field.setValue(value == null ? "" : value);
         field.setResponder(changed); fields.add(field); addRenderableWidget(field); return field;
     }
@@ -509,21 +510,30 @@ public final class AdminScreen extends WorkbenchScreen {
     }
 
     @Override protected void paint(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        hits.clear(); panel(graphics, 0, 0, W, H, 0xFFD0CEC3);
-        graphics.fill(2, 2, W - 2, 37, 0xFF293D40);
-        text(graphics, "CLASSIC GUI SHOP", 16, 12, 0xFFF0EBCE);
-        text(graphics, "Admin Workbench", 194, 12, 0xFF81CDBD);
-        text(graphics, "1.4.0 ALPHA", 556, 12, 0xFFC5CCBD);
-        graphics.fill(2, 35, W - 2, 38, 0xFF81B7A5);
+        hits.clear(); panel(graphics, -48, 0, W + 48, H, WorkbenchTheme.SURFACE);
+        graphics.text(font, Component.literal("ClassicGUIShop").withStyle(style -> style.withBold(true)), -28, 12, WorkbenchTheme.TEXT, false);
+        text(graphics, "Admin Workbench", -28, 25, WorkbenchTheme.MUTED);
+        text(graphics, "1.4.0 ALPHA", 556, 17, WorkbenchTheme.MUTED);
+        graphics.fill(-32, 41, W - 16, 42, 0x553C515A);
+        panel(graphics, -36, 69, 34, 270, 0xAA142027);
+        String heading = switch (tab) { case BUILDER -> "Shop Builder"; case SETTINGS -> "Settings"; case ACCESS -> "Access"; case DETECTED -> "Detected Content"; case TRANSACTIONS -> "Transactions"; case HISTORY -> "Changes"; };
+        text(graphics, heading, 20, 52, WorkbenchTheme.MUTED);
         if (tab == Tab.BUILDER) paintBuilder(graphics, mouseX, mouseY);
         else if (tab == Tab.SETTINGS) paintSettings(graphics);
         else if (tab == Tab.ACCESS) paintAccess(graphics);
         else if (tab == Tab.DETECTED) paintDetected(graphics, mouseX, mouseY);
         else paintHistory(graphics, mouseX, mouseY);
-        text(graphics, font.plainSubstrByWidth(status, 620), 20, 339, busy ? 0xFF75591B : 0xFF344442);
-        text(graphics, dirty() ? "Unapplied changes" : "Matches server snapshot", 183, 358, dirty() ? 0xFF75591B : 0xFF365D51);
+        graphics.fill(-32, 343, W - 16, 344, 0x553C515A);
+        text(graphics, font.plainSubstrByWidth(status, 620), 20, 375, busy ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
+        WorkbenchTheme.rounded(graphics, 183, 360, 3, 3, 1, dirty() ? WorkbenchTheme.GOLD : WorkbenchTheme.TEAL);
+        text(graphics, dirty() ? "Unapplied changes" : "Matches server snapshot", 193, 358, dirty() ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
     }
     @Override protected void afterWidgets(GuiGraphicsExtractor graphics, int x, int y, float delta) {
+        for (var widget : children()) if (widget instanceof WorkbenchTab rail && (rail.isHovered() || rail.isFocused())) {
+            graphics.setTooltipForNextFrame(font, rail.getMessage(), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
+        }
+        if (y >= 373 && y < H && x >= 20 && x < W - 20) graphics.setTooltipForNextFrame(font,
+            Component.literal(status), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         if (arranging && dragged && dragging != null) {
             var category = draft.config.category(dragging.id);
             ItemStack ghost = dragging.item != null && minecraft.level != null ? dragging.item.createStack(minecraft.level.registryAccess())
@@ -535,13 +545,12 @@ public final class AdminScreen extends WorkbenchScreen {
         }
         if (busy) {
             graphics.fill(10, 68, W - 10, 337, 0xC0293D40);
-            text(graphics, "Applying changes on the server...", 210, 190, 0xFFF0EBCE);
+            text(graphics, "Applying changes on the server...", 210, 190, WorkbenchTheme.TEXT);
         }
     }
     private void paintBuilder(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        panel(graphics, 16, 69, 136, 270, 0xFFB7B9AB);
-        panel(graphics, 160, 69, 298, 270, 0xFFC6C8BB);
-        panel(graphics, 466, 69, 178, 270, 0xFFB7B9AB);
+        panel(graphics, 16, 69, 136, 270, WorkbenchTheme.PANEL);
+        panel(graphics, 466, 69, 178, 270, WorkbenchTheme.PANEL);
         List<Hit> browser = new ArrayList<>();
         for (var category : draft.config.categories) {
             browser.add(new Hit(0, 0, 0, 0, "category", category.id, category.id, null));
@@ -552,24 +561,28 @@ public final class AdminScreen extends WorkbenchScreen {
             var category = draft.config.category(entry.category);
             String label = category.name;
             boolean selected = entry.category.equals(categoryId);
-            graphics.fill(21, y, 147, y + 18, selected ? 0xFF78978B : 0xFFA6AC9D);
-            graphics.item(com.zycu.guishop.ShopIcons.category(category, minecraft.level.registryAccess(), label), 24, y + 1); text(graphics, font.plainSubstrByWidth(label, 101), 43, y + 5, 0xFF202F2D);
+            WorkbenchTheme.rounded(graphics, 21, y, 126, 18, 4, selected ? WorkbenchTheme.SELECTED : WorkbenchTheme.ROW);
+            if (selected) WorkbenchTheme.rounded(graphics, 21, y + 3, 2, 12, 1, WorkbenchTheme.TEAL);
+            graphics.item(com.zycu.guishop.ShopIcons.category(category, minecraft.level.registryAccess(), label), 24, y + 1); text(graphics, font.plainSubstrByWidth(label, 101), 43, y + 5, WorkbenchTheme.TEXT);
             hits.add(new Hit(21, y, 126, 18, entry.kind, entry.id, entry.category, null));
         }
-        text(graphics, Integer.toString(browserPage + 1), 77, 322, 0xFF33443B);
+        text(graphics, Integer.toString(browserPage + 1), 77, 322, WorkbenchTheme.MUTED);
+        text(graphics, "Categories", 24, 114, WorkbenchTheme.MUTED);
+        String count = Integer.toString(draft.config.categories.size());
+        text(graphics, count, 143 - font.width(count), 114, WorkbenchTheme.MUTED);
         paintPreview(graphics, mouseX, mouseY);
         var selected = selected(); var category = category();
-        text(graphics, selected != null ? "LISTING" : "CATEGORY", 474, 80, 0xFF234747);
+        text(graphics, selected != null ? "LISTING" : "CATEGORY", 474, 80, WorkbenchTheme.MUTED);
         if (selected != null) {
             labels(graphics, new String[]{"Display name", "Buy / item", "Sell / item"}, 474, new int[]{96, 136, 176});
-            text(graphics, "Tooltip description", 474, 302, 0xFF455449);
+            text(graphics, "Tooltip description", 474, 302, WorkbenchTheme.MUTED);
         } else if (category != null) {
-            text(graphics, "Display name", 474, 96, 0xFF3B4940);
+            text(graphics, "Display name", 474, 96, WorkbenchTheme.MUTED);
             graphics.item(com.zycu.guishop.ShopIcons.category(category, minecraft.level.registryAccess(), category.name), 545, 164);
-            text(graphics, "Tooltip description", 474, 302, 0xFF455449);
+            text(graphics, "Tooltip description", 474, 302, WorkbenchTheme.MUTED);
         } else {
-            multiline(graphics, "Create or select a category to edit it. Drag categories to reorder them.", 477, 112, 151, 0xFF3B4940);
-            multiline(graphics, "Arrange mode lets you drag categories and listings. Buy/Sell is switched inside the shop preview.", 477, 207, 151, 0xFF3B4940);
+            multiline(graphics, "Create or select a category to edit it. Drag categories to reorder them.", 477, 112, 151, WorkbenchTheme.MUTED);
+            multiline(graphics, "Arrange mode lets you drag categories and listings. Buy/Sell is switched inside the shop preview.", 477, 207, 151, WorkbenchTheme.MUTED);
         }
     }
     private boolean visible(ShopConfig.ShopItem item) {
@@ -626,11 +639,11 @@ public final class AdminScreen extends WorkbenchScreen {
         int start = previewPage * perPage, shown = Math.min(perPage, tiles.size() - start);
         int rows = root ? CategoryLayout.rows(shown) : 6;
         int left = 222, top = 160;
-        panel(graphics, left - 8, top - 17, 178, rows * 18 + 40, 0xFFC6C6C6);
+        panel(graphics, left - 8, top - 17, 178, rows * 18 + 40, WorkbenchTheme.PREVIEW);
         var previewOffer = draft.config.enchantments.get(enchantId);
         String title = enchantPreview ? previewOffer == null ? "Enchanted Books" : previewOffer.name + " Levels" : root ? draft.config.shopTitle : category().name;
         title += sellMode ? " - Sell" : " - Buy";
-        text(graphics, font.plainSubstrByWidth(title, 156), left, top - 11, 0xFF404040);
+        text(graphics, font.plainSubstrByWidth(title, 156), left, top - 11, WorkbenchTheme.TEXT);
         List<Integer> slots = root ? CategoryLayout.slots(shown) : java.util.stream.IntStream.range(0, shown).boxed().toList();
         for (int slot = 0; slot < rows * 9; slot++) {
             int x = left + slot % 9 * 18, y = top + slot / 9 * 18;
@@ -647,9 +660,9 @@ public final class AdminScreen extends WorkbenchScreen {
             if (tile.id.equals(selectedItem)) graphics.outline(x, y, 18, 18, 0xFF65D5C1);
             if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
                 graphics.fill(x, y, x + 18, y + 18, 0x44FFFFFF);
-                text(graphics, font.plainSubstrByWidth(tile.name, 278), 169, 297, 0xFF33443B);
-                if (tile.item != null) text(graphics, "Buy " + number(tile.item.buy * draft.config.priceMultiplier) + " | Sell " + number(tile.item.sell * draft.config.priceMultiplier), 169, 308, 0xFF33443B);
-                else if (!tile.detail.isBlank()) text(graphics, font.plainSubstrByWidth(tile.detail, 278), 169, 308, 0xFF33443B);
+                text(graphics, font.plainSubstrByWidth(tile.name, 278), 169, 297, WorkbenchTheme.MUTED);
+                if (tile.item != null) text(graphics, "Buy " + number(tile.item.buy * draft.config.priceMultiplier) + " | Sell " + number(tile.item.sell * draft.config.priceMultiplier), 169, 308, WorkbenchTheme.MUTED);
+                else if (!tile.detail.isBlank()) text(graphics, font.plainSubstrByWidth(tile.detail, 278), 169, 308, WorkbenchTheme.MUTED);
             }
             hits.add(new Hit(x, y, 18, 18, "tile:" + tile.kind, tile.id, categoryId, tile.item));
         }
@@ -664,7 +677,7 @@ public final class AdminScreen extends WorkbenchScreen {
         if (!root) footer(graphics, left, footer, Items.BARRIER, "back");
         if (previewPage > 0) footer(graphics, left + (root ? 0 : 3 * 18), footer, Items.ARROW, "previous");
         if (previewPage + 1 < pages) footer(graphics, left + (root ? 7 : 5) * 18, footer, Items.ARROW, "next");
-        if (shown == 0) text(graphics, arranging ? "No listings yet" : "No enabled listings", 248, 194, 0xFF404040);
+        if (shown == 0) text(graphics, arranging ? "No listings yet" : "No enabled listings", 248, 194, WorkbenchTheme.TEXT);
         for (Hit hit : hits) if (hit.kind.startsWith("preview:") && hit.contains(mouseX, mouseY)) {
             String hint = switch (hit.kind) {
                 case "preview:mode" -> "Switch to " + (sellMode ? "Buy" : "Sell");
@@ -673,80 +686,80 @@ public final class AdminScreen extends WorkbenchScreen {
                 case "preview:next" -> "Next page";
                 default -> "Preview only. No items or money change.";
             };
-            text(graphics, hint, 169, 297, 0xFF33443B);
+            text(graphics, hint, 169, 297, WorkbenchTheme.MUTED);
         }
-        text(graphics, "Page " + (previewPage + 1) + "/" + pages + (arranging ? " | Arrange mode" : " | Preview only"), 214, 322, 0xFF33443B);
+        text(graphics, "Page " + (previewPage + 1) + "/" + pages + (arranging ? " | Arrange mode" : " | Preview only"), 214, 322, WorkbenchTheme.MUTED);
     }
     private void footer(GuiGraphicsExtractor graphics, int x, int y, net.minecraft.world.item.Item icon, String action) {
         graphics.item(new ItemStack(icon), x + 1, y + 1);
         hits.add(new Hit(x, y, 18, 18, "preview:" + action, "", "", null));
     }
     private void paintSettings(GuiGraphicsExtractor graphics) {
-        panel(graphics, 16, 69, 628, 270, 0xFFBDC1B2);
+        panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);
         if (settingsSection.equals("Economy")) {
             labels(graphics, new String[]{"Currency prefix (display only)", "Global buy and sell multiplier"}, 32, new int[]{129, 183});
             labels(graphics, new String[]{"Starting balance for new players", "Enchanted book sell ratio (0 to 1)"}, 350, new int[]{129, 183});
-            text(graphics, "Existing player balances are preserved.", 32, 307, 0xFF3B4940);
-            text(graphics, "Shop title", 350, 263, 0xFF3B4940);
+            text(graphics, "Existing player balances are preserved.", 32, 307, WorkbenchTheme.MUTED);
+            text(graphics, "Shop title", 350, 263, WorkbenchTheme.MUTED);
         } else if (settingsSection.equals("Messages")) {
             labels(graphics, new String[]{"Chat prefix", "Information color", "Warning color"}, 32, new int[]{129, 183, 237});
             labels(graphics, new String[]{"Prefix color", "Success color", "Error color"}, 350, new int[]{129, 183, 237});
-            text(graphics, "Use Minecraft color names such as gold, aqua, green, or light_purple.", 32, 296, 0xFF3B4940);
+            text(graphics, "Use Minecraft color names such as gold, aqua, green, or light_purple.", 32, 296, WorkbenchTheme.MUTED);
         } else {
             var offers = new ArrayList<>(draft.config.enchantments.entrySet());
             for (int row = 0; row < 5 && accessPage * 5 + row < offers.size(); row++) {
-                text(graphics, font.plainSubstrByWidth(offers.get(accessPage * 5 + row).getKey(), 245), 32, 121 + row * 35, 0xFF3B4940);
-                text(graphics, "Price / level", 291, 121 + row * 35, 0xFF3B4940);
-                text(graphics, "Max level", 409, 121 + row * 35, 0xFF3B4940);
+                text(graphics, font.plainSubstrByWidth(offers.get(accessPage * 5 + row).getKey(), 245), 32, 121 + row * 35, WorkbenchTheme.MUTED);
+                text(graphics, "Price / level", 291, 121 + row * 35, WorkbenchTheme.MUTED);
+                text(graphics, "Max level", 409, 121 + row * 35, WorkbenchTheme.MUTED);
             }
-            if (offers.isEmpty()) text(graphics, "No offers yet. Add an offer explicitly to configure it.", 32, 167, 0xFF3B4940);
+            if (offers.isEmpty()) text(graphics, "No offers yet. Add an offer explicitly to configure it.", 32, 167, WorkbenchTheme.MUTED);
         }
     }
     private void paintAccess(GuiGraphicsExtractor graphics) {
-        panel(graphics, 16, 69, 628, 270, 0xFFBDC1B2);
-        text(graphics, "Admin tools require OP level 2 or higher. Installing the client grants no permissions.", 32, 82, 0xFF234747);
-        text(graphics, "Player permissions: 0 everyone, 1 moderator, 2 gamemaster, 3 admin, 4 owner.", 32, 98, 0xFF3B4940);
+        panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);
+        text(graphics, "Admin tools require OP level 2 or higher. Installing the client grants no permissions.", 32, 82, WorkbenchTheme.MUTED);
+        text(graphics, "Player permissions: 0 everyone, 1 moderator, 2 gamemaster, 3 admin, 4 owner.", 32, 98, WorkbenchTheme.MUTED);
         var entries = draft.config.permissionDefaults.entrySet().stream().filter(entry -> !entry.getKey().contains("admin") && !entry.getKey().contains("ident")).sorted(Map.Entry.comparingByKey()).toList();
-        for (int index = 0; index < 7 && accessPage * 7 + index < entries.size(); index++) text(graphics, entries.get(accessPage * 7 + index).getKey(), 32, 133 + index * 26, 0xFF3B4940);
+        for (int index = 0; index < 7 && accessPage * 7 + index < entries.size(); index++) text(graphics, entries.get(accessPage * 7 + index).getKey(), 32, 133 + index * 26, WorkbenchTheme.MUTED);
     }
     private void paintHistory(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        panel(graphics, 16, 69, 628, 270, 0xFFBDC1B2);
+        panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);
         if (tab == Tab.TRANSACTIONS && selectedPlayer == null) { paintPlayers(graphics); return; }
         String heading = tab == Tab.HISTORY ? "Server configuration changes" : selectedPlayer.name() + " | Balance: " + draft.config.money(selectedPlayer.balance());
-        text(graphics, font.plainSubstrByWidth(heading, selectedPlayer == null ? 590 : 450), 32, 82, 0xFF234747);
-        graphics.fill(30, 139, 629, 155, 0xFF566E65);
-        text(graphics, "UTC time", 36, 143, 0xFFF0EBCE); text(graphics, "Player", 172, 143, 0xFFF0EBCE);
-        text(graphics, "Action", 272, 143, 0xFFF0EBCE); text(graphics, "Listing / change", 373, 143, 0xFFF0EBCE); text(graphics, "Total", 570, 143, 0xFFF0EBCE);
+        text(graphics, font.plainSubstrByWidth(heading, selectedPlayer == null ? 590 : 450), 32, 82, WorkbenchTheme.MUTED);
+        graphics.fill(30, 139, 629, 155, 0xFF304850);
+        text(graphics, "UTC time", 36, 143, WorkbenchTheme.TEXT); text(graphics, "Player", 172, 143, WorkbenchTheme.TEXT);
+        text(graphics, "Action", 272, 143, WorkbenchTheme.TEXT); text(graphics, "Listing / change", 373, 143, WorkbenchTheme.TEXT); text(graphics, "Total", 570, 143, WorkbenchTheme.TEXT);
         for (int row = 0; row < 10 && logPage * 10 + row < logData.entries().size(); row++) {
             var entry = logData.entries().get(logPage * 10 + row); int y = 158 + row * 14;
-            graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0xFFCED1C1 : 0xFFB8BFAE);
-            text(graphics, entry.time().substring(0, Math.min(19, entry.time().length())).replace('T', ' '), 36, y + 3, 0xFF303E36);
-            text(graphics, font.plainSubstrByWidth(entry.player(), 92), 172, y + 3, 0xFF303E36);
-            text(graphics, entry.action(), 272, y + 3, 0xFF303E36);
-            text(graphics, font.plainSubstrByWidth(entry.action().equals("CONFIG_APPLY") ? entry.details() : entry.listing(), 184), 373, y + 3, 0xFF303E36);
-            text(graphics, font.plainSubstrByWidth(number(entry.total()), 53), 570, y + 3, 0xFF303E36);
+            graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0x30283D45 : WorkbenchTheme.ROW);
+            text(graphics, entry.time().substring(0, Math.min(19, entry.time().length())).replace('T', ' '), 36, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(entry.player(), 92), 172, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, entry.action(), 272, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(entry.action().equals("CONFIG_APPLY") ? entry.details() : entry.listing(), 184), 373, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(number(entry.total()), 53), 570, y + 3, WorkbenchTheme.TEXT);
             hits.add(new Hit(30, y, 599, 14, "log", Integer.toString(logPage * 10 + row), "", null));
         }
-        if (logData.entries().isEmpty()) text(graphics, "No matching records in the recent history window.", 32, 181, 0xFF3B4940);
-        text(graphics, "Recent view: 30 daily files, last 2 MB each. Full journals stay on the server.", 32, 299, 0xFF3B4940);
+        if (logData.entries().isEmpty()) text(graphics, "No matching records in the recent history window.", 32, 181, WorkbenchTheme.MUTED);
+        text(graphics, "Recent view: 30 daily files, last 2 MB each. Full journals stay on the server.", 32, 299, WorkbenchTheme.MUTED);
     }
     private void paintPlayers(GuiGraphicsExtractor graphics) {
-        text(graphics, "Select a player to view their transactions", 32, 82, 0xFF234747);
-        graphics.fill(30, 139, 629, 155, 0xFF566E65);
-        text(graphics, "Player", 36, 143, 0xFFF0EBCE); text(graphics, "Current balance", 390, 143, 0xFFF0EBCE); text(graphics, "Status", 550, 143, 0xFFF0EBCE);
+        text(graphics, "Select a player to view their transactions", 32, 82, WorkbenchTheme.MUTED);
+        graphics.fill(30, 139, 629, 155, 0xFF304850);
+        text(graphics, "Player", 36, 143, WorkbenchTheme.TEXT); text(graphics, "Current balance", 390, 143, WorkbenchTheme.TEXT); text(graphics, "Status", 550, 143, WorkbenchTheme.TEXT);
         for (int row = 0; row < 10 && logPage * 10 + row < playerData.players().size(); row++) {
             var player = playerData.players().get(logPage * 10 + row); int y = 158 + row * 14;
-            graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0xFFCED1C1 : 0xFFB8BFAE);
-            text(graphics, font.plainSubstrByWidth(player.name(), 330), 36, y + 3, 0xFF303E36);
-            text(graphics, font.plainSubstrByWidth(draft.config.money(player.balance()), 150), 390, y + 3, 0xFF303E36);
-            text(graphics, player.online() ? "Online" : "Offline", 550, y + 3, 0xFF303E36);
+            graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0x30283D45 : WorkbenchTheme.ROW);
+            text(graphics, font.plainSubstrByWidth(player.name(), 330), 36, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(draft.config.money(player.balance()), 150), 390, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, player.online() ? "Online" : "Offline", 550, y + 3, WorkbenchTheme.TEXT);
             hits.add(new Hit(30, y, 599, 14, "player", Integer.toString(logPage * 10 + row), "", null));
         }
-        if (playerData.players().isEmpty()) text(graphics, "No matching players. Refresh or clear the search.", 32, 181, 0xFF3B4940);
-        text(graphics, "Page " + (logOffset / 10 + logPage + 1) + " | Current balances at refresh. History includes offline players.", 32, 299, 0xFF3B4940);
+        if (playerData.players().isEmpty()) text(graphics, "No matching players. Refresh or clear the search.", 32, 181, WorkbenchTheme.MUTED);
+        text(graphics, "Page " + (logOffset / 10 + logPage + 1) + " | Current balances at refresh. History includes offline players.", 32, 299, WorkbenchTheme.MUTED);
     }
     private void labels(GuiGraphicsExtractor graphics, String[] labels, int x, int[] ys) {
-        for (int index = 0; index < labels.length; index++) text(graphics, labels[index], x, ys[index], 0xFF3B4940);
+        for (int index = 0; index < labels.length; index++) text(graphics, labels[index], x, ys[index], WorkbenchTheme.MUTED);
     }
     private void multiline(GuiGraphicsExtractor graphics, String text, int x, int y, int width, int color) {
         int line = 0; for (var value : font.split(Component.literal(text), width)) graphics.text(font, value, x, y + line++ * 12, color, false);

@@ -6,6 +6,12 @@ Without sufficient OP permission, a separate popup says:
 
 > Ask the Server Owner for permission to use the Adminshop tools
 
+## Appearance and navigation
+
+The client editor uses a compact navigation rail on the left. Hover or keyboard-focus an icon to see its tab name; the current tab is also named above the content. Slate panels are approximately 92% opaque, with solid text fields for readability. Rounded buttons show hover, focus and disabled states. Teal highlights the selected tab and Apply; gold marks unapplied changes. Status messages have their own footer line, with the full message available on hover.
+
+Categories and listings use their actual in-game item icons, including modded models and component variants. The editor font is scoped to Adminshop screens; the player's shop and other Minecraft screens retain their vanilla font. The creative item picker, move dialog, permission popup and journal details share the editor styling.
+
 ## Shop Builder
 
 Create categories, choose exact item appearances as icons, and edit their names and tooltip descriptions. Category buttons retain their selected model but show only the shop name and optional category description, excluding the item's original lore and specialized help text. This affects decorative buttons only; real listings and delivered stacks retain their exact components. Their order controls the player menu. Use Move earlier/later or drag to reorder.

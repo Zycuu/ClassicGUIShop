@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "com.zycu.guishop.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["EditorFontAccess"],
+  "injectors": {"defaultRequire": 1}
+}

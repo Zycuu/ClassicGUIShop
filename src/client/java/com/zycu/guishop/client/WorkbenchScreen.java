@@ -10,20 +10,22 @@ import net.minecraft.network.chat.Component;
 public abstract class WorkbenchScreen extends Screen {
     protected static final int W = 660, H = 386;
     protected float scale = 1, originX, originY;
-    protected WorkbenchScreen(String title) { super(Component.literal(title)); }
+    protected WorkbenchScreen(String title) { super(net.minecraft.client.Minecraft.getInstance(), WorkbenchTheme.font(), Component.literal(title)); }
+    protected int contentOffsetX() { return 0; }
+    protected int canvasWidth() { return W; }
     protected void geometry() {
-        scale = Math.min(1.5f, Math.min((width - 12f) / W, (height - 12f) / H));
-        originX = (width - W * scale) / 2; originY = (height - H * scale) / 2;
+        scale = Math.min(1.5f, Math.min((width - 12f) / canvasWidth(), (height - 12f) / H));
+        originX = (width - canvasWidth() * scale) / 2; originY = (height - H * scale) / 2;
     }
-    protected int logicalX(double x) { return (int) ((x - originX) / scale); }
+    protected int logicalX(double x) { return (int) ((x - originX) / scale - contentOffsetX()); }
     protected int logicalY(double y) { return (int) ((y - originY) / scale); }
     private MouseButtonEvent logical(MouseButtonEvent event) {
-        return new MouseButtonEvent((event.x() - originX) / scale, (event.y() - originY) / scale, event.buttonInfo());
+        return new MouseButtonEvent((event.x() - originX) / scale - contentOffsetX(), (event.y() - originY) / scale, event.buttonInfo());
     }
     @Override public final void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         geometry();
-        graphics.fill(0, 0, width, height, 0xC0202528);
-        graphics.pose().pushMatrix(); graphics.pose().translate(originX, originY); graphics.pose().scale(scale, scale);
+        graphics.fill(0, 0, width, height, 0x70202528);
+        graphics.pose().pushMatrix(); graphics.pose().translate(originX + contentOffsetX() * scale, originY); graphics.pose().scale(scale, scale);
         int x = logicalX(mouseX), y = logicalY(mouseY);
         paint(graphics, x, y, delta);
         super.extractRenderState(graphics, x, y, delta);
@@ -51,15 +53,12 @@ public abstract class WorkbenchScreen extends Screen {
     @Override public void mouseMoved(double x, double y) { super.mouseMoved(logicalX(x), logicalY(y)); }
     @Override public boolean isPauseScreen() { return false; }
     protected Button button(String text, int x, int y, int width, Runnable action) {
-        return addRenderableWidget(Button.builder(Component.literal(text), ignored -> action.run()).bounds(x, y, width, 20).build());
+        return addRenderableWidget(new WorkbenchButton(text, x, y, width, action));
     }
     protected void text(GuiGraphicsExtractor graphics, String value, int x, int y, int color) {
         graphics.text(font, value, x, y, color, false);
     }
     protected void panel(GuiGraphicsExtractor graphics, int x, int y, int width, int height, int color) {
-        graphics.fill(x, y, x + width, y + height, 0xFF1A2327);
-        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, color);
-        graphics.fill(x + 1, y + 1, x + width - 1, y + 2, 0xFFDFE4D8);
-        graphics.fill(x + 1, y + 1, x + 2, y + height - 1, 0xFFDFE4D8);
+        WorkbenchTheme.panel(graphics, x, y, width, height, color);
     }
 }

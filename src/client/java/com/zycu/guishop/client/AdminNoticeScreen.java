@@ -12,11 +12,11 @@ public final class AdminNoticeScreen extends WorkbenchScreen {
         button("OK", 280, 236, 100, this::onClose);
     }
     @Override protected void paint(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-        panel(graphics, 120, 125, 420, 140, 0xFFD0CEC3);
-        text(graphics, "Adminshop", 140, 143, 0xFF263D3D);
+        panel(graphics, 120, 125, 420, 140, WorkbenchTheme.SURFACE);
+        text(graphics, "Adminshop", 140, 143, WorkbenchTheme.TEXT);
         int row = 0;
         for (var line : font.split(net.minecraft.network.chat.Component.literal(message), 380)) {
-            graphics.text(font, line, 140, 178 + row++ * 12, 0xFF303535, false);
+            graphics.text(font, line, 140, 178 + row++ * 12, WorkbenchTheme.MUTED, false);
         }
     }
     @Override public void onClose() { minecraft.gui.setScreen(previous); }

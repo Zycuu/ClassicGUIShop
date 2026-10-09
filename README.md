@@ -2,7 +2,7 @@
 
 A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.0 Alpha 6** adds clean category icons, a creative-style item selector with a draggable scrollbar, and `/adminshop` as a client workbench launcher. Ordinary players can use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`** to open the workbench. The server requires OP level 2 or higher for every editor request.
+**1.4.0 Alpha 7** gives the client Adminshop a focused navigation rail, softly transparent slate panels, rounded controls, teal selections, warm gold status accents, and clearer editor typography. Category and item icons remain native Minecraft stacks, including installed mod content. The creative item browser, clean category tooltips, `/adminshop` launcher, and existing editing behavior remain available. Ordinary players can use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`** to open the workbench. The server requires OP level 2 or higher for every editor request.
 
 ## Adminshop
 
@@ -78,3 +78,5 @@ The optional desktop client test uses `gradle -PalphaUiTest=true runClient` agai
 The pack UI checks expect the provided Zymods Vanilla Plus datapack and client resource pack. Add `--usefulfood-jar <verified-26.3-Fabric.jar>` after installing that JAR and full Fabric API on the disposable server to include the mod's detection, import, and rendering checks.
 
 This is an Alpha for testing and review. Publishing a release, including any future 2.0.0 milestone, requires Zycu's explicit approval.
+
+The editor uses the unmodified [Inter 4.1 font](https://github.com/rsms/inter/releases/tag/v4.1), by Rasmus Andersson and the Inter Project Authors, under the SIL Open Font License 1.1. Its license is bundled as `licenses/Inter-OFL.txt`. The font is scoped to Adminshop screens; vanilla player menus and the game font are not replaced.

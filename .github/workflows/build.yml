@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 env:
-  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.6
+  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.7
 
 jobs:
   build:

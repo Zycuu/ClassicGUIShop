@@ -31,7 +31,7 @@ final class DestinationScreen extends WorkbenchScreen {
         button("Cancel", 470, 322, 110, this::onClose);
     }
     @Override protected void paint(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-        panel(graphics, 62, 36, 536, 322, 0xFFD0CEC3); text(graphics, "Choose a destination", 80, 52, 0xFF214444);
+        panel(graphics, 62, 36, 536, 322, WorkbenchTheme.SURFACE); text(graphics, "Choose a destination", 80, 52, WorkbenchTheme.TEXT);
     }
     @Override public void onClose() { minecraft.gui.setScreen(parent); }
 }

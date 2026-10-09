@@ -23,7 +23,7 @@ final class JournalEntryScreen extends WorkbenchScreen {
         }
     }
     @Override protected void paint(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-        panel(graphics, 62, 36, 536, 322, 0xFFD0CEC3); text(graphics, "Server record", 80, 52, 0xFF214444);
+        panel(graphics, 62, 36, 536, 322, WorkbenchTheme.SURFACE); text(graphics, "Server record", 80, 52, WorkbenchTheme.TEXT);
         var lines = new java.util.ArrayList<net.minecraft.util.FormattedCharSequence>();
         for (String line : List.of("Time (UTC): " + entry.time(), "Player: " + entry.player(), "UUID: " + entry.uuid(), "Action: " + entry.action(),
             "Listing: " + entry.listing(), "Item: " + entry.item(), "Quantity: " + entry.quantity(), "Unit price: " + entry.unitPrice(),
@@ -31,8 +31,8 @@ final class JournalEntryScreen extends WorkbenchScreen {
             lines.addAll(font.split(Component.literal(line), 500));
         }
         int pages = Math.max(1, (lines.size() + 13) / 14); page = Math.min(page, pages - 1);
-        for (int row = 0; row < 14 && page * 14 + row < lines.size(); row++) graphics.text(font, lines.get(page * 14 + row), 80, 82 + row * 16, 0xFF303E36, false);
-        text(graphics, (page + 1) + "/" + pages, 300, 328, 0xFF303E36);
+        for (int row = 0; row < 14 && page * 14 + row < lines.size(); row++) graphics.text(font, lines.get(page * 14 + row), 80, 82 + row * 16, WorkbenchTheme.TEXT, false);
+        text(graphics, (page + 1) + "/" + pages, 300, 328, WorkbenchTheme.TEXT);
     }
     @Override public void onClose() { minecraft.gui.setScreen(parent); }
 }

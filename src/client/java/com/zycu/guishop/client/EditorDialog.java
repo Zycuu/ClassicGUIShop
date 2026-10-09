@@ -16,7 +16,7 @@ final class EditorDialog extends WorkbenchScreen {
     }
     @Override protected void init() {
         if (initial != null) {
-            input = new EditBox(font, 156, 196, 348, 20, Component.literal("Name"));
+            input = new WorkbenchField(font, 156, 196, 348, Component.literal("Name"));
             input.setMaxLength(80); input.setValue(initial); addRenderableWidget(input); setInitialFocus(input);
         }
         button("Cancel", 222, 238, 100, this::onClose);
@@ -28,11 +28,11 @@ final class EditorDialog extends WorkbenchScreen {
         });
     }
     @Override protected void paint(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-        panel(graphics, 136, 118, 388, 156, 0xFFD0CEC3);
-        text(graphics, title.getString(), 156, 136, 0xFF234747);
+        panel(graphics, 136, 118, 388, 156, WorkbenchTheme.SURFACE);
+        text(graphics, title.getString(), 156, 136, WorkbenchTheme.MUTED);
         int line = 0;
         for (var value : font.split(Component.literal(description), 348)) {
-            graphics.text(font, value, 156, 161 + line++ * 12, 0xFF303535, false);
+            graphics.text(font, value, 156, 161 + line++ * 12, WorkbenchTheme.MUTED, false);
         }
     }
     @Override public void onClose() { minecraft.gui.setScreen(parent); }

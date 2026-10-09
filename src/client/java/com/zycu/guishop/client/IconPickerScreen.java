@@ -73,7 +73,7 @@ final class IconPickerScreen extends WorkbenchScreen {
             addRenderableWidget(new PickerTab(tab.name(), tab.icon(), GRID_X + i * CELL, 133, CELL,
                 tab.source().equals(sourceId) && tab.group().equals(groupId), () -> chooseSource(tab.source(), tab.group())));
         }
-        search = new EditBox(font, 80, 104, 422, 20, Component.literal("Search items"));
+        search = new WorkbenchField(font, 80, 104, 422, Component.literal("Search items"));
         search.setHint(Component.literal("Search names or IDs in this tab...")); search.setMaxLength(128); search.setValue(query);
         search.setResponder(value -> { query = value; searches.put(sourceId + "|" + groupId, value); filter(true); }); addRenderableWidget(search);
         button("Clear", 508, 104, 72, () -> search.setValue(""));
@@ -186,14 +186,14 @@ final class IconPickerScreen extends WorkbenchScreen {
         } catch (IllegalArgumentException invalid) { status = invalid.getMessage(); }
     }
     @Override protected void paint(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        panel(graphics, 62, 68, 536, 314, 0xFFD0CEC3);
-        text(graphics, title.getString(), 80, 82, 0xFF214444);
+        panel(graphics, 62, 68, 536, 314, WorkbenchTheme.SURFACE);
+        text(graphics, title.getString(), 80, 82, WorkbenchTheme.TEXT);
         String label = sources.stream().filter(source -> source.id().equals(sourceId)).findFirst().map(Source::name).orElse("Vanilla");
         if (sourceId.equals("minecraft")) label = groups.stream().filter(group -> group.id().equals(groupId)).findFirst().orElse(groups.getFirst()).name();
-        text(graphics, font.plainSubstrByWidth(label, 312), 248, 82, 0xFF214444);
+        text(graphics, font.plainSubstrByWidth(label, 312), 248, 82, WorkbenchTheme.TEXT);
         String hint = multiple ? "Click to select several items; Add selected puts them in your category." : "Click an item to use its exact appearance as the category icon.";
         hovered = null;
-        panel(graphics, GRID_X - 8, GRID_Y - 3, COLUMNS * CELL + 44, TRACK_HEIGHT + 6, 0xFFC6C6C6);
+        panel(graphics, GRID_X - 8, GRID_Y - 3, COLUMNS * CELL + 44, TRACK_HEIGHT + 6, WorkbenchTheme.PREVIEW);
         for (int slot = 0; slot < VISIBLE; slot++) {
             int x = GRID_X + slot % COLUMNS * CELL, y = GRID_Y + slot / COLUMNS * CELL;
             graphics.fill(x, y, x + CELL, y + CELL, 0xFF373737);
@@ -207,7 +207,7 @@ final class IconPickerScreen extends WorkbenchScreen {
             graphics.item(pick.stack(), 0, 0); graphics.pose().popMatrix();
             if (selection.containsKey(pick.listing().listingId)) { graphics.outline(x, y, CELL, CELL, 0xFF67DDD0); text(graphics, "+", x + 23, y + 21, 0xFFECFFF0); }
             if (mouseX >= x && mouseX < x + CELL && mouseY >= y && mouseY < y + CELL) {
-                graphics.outline(x, y, CELL, CELL, 0xFFF0EBCE); hint = pick.stack().getHoverName().getString() + " | " + pick.listing().item; hovered = pick;
+                graphics.outline(x, y, CELL, CELL, WorkbenchTheme.TEXT); hint = pick.stack().getHoverName().getString() + " | " + pick.listing().item; hovered = pick;
             }
         }
         graphics.fill(SCROLL_X, GRID_Y, SCROLL_X + 20, GRID_Y + TRACK_HEIGHT, 0xFF8B8B8B);
@@ -215,13 +215,13 @@ final class IconPickerScreen extends WorkbenchScreen {
         graphics.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
             net.minecraft.resources.Identifier.withDefaultNamespace("container/creative_inventory/scroller" + (maxRow() == 0 ? "_disabled" : "")), SCROLL_X, thumbY, 20, THUMB_HEIGHT);
         if (values.isEmpty()) {
-            text(graphics, "No matching items", GRID_X + 16, GRID_Y + 58, 0xFF404040);
-            text(graphics, "Clear search or choose another tab.", GRID_X + 16, GRID_Y + 72, 0xFF404040);
+            text(graphics, "No matching items", GRID_X + 16, GRID_Y + 58, WorkbenchTheme.TEXT);
+            text(graphics, "Clear search or choose another tab.", GRID_X + 16, GRID_Y + 72, WorkbenchTheme.TEXT);
         }
         for (var widget : children()) if (widget instanceof PickerTab tab && tab.isHovered()) hint = tab.getMessage().getString();
-        text(graphics, font.plainSubstrByWidth(hint, 500), 80, 328, 0xFF303535);
+        text(graphics, font.plainSubstrByWidth(hint, 500), 80, 328, WorkbenchTheme.MUTED);
         String range = values.isEmpty() ? "0" : (topRow * COLUMNS + 1) + "-" + Math.min(values.size(), topRow * COLUMNS + VISIBLE);
-        text(graphics, status.isBlank() ? "Showing " + range + " of " + values.size() + " matches" : font.plainSubstrByWidth(status, 500), 80, 340, status.isBlank() ? 0xFF303535 : 0xFF75591B);
+        text(graphics, status.isBlank() ? "Showing " + range + " of " + values.size() + " matches" : font.plainSubstrByWidth(status, 500), 80, 340, status.isBlank() ? WorkbenchTheme.MUTED : WorkbenchTheme.GOLD);
     }
     @Override protected boolean click(double x, double y, int button) {
         if (button != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) return false;
@@ -273,12 +273,10 @@ final class IconPickerScreen extends WorkbenchScreen {
             this.icon = icon; this.chosen = chosen;
         }
         @Override protected void extractContents(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-            if (getWidth() <= 40) graphics.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
-                net.minecraft.resources.Identifier.withDefaultNamespace("container/creative_inventory/tab_top_" + (chosen ? "selected" : "unselected") + "_1"), getX(), getY(), getWidth(), getHeight());
-            else panel(graphics, getX(), getY(), getWidth(), getHeight(), chosen ? 0xFFD0CEC3 : isHoveredOrFocused() ? 0xFFBAC7B8 : 0xFF9FAE9F);
+            WorkbenchTheme.rounded(graphics, getX(), getY(), getWidth(), getHeight(), 4, chosen ? WorkbenchTheme.SELECTED : isHoveredOrFocused() ? 0xFF344C54 : WorkbenchTheme.PANEL);
             graphics.item(icon, getX() + (getWidth() <= 40 ? (getWidth() - 16) / 2 : 4), getY() + (getHeight() - 16) / 2);
-            if (getWidth() > 40) text(graphics, font.plainSubstrByWidth(getMessage().getString().replaceFirst("^Pack: ", ""), getWidth() - 26), getX() + 24, getY() + 10, 0xFF203B35);
-            if (chosen) graphics.fill(getX() + 1, getY() + 25, getX() + getWidth() - 1, getY() + 28, 0xFF80B6A3);
+            if (getWidth() > 40) text(graphics, font.plainSubstrByWidth(getMessage().getString().replaceFirst("^Pack: ", ""), getWidth() - 26), getX() + 24, getY() + 10, WorkbenchTheme.TEXT);
+            if (chosen) WorkbenchTheme.rounded(graphics, getX() + 5, getY() + 25, getWidth() - 10, 3, 1, WorkbenchTheme.TEAL);
         }
     }
 }

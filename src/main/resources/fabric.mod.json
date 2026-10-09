@@ -12,7 +12,8 @@
     "client": ["com.zycu.guishop.client.AdminShopClient"]
   },
   "mixins": [
-    "guishop.mixins.json"
+    "guishop.mixins.json",
+    {"config": "guishop.client.mixins.json", "environment": "client"}
   ],
   "depends": {
     "fabricloader": ">=0.19.5",
