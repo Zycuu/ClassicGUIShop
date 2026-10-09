@@ -30,15 +30,16 @@ public final class CommandIntegrityCheck {
         requirePath(root, missing, "worth", "all");
         requirePath(root, missing, "worth", "item");
 
-        if (root.getChild("adminshop") != null || root.getChild("ident") != null) {
-            throw new IllegalStateException("Retired /adminshop and /ident commands must not be registered");
+        requireCommand(root, "adminshop", missing);
+        if (root.getChild("adminshop") != null && !root.getChild("adminshop").getChildren().isEmpty() || root.getChild("ident") != null) {
+            throw new IllegalStateException("Legacy admin subcommands and /ident must not be registered");
         }
 
         if (!missing.isEmpty()) {
             throw new IllegalStateException("ClassicGUIShop command registration is incomplete: " + String.join(", ", missing));
         }
 
-        System.out.println("[ClassicGUIShop] Command integrity verified: player shop, balance, payment, selling, and worth commands are registered; admin and identification command removal verified.");
+        System.out.println("[ClassicGUIShop] Command integrity verified: player commands and client Adminshop launcher registered; legacy admin subcommands and identification command remain absent.");
     }
 
     private static void requireCommand(CommandNode<CommandSourceStack> root, String name, List<String> missing) {

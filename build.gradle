@@ -38,6 +38,8 @@ dependencies {
     // Optional integration fixtures are runtime-only and never bundled or published.
     if (project.hasProperty('usefulFoodTestJar')) runtimeOnly files(project.property('usefulFoodTestJar'))
     if (project.hasProperty('fullFabricApiTestJar')) runtimeOnly files(project.property('fullFabricApiTestJar'))
+    if (project.hasProperty('travelersBackpackTestJar')) runtimeOnly files(project.property('travelersBackpackTestJar'))
+    if (project.hasProperty('forgeConfigTestJar')) runtimeOnly files(project.property('forgeConfigTestJar'))
 }
 
 processResources {

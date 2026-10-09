@@ -50,7 +50,7 @@ Listings include:
 
 Do not manually edit exact stack data unless you know the Minecraft component format.
 
-`listingId` identifies one listing, separately from its exact stack. Repeated stacks can use an `@` suffix for independent listings; component variants retain their `#` hash. The optional category field `detectedSource` keeps repeated imports in the same source category after saving or restarting. Datapack imports use a pack identity rather than splitting categories by namespace; Import all uses the shared all_detected identity. Imported stacks keep their complete components and manual zero prices until an administrator enables trading.
+`listingId` identifies one listing, separately from its exact stack. Repeated stacks can use an `@` suffix for independent listings; component variants retain their `#` hash. The optional category field `iconStack` stores an exact icon template alongside its base `icon` ID. It preserves custom models, colors and other rendering data; decorative category buttons use only the shop's own name and description for their tooltip. Changing an exact icon requires a decodable stack whose base ID matches `icon`, so its item mod must be installed. Existing unavailable mod icon templates can remain unchanged. The optional category field `detectedSource` keeps repeated imports in the same source category after saving or restarting. Datapack imports use a pack identity rather than splitting categories by namespace; Import all uses the shared all_detected identity. Imported stacks keep their complete components and manual zero prices until an administrator enables trading.
 
 ## `enchantments.json`
 

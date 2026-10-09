@@ -14,6 +14,8 @@ public final class ShopCommands {
     private ShopCommands() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("adminshop").executes(context ->
+            com.zycu.guishop.admin.AdminNetworking.openEditor(context.getSource())));
         dispatcher.register(Commands.literal("shop")
             .requires(source -> ShopPermissions.user(source, "guishop.command.shop"))
             .executes(context -> openShop(context, ShopGui.Mode.BUY))

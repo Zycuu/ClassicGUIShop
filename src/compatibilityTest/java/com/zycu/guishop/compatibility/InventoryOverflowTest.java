@@ -92,11 +92,10 @@ public abstract class InventoryOverflowTest {
             throw new AssertionError("Recipe audit did not find vanilla recipes");
         }
         var dispatcher = server.getCommands().getDispatcher();
-        if (dispatcher.getRoot().getChild("adminshop") != null
-            || dispatcher.getRoot().getChild("ident") != null
-            || dispatcher.getCompletionSuggestions(dispatcher.parse("admin", server.createCommandSourceStack()))
-                .join().getList().stream().anyMatch(suggestion -> suggestion.getText().equals("adminshop"))) {
-            throw new AssertionError("Retired admin command remains registered or suggested");
+        if (dispatcher.getRoot().getChild("adminshop") == null
+            || !dispatcher.getRoot().getChild("adminshop").getChildren().isEmpty()
+            || dispatcher.getRoot().getChild("ident") != null) {
+            throw new AssertionError("Client launcher missing, or retired admin/identification commands returned");
         }
         for (String command : new String[]{"shop", "bal", "sellhand", "worth"}) {
             if (dispatcher.getRoot().getChild(command) == null) {
@@ -107,7 +106,7 @@ public abstract class InventoryOverflowTest {
         try { com.zycu.guishop.testing.DetectedContentChecks.run(server, player); }
         catch (Exception failure) { throw new AssertionError("Detection integration failed", failure); }
         guishop$testPlayer = player; guishop$resources = server.getResourceManager();
-        System.out.println("[ClassicGUIShop compatibility test] PASS: inventory delivery; recipe audit; player commands retained; admin and identification commands absent; no enchantment discovery");
+        System.out.println("[ClassicGUIShop compatibility test] PASS: inventory delivery; recipe audit; player commands retained; client Adminshop launcher; legacy admin subcommands and identification command absent; no enchantment discovery");
     }
 
     @Unique

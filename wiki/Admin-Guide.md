@@ -1,6 +1,6 @@
 # Admin Guide
 
-Install ClassicGUIShop on the server and on the administrator's matching Fabric client. Press **F8** in-game. The key can be rebound in Controls. The server requires OP level 2 or higher for every request; client installation grants no access.
+Install ClassicGUIShop on the server and on the administrator's matching Fabric client. Press **F8** or run **`/adminshop`** in-game. The command has no editing subcommands. An administrator without the matching client mod receives installation guidance. Update server and admin client together; older editor protocols cannot apply drafts. The key can be rebound in Controls. The server requires OP level 2 or higher for every request; client installation grants no access.
 
 Without sufficient OP permission, a separate popup says:
 
@@ -8,9 +8,9 @@ Without sufficient OP permission, a separate popup says:
 
 ## Shop Builder
 
-Create categories, choose item icons, and edit their names and tooltip descriptions. Their order controls the player menu. Use Move earlier/later or drag to reorder.
+Create categories, choose exact item appearances as icons, and edit their names and tooltip descriptions. Category buttons retain their selected model but show only the shop name and optional category description, excluding the item's original lore and specialized help text. This affects decorative buttons only; real listings and delivered stacks retain their exact components. Their order controls the player menu. Use Move earlier/later or drag to reorder.
 
-Select a category before adding listings. **Select item** opens a searchable item picker and adds only your selection. **Add held item** captures the server's exact held stack, including components. New listings start with buy and sell prices of zero, so they stay unavailable until you configure prices. Set either side to zero to disable that side. The editor rejects a sell price higher than that listing's enabled buy price.
+Select a category before adding listings. **Select item** opens a creative-style inventory with vanilla creative groups and detected mod/pack tabs. Compact icon tabs sit directly above the grid, with full names on hover and arrows for additional tabs. Each tab remembers its search. Its nine-column, five-row grid uses a draggable vanilla scrollbar; the mouse wheel moves one row at a time. Search matches localized names, item IDs and detected definition paths in the selected tab. Click to toggle several selections across tabs, use Select shown for the visible rows or Clear picks to reset them, then Add selected to add the batch to the chosen category. Cancel adds nothing. Exact component variants retain their models and item data. Vanilla tabs are immediately available while detected tabs load in the background; the status indicates partial results. **Add held item** captures the server's exact held stack, including components. New listings start with buy and sell prices of zero, so they stay unavailable until you configure prices. Set either side to zero to disable that side. The editor rejects a sell price higher than that listing's enabled buy price.
 
 Select a listing to edit its name, description, and prices. Move it through the destination chooser or drag it onto a category. Removing a category removes its listings from the draft, with the previous live configuration backed up on Apply.
 

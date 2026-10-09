@@ -140,7 +140,7 @@ public final class AdminScreen extends WorkbenchScreen {
             category = new ShopConfig.Category(); category.id = uniqueId("detected_" + destination, draft.config.categories.stream().map(value -> value.id).toList());
             String name = sourceName.replaceAll("[\\p{Cntrl}]", " ");
             category.name = name.length() > 80 ? name.substring(0, 80) : name;
-            category.icon = entry.listing().item; category.detectedSource = destination; draft.config.categories.add(category);
+            category.icon = entry.listing().item; category.iconStack = entry.listing().stack.deepCopy(); category.detectedSource = destination; draft.config.categories.add(category);
         }
         var access = minecraft.level.registryAccess(); var template = entry.listing().createStack(access);
         if (category.items.stream().anyMatch(item -> com.zycu.guishop.ItemStackData.same(item.createStack(access), template))) return false;
@@ -259,11 +259,13 @@ public final class AdminScreen extends WorkbenchScreen {
             field("Tooltip description", 472, 313, 164, item.description, value -> item.description = value).setMaxLength(160);
         } else if (category != null) {
             field("Category name", 472, 107, 164, category.name, value -> category.name = value);
-            button("Choose icon...", 472, 141, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Choose category icon", icon -> category.icon = icon)));
-            button("+ Select item", 472, 181, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Add an item listing", id -> {
-                var listing = new ShopConfig.ShopItem(); listing.item = id; listing.listingId = id;
-                listing.name = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.parse(id))).getHoverName().getString();
-                listing.manualPrice = true; addListing(listing);
+            button("Choose icon...", 472, 141, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Choose category icon", false, icons -> {
+                var icon = icons.getFirst(); category.icon = icon.item; category.iconStack = icon.stack.deepCopy();
+            })));
+            button("+ Select item", 472, 181, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Add item listings", true, items -> {
+                if (draft.config.categories.stream().mapToInt(value -> value.items.size()).sum() + items.size() > 10000) throw new IllegalArgumentException("Listing limit reached. Select fewer items.");
+                categoryId = category.id;
+                for (var itemToAdd : items) addListing(itemToAdd);
             })));
             button("+ Add held item", 472, 207, 164, () -> {
                 if (AdminShopClient.request("held", "", "")) { heldCategory = categoryId; }
@@ -525,7 +527,7 @@ public final class AdminScreen extends WorkbenchScreen {
         if (arranging && dragged && dragging != null) {
             var category = draft.config.category(dragging.id);
             ItemStack ghost = dragging.item != null && minecraft.level != null ? dragging.item.createStack(minecraft.level.registryAccess())
-                : category != null ? stack(category.icon) : ItemStack.EMPTY;
+                : category != null ? com.zycu.guishop.ShopIcons.category(category, minecraft.level.registryAccess(), category.name) : ItemStack.EMPTY;
             if (!ghost.isEmpty()) graphics.item(ghost, x - 8, y - 8);
             for (Hit target : hits) if (target.contains(x, y) && (target.item != null || target.kind.endsWith("category") || target.kind.equals("tile:empty"))) {
                 graphics.outline(target.x, target.y, target.w, target.h, 0xFF65D5C1);
@@ -548,10 +550,10 @@ public final class AdminScreen extends WorkbenchScreen {
         for (int row = 0; row < 9 && browserPage * 9 + row < browser.size(); row++) {
             var entry = browser.get(browserPage * 9 + row); int y = 133 + row * 19;
             var category = draft.config.category(entry.category);
-            String label = category.name, icon = category.icon;
+            String label = category.name;
             boolean selected = entry.category.equals(categoryId);
             graphics.fill(21, y, 147, y + 18, selected ? 0xFF78978B : 0xFFA6AC9D);
-            graphics.item(stack(icon), 24, y + 1); text(graphics, font.plainSubstrByWidth(label, 101), 43, y + 5, 0xFF202F2D);
+            graphics.item(com.zycu.guishop.ShopIcons.category(category, minecraft.level.registryAccess(), label), 24, y + 1); text(graphics, font.plainSubstrByWidth(label, 101), 43, y + 5, 0xFF202F2D);
             hits.add(new Hit(21, y, 126, 18, entry.kind, entry.id, entry.category, null));
         }
         text(graphics, Integer.toString(browserPage + 1), 77, 322, 0xFF33443B);
@@ -563,7 +565,7 @@ public final class AdminScreen extends WorkbenchScreen {
             text(graphics, "Tooltip description", 474, 302, 0xFF455449);
         } else if (category != null) {
             text(graphics, "Display name", 474, 96, 0xFF3B4940);
-            graphics.item(stack(category.icon), 545, 164);
+            graphics.item(com.zycu.guishop.ShopIcons.category(category, minecraft.level.registryAccess(), category.name), 545, 164);
             text(graphics, "Tooltip description", 474, 302, 0xFF455449);
         } else {
             multiline(graphics, "Create or select a category to edit it. Drag categories to reorder them.", 477, 112, 151, 0xFF3B4940);
@@ -577,7 +579,8 @@ public final class AdminScreen extends WorkbenchScreen {
         var category = category(); List<Tile> tiles = new ArrayList<>();
         if (enchantPreview) return enchantTiles();
         if (category == null) {
-            for (var value : draft.config.categories) if (arranging || value.items.stream().anyMatch(this::visible)) tiles.add(new Tile("category", value.id, value.name, value.icon, null));
+            for (var value : draft.config.categories) if (arranging || value.items.stream().anyMatch(this::visible)) tiles.add(new Tile("category", value.id, value.name, value.icon, null,
+                com.zycu.guishop.ShopIcons.category(value, minecraft.level.registryAccess(), value.name), value.description));
             if (draft.config.enchantmentsEnabled()) tiles.add(new Tile("enchant", "", "Enchanted Books", "minecraft:enchanted_book", null));
             return tiles;
         }

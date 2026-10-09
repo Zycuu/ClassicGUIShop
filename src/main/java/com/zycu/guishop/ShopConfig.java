@@ -454,6 +454,7 @@ public final class ShopConfig {
         public String id;
         public String name;
         public String icon;
+        public JsonElement iconStack;
         public String description = "";
         public String detectedSource;
         public List<ShopItem> items = new ArrayList<>();

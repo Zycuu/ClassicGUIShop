@@ -2,11 +2,11 @@
 
 A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.0 Alpha 5** includes vanilla item detection, whole datapack imports into one category, and configured enchantment levels above vanilla limits. Ordinary players can use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** to open the workbench. The server requires OP level 2 or higher for every editor request.
+**1.4.0 Alpha 6** adds clean category icons, a creative-style item selector with a draggable scrollbar, and `/adminshop` as a client workbench launcher. Ordinary players can use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`** to open the workbench. The server requires OP level 2 or higher for every editor request.
 
 ## Adminshop
 
-- Shop Builder: create, rename, order, and remove categories; choose native item icons; add selected items or exact held stacks; edit display names, descriptions, and buy/sell prices; drag listings or move them between categories.
+- Shop Builder: create, rename, order, and remove categories; choose exact item appearances as icons with shop-only tooltips; select multiple items from vanilla creative groups or detected mod/pack tabs, or add exact held stacks; edit display names, descriptions, and buy/sell prices; drag listings or move them between categories.
 - Simulator: navigate a chest-style preview of the draft in Buy or Sell mode, including category pages and configured enchantment levels. Preview clicks do not transact. It previews layout and enabled offers, rather than a particular player's permissions or balance.
 - Settings: shop title, currency display, starting balance, multiplier, enchanted-book ratio and offers, creative transactions, offline payments, and message colors.
 - Access: configure the exact vanilla command level required for player actions and categories. Adminshop access stays fixed at OP level 2 or higher.
@@ -18,7 +18,7 @@ Edits remain in a detached draft until **Apply**. The server validates prices, i
 
 Non-OP clients receive a separate popup: **Ask the Server Owner for permission to use the Adminshop tools**.
 
-Fresh shops start empty. Detection runs only when requested in Adminshop and never populates or prices the live shop automatically. Generated catalog pricing, `/ident`, and every old administrator command remain removed. Enchantment offers are added explicitly. Balanced presets remain future work.
+Fresh shops start empty. Detection runs only when requested in Adminshop and never populates or prices the live shop automatically. Generated catalog pricing, `/ident`, and legacy administrator subcommands remain removed. `/adminshop` opens only the new client UI. Enchantment offers are added explicitly. Balanced presets remain future work.
 
 Adding an existing item keeps the selected category and creates a separate listing with zero prices. Add held item captures exact component variants. The editor rejects cross-listing prices that let an identical item sell for more than its cheapest enabled buy price. Held sales use an enabled matching listing that the player can access.
 
@@ -29,7 +29,7 @@ Folders have been removed. Listings appear directly in their parent category. Ex
 Use Minecraft **26.3**, Java **25+**, and Fabric Loader **0.19.5+**. This Alpha targets 26.3 specifically; the previous compatibility JARs remain separate builds.
 
 1. Stop the server and back up `config/guishop/` before updating.
-2. Replace the old server JAR with `ClassicGUIShop-v1.4.0-alpha.5.jar`, then start the server.
+2. Replace the old server JAR with `ClassicGUIShop-v1.4.0-alpha.6.jar`, then start the server.
 3. For administrators, install that same JAR on a matching Fabric client and press F8 in-game. Rebind it under Controls if needed.
 
 The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching Minecraft 26.3.
@@ -51,7 +51,7 @@ Item mods still need their usual client dependencies. Datapack custom models req
 /worth <item-or-listing-id> [amount]
 ```
 
-`/shop balance` remains a compatibility alias. There is no `/adminshop` command or chat-based editor.
+`/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. Older Alpha editor protocols are blocked to preserve exact icon settings.
 
 Namespaced and exact listing IDs in `/worth` use quotes, for example `/worth "minecraft:stone" 16`. Completion inserts the required quotes, including component hashes and duplicate listing suffixes.
 

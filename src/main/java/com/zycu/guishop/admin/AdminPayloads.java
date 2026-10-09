@@ -16,6 +16,15 @@ public final class AdminPayloads {
 
     public record Message(String id, String action, String revision, int index, int count, String body) {}
 
+    public record Open() implements CustomPacketPayload {
+        public static final Type<Open> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_open_v1"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, Open> CODEC = new StreamCodec<>() {
+            public Open decode(RegistryFriendlyByteBuf buffer) { return new Open(); }
+            public void encode(RegistryFriendlyByteBuf buffer, Open payload) {}
+        };
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     private static Message read(RegistryFriendlyByteBuf buffer) {
         return new Message(buffer.readUtf(36), buffer.readUtf(24), buffer.readUtf(128),
             buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(CHUNK_SIZE));
@@ -26,7 +35,7 @@ public final class AdminPayloads {
         buffer.writeVarInt(message.count()); buffer.writeUtf(message.body(), CHUNK_SIZE);
     }
     public record Request(Message message) implements CustomPacketPayload {
-        public static final Type<Request> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_request_v1"));
+        public static final Type<Request> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_request_v2"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Request> CODEC = new StreamCodec<>() {
             public Request decode(RegistryFriendlyByteBuf buffer) { return new Request(read(buffer)); }
             public void encode(RegistryFriendlyByteBuf buffer, Request payload) { write(buffer, payload.message()); }
@@ -34,7 +43,7 @@ public final class AdminPayloads {
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
     public record Reply(Message message) implements CustomPacketPayload {
-        public static final Type<Reply> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_reply_v1"));
+        public static final Type<Reply> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_reply_v2"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Reply> CODEC = new StreamCodec<>() {
             public Reply decode(RegistryFriendlyByteBuf buffer) { return new Reply(read(buffer)); }
             public void encode(RegistryFriendlyByteBuf buffer, Reply payload) { write(buffer, payload.message()); }

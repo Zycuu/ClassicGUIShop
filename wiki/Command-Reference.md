@@ -8,7 +8,7 @@ Syntax key:
 <name...>    required and may include spaces
 ```
 
-No commands should be added unless intentionally planned for a future release.
+The only administrator command is `/adminshop`, which launches the client UI. Legacy editing subcommands remain removed. F8 opens the same UI. Access is checked on the server at OP level 2 or higher; non-OP clients receive the permission popup, and administrators without the matching client receive installation guidance. The console receives in-game-only guidance.
 
 ## Player commands
 

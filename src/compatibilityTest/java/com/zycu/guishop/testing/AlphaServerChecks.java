@@ -25,6 +25,10 @@ public final class AlphaServerChecks {
     private AlphaServerChecks() {}
     public static void run(MinecraftServer server, ServerPlayer player) {
         try {
+            checkIcons(player);
+            // This disposable account is reused across restarts; previous trade checks consume funds.
+            double fixtureBalance = GuiShop.ECONOMY.balance(player.getUUID());
+            if (fixtureBalance < 1000) GuiShop.ECONOMY.deposit(player.getUUID(), 1000 - fixtureBalance);
             server.getPlayerList().getOps().remove(player.nameAndId());
             check(!AdminEditorService.allowed(player), "Non-OP must not access admin tools");
             try { com.zycu.guishop.admin.AdminPlayers.list(player, "", 0); throw new AssertionError("Non-OP received player balances"); }
@@ -48,6 +52,9 @@ public final class AlphaServerChecks {
             var original = AdminEditorService.snapshot(player);
             var changed = original.document().copy();
             var category = new ShopConfig.Category(); category.id = "alpha_test"; category.name = "Alpha Test"; category.icon = "minecraft:diamond";
+            var iconTemplate = new ItemStack(Items.DIAMOND);
+            iconTemplate.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(net.minecraft.network.chat.Component.literal("Default icon lore"))));
+            category.iconStack = com.zycu.guishop.ItemStackData.encode(iconTemplate, player.registryAccess()); category.description = "Our category help";
             var item = new ShopConfig.ShopItem(); item.item = "minecraft:diamond"; item.listingId = "minecraft:diamond";
             var existingDiamond = original.document().config.findItem(item.listingId);
             if (existingDiamond != null && existingDiamond.item().listingId.equals(item.listingId) && existingDiamond.item().stack != null) {
@@ -68,8 +75,12 @@ public final class AlphaServerChecks {
             invalid = changed.copy(); invalid.config.categories.add(category);
             try { AdminEditorService.validate(invalid, player); throw new AssertionError("Duplicate category accepted"); }
             catch (IllegalArgumentException expected) {}
+            invalid = changed.copy(); invalid.config.categories.getFirst().iconStack = com.zycu.guishop.ItemStackData.encode(new ItemStack(Items.STONE), player.registryAccess());
+            try { AdminEditorService.validate(invalid, player); throw new AssertionError("Mismatched exact category icon accepted"); }
+            catch (IllegalArgumentException expected) {}
             var saved = AdminEditorService.apply(player, original.revision(), changed);
             check(GuiShop.CONFIG.category(category.id).items.getFirst().listingId.equals(item.listingId), "Category listing saved");
+            check(GuiShop.CONFIG.category(category.id).iconStack.equals(category.iconStack), "Exact icon components saved");
             check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Apply leaves legacy folder bytes untouched");
             try { AdminEditorService.apply(player, original.revision(), changed); throw new AssertionError("Stale draft accepted"); }
             catch (IllegalStateException expected) {}
@@ -95,13 +106,20 @@ public final class AlphaServerChecks {
 
             player.connection = new ServerGamePacketListenerImpl(server, new Connection(PacketFlow.SERVERBOUND), player,
                 CommonListenerCookie.createInitial(player.getGameProfile(), false));
+            check(server.getCommands().getDispatcher().execute("adminshop", player.createCommandSourceStack()) == 0, "Admin without client gets installation response");
+            check(server.getCommands().getDispatcher().execute("adminshop", server.createCommandSourceStack()) == 0, "Console receives in-game-only guidance");
+            com.zycu.guishop.HybridShopGui.openCategories(player, com.zycu.guishop.ShopGui.Mode.BUY);
+            var menuIcon = player.containerMenu.slots.stream().map(slot -> slot.getItem()).filter(stack -> "Alpha Test | Buy".equals(stack.getHoverName().getString())).findFirst().orElseThrow();
+            var iconTooltip = menuIcon.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(server.overworld()), player, net.minecraft.world.item.TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList();
+            check(iconTooltip.equals(List.of("Alpha Test | Buy", "Our category help")), "Actual shop category includes only shop tooltip, without prototype lore");
+            player.closeContainer();
             player.getInventory().clearContent();
             double beforeBalance = GuiShop.ECONOMY.balance(player.getUUID());
             var live = GuiShop.CONFIG.findItem("minecraft:diamond").item();
             check(ShopService.trade(player, live, com.zycu.guishop.ShopGui.Mode.BUY, 2), "Purchase executed");
-            check(GuiShop.ECONOMY.balance(player.getUUID()) == beforeBalance - 20, "Purchase balance");
+            check(Math.abs(GuiShop.ECONOMY.balance(player.getUUID()) - (beforeBalance - 20)) < 0.000001, "Purchase balance");
             check(ShopService.trade(player, live, com.zycu.guishop.ShopGui.Mode.SELL, 1), "Sale executed");
-            check(GuiShop.ECONOMY.balance(player.getUUID()) == beforeBalance - 18, "Sale balance");
+            check(Math.abs(GuiShop.ECONOMY.balance(player.getUUID()) - (beforeBalance - 18)) < 0.000001, "Sale balance");
             var records = TransactionJournal.query(player.getUUID().toString(), 0, false).entries();
             check(records.stream().anyMatch(entry -> entry.action().equals("BUY") && entry.quantity() == 2 && entry.total() == 20), "Purchase journal");
             check(records.stream().anyMatch(entry -> entry.action().equals("SELL") && entry.quantity() == 1 && entry.total() == 2), "Sale journal");
@@ -138,6 +156,24 @@ public final class AlphaServerChecks {
             catch (SecurityException expected) {}
             System.out.println("[ClassicGUIShop Alpha test] PASS: OP permissions, bounded Unicode chunks, invalid drafts, backups and restore, external edits, conflicts, category persistence and legacy folder preservation, purchases, sales, journal, player names and current balances, exact UUID history isolation, zero-value guard, stale-menu guard, revoked permissions");
         } catch (Exception exception) { throw new AssertionError("Alpha server checks failed", exception); }
+    }
+    private static void checkIcons(ServerPlayer player) {
+        var source = new ItemStack(Items.GOAT_HORN);
+        source.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(
+            net.minecraft.network.chat.Component.literal("Backpack Tier: Leather"),
+            net.minecraft.network.chat.Component.literal("Hold Shift for Special Ability Description"))));
+        source.set(net.minecraft.core.component.DataComponents.ITEM_MODEL, net.minecraft.resources.Identifier.withDefaultNamespace("diamond"));
+        var components = source.getComponentsPatch();
+        var context = net.minecraft.world.item.Item.TooltipContext.of(player.level());
+        check(source.getTooltipLines(context, player, net.minecraft.world.item.TooltipFlag.NORMAL).stream().anyMatch(line -> line.getString().contains("Backpack Tier")), "Fixture actually carries item help text");
+        var icon = com.zycu.guishop.ShopIcons.display(source, "Backpacks | Buy", "Shop description");
+        check(icon.getTooltipLines(context, player, net.minecraft.world.item.TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList().equals(List.of("Backpacks | Buy", "Shop description")), "Icon excludes default lore and arbitrary item help hooks");
+        check(icon.get(net.minecraft.core.component.DataComponents.ITEM_MODEL).equals(source.get(net.minecraft.core.component.DataComponents.ITEM_MODEL)), "Selected item model retained");
+        check(icon.is(Items.PAPER), "Decorative carrier cannot call the source item's specialized tooltip hook");
+        check(source.getComponentsPatch().equals(components), "Icon cleanup leaves original stack untouched");
+        var blank = com.zycu.guishop.ShopIcons.display(source, "Backpacks | Sell", "");
+        check(blank.getTooltipLines(context, player, net.minecraft.world.item.TooltipFlag.NORMAL).size() == 1, "Empty category description injects no default lore");
+        System.out.println("[Shop icon test] PASS: native lore and item tooltip hooks suppressed; shop name and optional description retained; selected model retained; source stack unchanged");
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
 }

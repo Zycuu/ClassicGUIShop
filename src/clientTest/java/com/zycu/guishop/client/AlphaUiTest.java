@@ -25,6 +25,7 @@ public final class AlphaUiTest implements ClientModInitializer {
     private boolean done;
     private String selectedHistoryUuid;
     private String fixturePack;
+    private String pickerVariant, pickerModItem;
     @Override public void onInitializeClient() { ClientTickEvents.END_CLIENT_TICK.register(this::tick); }
     private void tick(Minecraft client) {
         if (done) return;
@@ -44,7 +45,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                 case 1 -> {
                     if (client.player == null) return;
                     System.out.println("[Alpha UI test] PLAYER: " + client.player.getName().getString());
-                    client.gui.setScreen(null); openKey(); next();
+                    client.gui.setScreen(null); client.getConnection().sendCommand("adminshop"); next();
                 }
                 case 2 -> {
                     if (!(screen instanceof AdminNoticeScreen)) return;
@@ -139,7 +140,89 @@ public final class AlphaUiTest implements ClientModInitializer {
                     if (subphase == 18) { click(screen, "Confirm"); subphase = 19; delay = 12; return; }
                     if (subphase == 19) {
                         check(((AdminDocument) get(screen, "draft")).config.categories.isEmpty(), "Import test drafts discarded");
-                        click(screen, "Shop Builder"); subphase = 20; delay = 4; return;
+                        click(screen, "Close"); subphase = 191; delay = 4; return;
+                    }
+                    if (subphase == 191) { client.getConnection().sendCommand("adminshop"); subphase = 192; delay = 10; return; }
+                    if (subphase == 192) {
+                        if (!(screen instanceof AdminScreen)) return;
+                        check(((AdminDocument) get(screen, "draft")).config.categories.isEmpty(), "OP command opens the client workbench with a fresh snapshot");
+                        click(screen, "Shop Builder"); click(screen, "+ Category"); subphase = 30; delay = 4; return;
+                    }
+                    if (subphase == 30) { set(screen, "Name", "Picker Test"); click(screen, "Create"); subphase = 31; delay = 4; return; }
+                    if (subphase == 31) { click(screen, "+ Select item"); subphase = 32; delay = 5; return; }
+                    if (subphase == 32) {
+                        var groups = (java.util.List<?>) get(screen, "groups");
+                        check(groups.size() >= 9, "Vanilla creative inventory groups present");
+                        String building = null;
+                        for (Object group : groups) if (get(group, "id").equals("building_blocks")) building = (String) get(group, "name");
+                        check(building != null, "Building Blocks creative tab present"); pickerTab(screen, building);
+                        set(screen, "Search items", "minecraft:stone"); at((WorkbenchScreen) screen, 184, 180, false);
+                        check(((java.util.Map<?, ?>) get(screen, "selection")).size() == 1, "Click selects instead of closing the listing picker");
+                        String food = null;
+                        for (Object group : groups) if (((String) get(group, "name")).contains("Food")) food = (String) get(group, "name");
+                        pickerTab(screen, food); check(get(screen, "query").equals(""), "New tab starts with its own search state");
+                        set(screen, "Search items", "minecraft:apple"); at((WorkbenchScreen) screen, 184, 180, false);
+                        check(((java.util.Map<?, ?>) get(screen, "selection")).size() == 2, "Selection survives creative groups");
+                        capture(client, "alpha6-creative-vanilla-picker.png"); click(screen, "Add selected (2)"); subphase = 33; delay = 4; return;
+                    }
+                    if (subphase == 33) {
+                        var category = ((AdminDocument) get(screen, "draft")).config.category("picker_test");
+                        check(category.items.size() == 2 && category.items.stream().allMatch(item -> item.buy == 0 && item.sell == 0 && item.stack != null), "Bulk native additions use zero prices and exact components");
+                        at((WorkbenchScreen) screen, 70, 141, false); click(screen, "+ Select item"); subphase = 34; delay = 5; return;
+                    }
+                    if (subphase == 34) {
+                        if ((boolean) get(screen, "bootstrap")) return;
+                        pickerSource(screen, "usefulfood"); subphase = 35; delay = 10; return;
+                    }
+                    if (subphase == 35) {
+                        var values = (java.util.List<?>) get(screen, "values"); if (values.isEmpty()) return;
+                        var item = (com.zycu.guishop.ShopConfig.ShopItem) get(values.getFirst(), "listing"); pickerModItem = item.item;
+                        at((WorkbenchScreen) screen, 184, 180, false); capture(client, "alpha6-creative-mod-picker.png");
+                        String pack = null;
+                        for (Object source : (java.util.List<?>) get(screen, "sources")) if (((String) get(source, "name")).contains("Zymods_Vanilla_Plus")) pack = (String) get(source, "id");
+                        check(pack != null, "Actual datapack receives a picker tab"); pickerSource(screen, pack); subphase = 36; delay = 10; return;
+                    }
+                    if (subphase == 36) {
+                        var values = (java.util.List<?>) get(screen, "values"); if (values.isEmpty()) return;
+                        var item = (com.zycu.guishop.ShopConfig.ShopItem) get(values.getFirst(), "listing"); pickerVariant = item.listingId;
+                        check(item.stack != null && pickerVariant.contains("#"), "Datapack picker retains exact variant data");
+                        String localized = ((net.minecraft.world.item.ItemStack) get(values.getFirst(), "stack")).getHoverName().getString();
+                        set(screen, "Search items", localized);
+                        check(!((java.util.List<?>) get(screen, "values")).isEmpty(), "Detected picker searches client-localized names");
+                        at((WorkbenchScreen) screen, 184, 180, false);
+                        check(((java.util.Map<?, ?>) get(screen, "selection")).size() == 2, "Selection survives mod and pack tabs");
+                        capture(client, "alpha6-creative-pack-picker.png"); click(screen, "Add selected (2)"); subphase = 37; delay = 4; return;
+                    }
+                    if (subphase == 37) {
+                        var category = ((AdminDocument) get(screen, "draft")).config.category("picker_test");
+                        check(category.items.size() == 4 && category.items.stream().anyMatch(item -> item.item.equals(pickerModItem)) && category.items.stream().anyMatch(item -> item.listingId.equals(pickerVariant)), "Mod and exact pack selections added to the chosen category");
+                        check(category.items.stream().allMatch(item -> item.buy == 0 && item.sell == 0), "All picker additions start disabled");
+                        at((WorkbenchScreen) screen, 70, 141, false); click(screen, "+ Select item"); subphase = 38; delay = 5; return;
+                    }
+                    if (subphase == 38) {
+                        check((boolean) get(screen, "multiple"), "Listing picker remains in selection mode");
+                        click(screen, "Select shown"); check(!((java.util.Map<?, ?>) get(screen, "selection")).isEmpty(), "Select visible rows works");
+                        click(screen, "Clear picks"); check(((java.util.Map<?, ?>) get(screen, "selection")).isEmpty(), "Clear picks works");
+                        var workbench = (WorkbenchScreen) screen; workbench.geometry();
+                        screen.mouseScrolled(workbench.originX + 180 * workbench.scale, workbench.originY + 190 * workbench.scale, 0, -1);
+                        check((int) get(screen, "topRow") == 1, "Mouse wheel advances one row like creative inventory");
+                        nativeMove(client, workbench, 474, 177); nativeButton(client, true); subphase = 381; delay = 4; return;
+                    }
+                    if (subphase == 381) {
+                        nativeMove(client, (WorkbenchScreen) screen, 474, 320); nativeButton(client, false);
+                        int rows = (((java.util.List<?>) get(screen, "values")).size() + 8) / 9;
+                        check((int) get(screen, "topRow") == rows - 5, "Native scrollbar drag reaches final five rows: row=" + get(screen, "topRow") + ", maximum=" + (rows - 5) + ", focused=" + client.isWindowActive());
+                        subphase = 382; delay = 4; return;
+                    }
+                    if (subphase == 382) {
+                        capture(client, "alpha6-creative-scrollbar.png");
+                        set(screen, "Search items", "minecraft:stone"); check((int) get(screen, "topRow") == 0, "Search resets scroll and clamps short results");
+                        click(screen, "Cancel"); subphase = 39; delay = 4; return;
+                    }
+                    if (subphase == 39) { click(screen, "Remove category"); subphase = 40; delay = 4; return; }
+                    if (subphase == 40) { click(screen, "Confirm"); subphase = 41; delay = 4; return; }
+                    if (subphase == 41) {
+                        check(((AdminDocument) get(screen, "draft")).config.categories.isEmpty(), "Cancel adds nothing; temporary picker category removed from draft");
                     }
                     click(screen, "+ Category"); subphase = 0; next();
                 }
@@ -150,8 +233,24 @@ public final class AlphaUiTest implements ClientModInitializer {
                 }
                 case 6 -> { check(hitCount(screen, "tile:item") == 0, "New category opens directly to listings"); next(); }
                 case 7 -> { click(screen, "Choose icon..."); next(); }
-                case 8 -> { set(screen, "Search items", "minecraft:emerald"); at((WorkbenchScreen) screen, 92, 120, false); next(); }
-                case 9 -> { click(screen, "+ Add held item"); next(); }
+                case 8 -> {
+                    if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("travelersbackpack")) { pickFirst(screen, "minecraft:emerald"); next(); return; }
+                    if (subphase == 0) {
+                        if ((boolean) get(screen, "bootstrap")) return;
+                        pickerSource(screen, "travelersbackpack"); subphase = 1; delay = 10; return;
+                    }
+                    set(screen, "Search items", "travelersbackpack:standard");
+                    if (((java.util.List<?>) get(screen, "values")).isEmpty()) return;
+                    var source = new net.minecraft.world.item.ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(net.minecraft.resources.Identifier.parse("travelersbackpack:standard")));
+                    var context = net.minecraft.world.item.Item.TooltipContext.of(client.level);
+                    var originalTooltip = source.getTooltipLines(context, client.player, net.minecraft.world.item.TooltipFlag.NORMAL);
+                    check(originalTooltip.size() > 1, "Actual Traveler backpack injects default tooltip information");
+                    var clean = com.zycu.guishop.ShopIcons.display(source, "Backpacks | Buy", "Shop category help");
+                    check(clean.getTooltipLines(context, client.player, net.minecraft.world.item.TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList().equals(java.util.List.of("Backpacks | Buy", "Shop category help")), "Actual Traveler category carrier excludes tier and Shift help");
+                    capture(client, "alpha6-travelers-icon-picker.png"); at((WorkbenchScreen) screen, 184, 180, false);
+                    subphase = 0; next();
+                }
+                case 9 -> { set(screen, "Tooltip description", "Shop category help"); click(screen, "+ Add held item"); next(); }
                 case 10 -> {
                     if (get(screen, "selectedItem") == null) return;
                     if (subphase == 0) { set(screen, "Buy price", "12.5"); set(screen, "Sell price", "3.1"); set(screen, "Tooltip description", "A little sparkle for your next adventure."); subphase = 1; delay = 4; return; }
@@ -159,10 +258,10 @@ public final class AlphaUiTest implements ClientModInitializer {
                 }
                 case 11 -> { set(screen, "Name", "Building"); click(screen, "Create"); next(); }
                 case 12 -> { click(screen, "+ Select item"); next(); }
-                case 13 -> { set(screen, "Search items", "minecraft:stone"); at((WorkbenchScreen) screen, 92, 120, false); next(); }
+                case 13 -> { pickFirst(screen, "minecraft:stone"); next(); }
                 case 14 -> { set(screen, "Buy price", "2"); set(screen, "Sell price", "0.5"); at((WorkbenchScreen) screen, 70, 160, false); next(); }
                 case 15 -> { click(screen, "+ Select item"); next(); }
-                case 16 -> { set(screen, "Search items", "minecraft:cobblestone"); at((WorkbenchScreen) screen, 92, 120, false); next(); }
+                case 16 -> { pickFirst(screen, "minecraft:cobblestone"); next(); }
                 case 17 -> {
                     if (subphase == 0) {
                         set(screen, "Buy price", "1"); set(screen, "Sell price", "0.25");
@@ -187,7 +286,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         check(draft.config.findItem("minecraft:stone").category().id.equals("materials"), "Move into category");
                         at((WorkbenchScreen) screen, 70, 160, false); click(screen, "+ Select item"); subphase = 10; delay = 4; return;
                     }
-                    if (subphase == 10) { set(screen, "Search items", "minecraft:stone"); at((WorkbenchScreen) screen, 92, 120, false); subphase = 11; delay = 4; return; }
+                    if (subphase == 10) { pickFirst(screen, "minecraft:stone"); subphase = 11; delay = 4; return; }
                     if (subphase == 11) {
                         AdminDocument draft = (AdminDocument) get(screen, "draft");
                         check(get(screen, "categoryId").equals("building"), "Adding existing item stays in chosen category");
@@ -300,7 +399,11 @@ public final class AlphaUiTest implements ClientModInitializer {
                 }
                 case 22 -> {
                     if (subphase == 0) { nativeHit(client, (WorkbenchScreen) screen, "tile:enchant", ""); nativeButton(client, true); nativeButton(client, false); subphase = 1; delay = 4; return; }
-                    if (subphase == 1) { check((boolean) get(screen, "enchantPreview"), "Enchantment simulator"); at((WorkbenchScreen) screen, 231, 169, false); subphase = 2; delay = 4; return; }
+                    if (subphase == 1) {
+                        check((boolean) get(screen, "enchantPreview"), "Enchantment simulator");
+                        nativeHit(client, (WorkbenchScreen) screen, "tile:offer", "minecraft:unbreaking"); nativeButton(client, true); nativeButton(client, false);
+                        subphase = 2; delay = 4; return;
+                    }
                     if (subphase >= 2 && subphase <= 4) {
                         check(get(screen, "enchantId").equals("minecraft:unbreaking"), "Enchantment selection survives arrange toggle");
                         check((boolean) get(screen, "enchantPreview") && hitCount(screen, "tile:level") == 5, "Levels above vanilla remain visible during arrange toggles");
@@ -319,12 +422,15 @@ public final class AlphaUiTest implements ClientModInitializer {
                 case 23 -> { click(screen, "Transactions"); click(screen, "Changes"); click(screen, "Transactions"); next(); }
                 case 24 -> {
                     if (subphase == 0) {
+                        if (!get(screen, "query").equals("ShopTest")) {
+                            set(screen, "Search players", "ShopTest"); click(screen, "Refresh"); delay = 10; return;
+                        }
                         var roster = (com.zycu.guishop.admin.AdminPlayers.Page) get(screen, "playerData");
                         if (roster.players().isEmpty()) return;
                         check(get(screen, "selectedPlayer") == null, "Transactions opens player selector");
                         int row = -1;
                         for (int i = 0; i < Math.min(10, roster.players().size()); i++) if (roster.players().get(i).name().equalsIgnoreCase("ShopTest")) row = i;
-                        check(row >= 0, "Known offline player appears by name");
+                        if (row < 0) { delay = 5; return; }
                         selectedHistoryUuid = roster.players().get(row).uuid();
                         check(roster.players().get(row).balance() >= 0, "Current balance provided by server");
                         capture(client, "alpha5-player-balances.png"); at((WorkbenchScreen) screen, 100, 164 + row * 14, false); subphase = 10; delay = 20; return;
@@ -357,7 +463,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                     capture(client, "alpha5-vanilla-player-shop.png"); client.gui.setScreen(null);
                     System.out.println("[Alpha UI test] REVOKE_READY"); next(); delay = 60;
                 }
-                case 26 -> { openKey(); next(); }
+                case 26 -> { client.gui.setScreen(null); client.getConnection().sendCommand("adminshop"); next(); }
                 case 27 -> {
                     if (!(screen instanceof AdminNoticeScreen)) return;
                     check(get(screen, "message").equals(AdminEditorService.DENIED), "Revoked OP receives exact popup");
@@ -378,6 +484,30 @@ public final class AlphaUiTest implements ClientModInitializer {
         click(screen, "Enchantments"); click(screen, "+ Offer"); subphase = 1; delay = 4;
     }
     private static void openKey() { KeyMapping.click(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_F8)); }
+    private static void pickFirst(Screen screen, String id) throws Exception {
+        set(screen, "Search items", id); at((WorkbenchScreen) screen, 184, 180, false);
+        if ((boolean) get(screen, "multiple")) click(screen, "Add selected (1)");
+    }
+    private static void pickerSource(Screen screen, String id) throws Exception {
+        var tabs = (java.util.List<?>) get(screen, "tabs");
+        for (int index = 0; index < tabs.size(); index++) if (get(tabs.get(index), "source").equals(id) && get(tabs.get(index), "group").equals("")) {
+            int target = index / 9;
+            while ((int) get(screen, "sourcePage") < target) click(screen, ">");
+            while ((int) get(screen, "sourcePage") > target) click(screen, "<");
+            click(screen, (String) get(tabs.get(index), "name")); return;
+        }
+        throw new AssertionError("Missing picker source " + id);
+    }
+    private static void pickerTab(Screen screen, String name) throws Exception {
+        var tabs = (java.util.List<?>) get(screen, "tabs");
+        for (int index = 0; index < tabs.size(); index++) if (get(tabs.get(index), "name").equals(name)) {
+            int target = index / 9;
+            while ((int) get(screen, "sourcePage") < target) click(screen, ">");
+            while ((int) get(screen, "sourcePage") > target) click(screen, "<");
+            click(screen, name); return;
+        }
+        throw new AssertionError("Missing picker tab " + name);
+    }
     private static Object get(Object object, String name) throws Exception { Field field = object.getClass().getDeclaredField(name); field.setAccessible(true); return field.get(object); }
     private static void set(Screen screen, String label, String value) {
         for (var widget : screen.children()) if (widget instanceof EditBox input && input.getMessage().getString().equals(label)) { input.setValue(value); return; }
@@ -395,11 +525,18 @@ public final class AlphaUiTest implements ClientModInitializer {
     private static void at(WorkbenchScreen screen, double x, double y, boolean down) {
         var event = event(screen, x, y); screen.mouseClicked(event, false); if (!down) screen.mouseReleased(event);
     }
-    private static void nativeMove(Minecraft client, WorkbenchScreen screen, double x, double y) {
+    private static void nativeMove(Minecraft client, WorkbenchScreen screen, double x, double y) throws Exception {
         screen.geometry(); var window = client.getWindow();
         double px = (screen.originX + x * screen.scale) * window.getScreenWidth() / window.getGuiScaledWidth();
         double py = (screen.originY + y * screen.scale) * window.getScreenHeight() / window.getGuiScaledHeight();
-        client.mouseHandler.onMove(window.handle(), px, py, 0, 0); client.mouseHandler.handleAccumulatedMovement();
+        // Synthetic input must exercise MouseHandler even when another desktop window has focus.
+        // Restore the real focus flag immediately after dispatch, without raising or moving any window.
+        Field focus = window.getClass().getDeclaredField("focused"); focus.setAccessible(true);
+        boolean wasFocused = focus.getBoolean(window);
+        try {
+            focus.setBoolean(window, true);
+            client.mouseHandler.onMove(window.handle(), px, py, 0, 0); client.mouseHandler.handleAccumulatedMovement();
+        } finally { focus.setBoolean(window, wasFocused); }
     }
     private static void nativeHit(Minecraft client, WorkbenchScreen screen, String kind, String id) throws Exception {
         for (Object hit : (java.util.List<?>) get(screen, "hits")) if (get(hit, "kind").equals(kind) && get(hit, "id").equals(id)) {

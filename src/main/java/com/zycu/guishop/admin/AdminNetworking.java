@@ -19,10 +19,24 @@ public final class AdminNetworking {
     }
     public record PlayersQuery(String filter, int offset) {}
 
+    public static int openEditor(net.minecraft.commands.CommandSourceStack source) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(net.minecraft.network.chat.Component.literal("Run /adminshop in game to open the client Adminshop tools.")); return 0;
+        }
+        if (!ServerPlayNetworking.canSend(player, AdminPayloads.Open.TYPE)) {
+            source.sendFailure(net.minecraft.network.chat.Component.literal(AdminEditorService.allowed(player)
+                ? "Install the matching ClassicGUIShop mod on your client to use /adminshop or F8."
+                : AdminEditorService.DENIED)); return 0;
+        }
+        // The client requests a fresh, permission-checked snapshot. This sends no configuration itself.
+        ServerPlayNetworking.send(player, new AdminPayloads.Open()); return 1;
+    }
+
     public static void register() {
         DetectedContent.register();
         PayloadTypeRegistry.serverboundPlay().register(AdminPayloads.Request.TYPE, AdminPayloads.Request.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AdminPayloads.Reply.TYPE, AdminPayloads.Reply.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(AdminPayloads.Open.TYPE, AdminPayloads.Open.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(AdminPayloads.Request.TYPE,
             (payload, context) -> receive(context.player(), payload.message()));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {

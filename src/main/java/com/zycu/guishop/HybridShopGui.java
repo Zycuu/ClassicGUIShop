@@ -46,7 +46,7 @@ public final class HybridShopGui {
         for (ShopConfig.Category category : GuiShop.CONFIG.categories) {
             if (!ShopPermissions.category(player, category.id) || !hasAvailableItems(category, mode)) continue;
             buttons.add(new MenuButton(
-                displayStack(category.icon, category.name + " | " + modeName(mode), category.description),
+                ShopIcons.category(category, player.registryAccess(), category.name + " | " + modeName(mode)),
                 () -> openCategory(player, category.id, mode, 1)
             ));
         }
@@ -388,10 +388,7 @@ public final class HybridShopGui {
         } catch (Exception ignored) {
             item = Items.BARRIER;
         }
-        ItemStack stack = new ItemStack(item);
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
-        description(stack, detail);
-        return stack;
+        return ShopIcons.display(new ItemStack(item), name, detail);
     }
 
     private static void description(ItemStack icon, String detail) {

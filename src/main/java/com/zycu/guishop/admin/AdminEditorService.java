@@ -169,6 +169,16 @@ public final class AdminEditorService {
             id(category.id, "Category ID");
             if (!categoryIds.add(category.id)) fail("Category IDs must be unique");
             text(category.name, 80, "Category name"); icon(category.icon);
+            if (category.iconStack != null) {
+                if (AdminDocument.JSON.toJson(category.iconStack).length() > 32000) fail("Exact icon data is too large");
+                var oldCategory = GuiShop.CONFIG.category(category.id);
+                boolean preserved = oldCategory != null && category.icon.equals(oldCategory.icon)
+                    && category.iconStack.equals(oldCategory.iconStack);
+                if (!preserved) {
+                    var template = net.minecraft.world.item.ItemStack.CODEC.parse(player.registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE), category.iconStack).getOrThrow();
+                    if (template.isEmpty() || !BuiltInRegistries.ITEM.getKey(template.getItem()).toString().equals(category.icon)) fail("Category icon does not match its exact item identity");
+                }
+            }
             text(category.description, 160, "Category description");
             if (category.detectedSource != null) text(category.detectedSource, 120, "Detected source");
             if (category.items == null) fail("Missing category listings");

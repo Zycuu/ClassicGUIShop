@@ -12,6 +12,8 @@ parser.add_argument('--java-home', type=pathlib.Path, required=True)
 parser.add_argument('--gradle', type=pathlib.Path, required=True)
 parser.add_argument('--player-client', action='store_true', help='Disable ClassicGUIShop on the client and test player trading')
 parser.add_argument('--usefulfood-jar', type=pathlib.Path, help='Optional 26.3 Fabric fixture, installed on this disposable server too')
+parser.add_argument('--travelersbackpack-jar', type=pathlib.Path, help='Optional Traveler backpack fixture; requires --forge-config-jar')
+parser.add_argument('--forge-config-jar', type=pathlib.Path, help='Optional Forge Config API Port fixture')
 parser.add_argument('--disposable', action='store_true', help='Confirm this server and its contents are test fixtures')
 args = parser.parse_args()
 if not args.disposable:
@@ -31,6 +33,13 @@ client_command = [str(gradle), '-PplayerUiTest=true' if args.player_client else 
 if args.usefulfood_jar:
     client_command.extend(['-PusefulFoodTestJar=' + str(args.usefulfood_jar.resolve()),
                            '-PfullFabricApiTestJar=' + str(server_dir / 'mods' / 'fabric-api.jar')])
+if args.travelersbackpack_jar:
+    if not args.forge_config_jar:
+        parser.error('--travelersbackpack-jar requires --forge-config-jar')
+    client_command.extend(['-PtravelersBackpackTestJar=' + str(args.travelersbackpack_jar.resolve()),
+                           '-PforgeConfigTestJar=' + str(args.forge_config_jar.resolve())])
+    if not args.usefulfood_jar:
+        client_command.append('-PfullFabricApiTestJar=' + str(server_dir / 'mods' / 'fabric-api.jar'))
 if os.name == 'nt' and gradle.suffix.lower() in ('.bat', '.cmd'):
     client_command = ['cmd.exe', '/d', '/c', *client_command]
 env = os.environ.copy()
