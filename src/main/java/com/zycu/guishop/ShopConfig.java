@@ -75,6 +75,9 @@ public final class ShopConfig {
                 return config;
             }
 
+            boolean hasExistingData;
+            try(var files=Files.list(DIRECTORY)){hasExistingData=files.findAny().isPresent();}
+            if(!hasExistingData)DefaultShopSetup.prepareFresh();
             config = new ShopConfig();
             if (Files.exists(SETTINGS_FILE)) config.applySettings(read(SETTINGS_FILE, SettingsFile.class));
             if (Files.exists(SHOPS_FILE)) config.applyShops(read(SHOPS_FILE, ShopsFile.class));

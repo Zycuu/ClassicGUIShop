@@ -137,7 +137,7 @@ public final class AdminEditorService {
         }
         GuiShop.CONFIG = draft.config;
         GuiShop.ECONOMY.updateConfig(draft.config);
-        TransactionJournal.record(player, "CONFIG_APPLY", "", "", 0, 0, 0, "Backup " + backupId + " | " + changes.substring(0, Math.min(600, changes.length())));
+        TransactionJournal.record(player, "CONFIG_APPLY", "", "", 0, 0, 0, "Backup " + backupId + " | " + changeSummary(before.document(),draft));
         return current();
     }
 
@@ -243,6 +243,15 @@ public final class AdminEditorService {
         PriceGroup(net.minecraft.world.item.ItemStack stack) { this.stack = stack; }
     }
 
+    private static String changeSummary(AdminDocument before,AdminDocument after){
+        var old=new LinkedHashMap<String,ShopConfig.ShopItem>();var now=new LinkedHashMap<String,ShopConfig.ShopItem>();
+        for(var cat:before.config.categories)for(var item:cat.items)old.put(item.listingId,item);
+        for(var cat:after.config.categories)for(var item:cat.items)now.put(item.listingId,item);
+        int added=0,removed=0,priced=0;for(var entry:now.entrySet()){var prior=old.get(entry.getKey());if(prior==null)added++;else if(prior.buy!=entry.getValue().buy||prior.sell!=entry.getValue().sell)priced++;}for(var id:old.keySet())if(!now.containsKey(id))removed++;
+        var parts=new java.util.ArrayList<String>();if(added>0)parts.add("Added "+added+" listings");if(removed>0)parts.add("Removed "+removed+" listings");if(priced>0)parts.add("Repriced "+priced+" listings");
+        var oldSettings=AdminDocument.JSON.toJsonTree(before.config).getAsJsonObject();var newSettings=AdminDocument.JSON.toJsonTree(after.config).getAsJsonObject();int settings=0;for(var field:newSettings.entrySet())if(!field.getKey().equals("categories")&&!java.util.Objects.equals(field.getValue(),oldSettings.get(field.getKey())))settings++;if(settings>0)parts.add("Updated "+settings+" settings");
+        if(!AdminDocument.JSON.toJson(before.config.categories).equals(AdminDocument.JSON.toJson(after.config.categories)))parts.add("Updated shop layout/details");return parts.isEmpty()?"Configuration saved":String.join("; ",parts);
+    }
     private static String describeChanges(AdminDocument before, AdminDocument after) {
         java.util.List<String> changes = new java.util.ArrayList<>();
         var oldSettings = AdminDocument.JSON.toJsonTree(before.config).getAsJsonObject();

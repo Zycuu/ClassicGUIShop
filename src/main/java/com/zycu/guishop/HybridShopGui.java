@@ -65,6 +65,7 @@ public final class HybridShopGui {
             var button = buttons.get(offset + index); container.bind(slots.get(index), button.icon, false, ignored -> button.action.run());
         }
         int bottom = (rows - 1) * 9;
+        if(buttons.isEmpty()) container.bind(4,displayStack("minecraft:barrier","No items available", "The server owner can add or enable items in Adminshop."),false,ignored -> {});
         if (page > 1) container.bind(bottom, displayStack("minecraft:arrow", "Previous category page"), false, ignored -> openCategories(player, page - 1));
         if (page < pages) container.bind(bottom + 7, displayStack("minecraft:arrow", "Next category page"), false, ignored -> openCategories(player, page + 1));
         container.bind(bottom + 4, displayStack("minecraft:paper", "Balance: " + money(player), "Left-click buys | Right-click sells"), false,

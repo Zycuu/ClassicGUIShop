@@ -29,6 +29,7 @@ public final class ModesPresetChecks {
                 check(draft.findItem("minecraft:command_block").item().buy == 0 && draft.findItem("minecraft:pig_spawn_egg").item().sell == 0, "Administrative and spawn items locked");
             } else check(draft.findItem("minecraft:oak_log") != null && draft.findItem("minecraft:diamond_sword") == null && plan.enchantments().isEmpty(), "Basics membership");
         }
+        var blank=ShopPresets.generate(viewer,new ShopPresets.Request("blank",.30));check(blank.categories().isEmpty()&&blank.items()==0&&blank.enchantments().isEmpty(),"Blank preset has no categories, listings or books");
         check(AdminDocument.JSON.toJson(original).equals(before), "Preset previews do not mutate live config");
         var catalog = ShopModes.catalog(viewer);
         check(catalog.entities().stream().anyMatch(o -> o.id().equals("minecraft:zombie")) && catalog.advancements().stream().anyMatch(o -> o.id().equals("minecraft:story/mine_stone")), "Server entity and advancement discovery");

@@ -43,10 +43,20 @@ public final class ShopIcons {
         lines.add(Component.literal("Buy: " + priceLabel(buy, config)).withStyle(net.minecraft.ChatFormatting.GOLD));
         lines.add(Component.literal("Sell: " + priceLabel(sell, config)).withStyle(net.minecraft.ChatFormatting.GREEN));
         lines.add(Component.literal("Left-click: buy 1 | Right-click: sell 1").withStyle(net.minecraft.ChatFormatting.GRAY));
-        lines.add(Component.literal((bulkBuy ? "Shift-left: buy 64 | " : "") + "Shift-right: sell all matching").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+        if(bulkBuy) lines.add(Component.literal("Shift-left: buy 64").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+        lines.add(Component.literal("Shift-right: sell matching items across inventory").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         if (detail != null && !detail.isBlank()) lines.add(Component.literal(detail).withStyle(net.minecraft.ChatFormatting.GRAY));
         icon.set(DataComponents.LORE, new ItemLore(lines));
         return icon;
+    }
+    public static ItemStack editor(ItemStack template,String name,String detail,double buy,double sell,ShopConfig config) {
+        var icon=display(template,name,"");var lines=new java.util.ArrayList<Component>();
+        lines.add(Component.literal("Buy: "+priceLabel(buy,config)).withStyle(net.minecraft.ChatFormatting.GOLD));
+        lines.add(Component.literal("Sell: "+priceLabel(sell,config)).withStyle(net.minecraft.ChatFormatting.GREEN));
+        lines.add(Component.literal("Click to edit").withStyle(net.minecraft.ChatFormatting.GRAY));
+        if(buy<=0&&sell<=0)lines.add(Component.literal("Hidden from players").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+        if(detail!=null&&!detail.isBlank())lines.add(Component.literal(detail).withStyle(net.minecraft.ChatFormatting.GRAY));
+        icon.set(DataComponents.LORE,new ItemLore(lines));return icon;
     }
     private static String priceLabel(double value, ShopConfig config) {
         return value > 0 && Double.isFinite(value) ? config.money(value) + " each" : "Disabled";

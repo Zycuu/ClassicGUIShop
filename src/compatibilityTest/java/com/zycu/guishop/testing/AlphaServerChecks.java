@@ -31,7 +31,7 @@ public final class AlphaServerChecks {
             if (fixtureBalance < 1000) GuiShop.ECONOMY.deposit(player.getUUID(), 1000 - fixtureBalance);
             server.getPlayerList().getOps().remove(player.nameAndId());
             check(!AdminEditorService.allowed(player), "Non-OP must not access admin tools");
-            try { com.zycu.guishop.admin.AdminPlayers.list(player, "", 0); throw new AssertionError("Non-OP received player balances"); }
+            try { com.zycu.guishop.admin.AdminPlayers.list(player,player.getUUID().toString(),0); throw new AssertionError("Non-OP received player balances"); }
             catch (SecurityException expected) {}
             try { AdminEditorService.snapshot(player); throw new AssertionError("Non-OP received a snapshot"); }
             catch (SecurityException expected) { check(expected.getMessage().equals(AdminEditorService.DENIED), "Exact denial message"); }
@@ -50,7 +50,7 @@ public final class AlphaServerChecks {
             catch (IllegalArgumentException expected) {}
 
             var original = AdminEditorService.snapshot(player);
-            var changed = original.document().copy();
+            var changed=original.document().copy();changed.config.shopTitle="Alpha validation "+java.util.UUID.randomUUID();
             var category = new ShopConfig.Category(); category.id = "alpha_test"; category.name = "Alpha Test"; category.icon = "minecraft:diamond";
             var iconTemplate = new ItemStack(Items.DIAMOND);
             iconTemplate.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(net.minecraft.network.chat.Component.literal("Default icon lore"))));
@@ -123,7 +123,7 @@ public final class AlphaServerChecks {
             var records = TransactionJournal.query(player.getUUID().toString(), 0, false).entries();
             check(records.stream().anyMatch(entry -> entry.action().equals("BUY") && entry.quantity() == 2 && entry.total() == 20), "Purchase journal");
             check(records.stream().anyMatch(entry -> entry.action().equals("SELL") && entry.quantity() == 1 && entry.total() == 2), "Sale journal");
-            var roster = com.zycu.guishop.admin.AdminPlayers.list(player, "", 0);
+            var roster = com.zycu.guishop.admin.AdminPlayers.list(player,player.getUUID().toString(),0);
             var row = roster.players().stream().filter(value -> value.uuid().equals(player.getUUID().toString())).findFirst().orElseThrow();
             check(row.name().equalsIgnoreCase(player.getName().getString()), "Directory provides player names");
             check(row.balance() == GuiShop.ECONOMY.readBalance(player.getUUID()), "Roster uses current balance");

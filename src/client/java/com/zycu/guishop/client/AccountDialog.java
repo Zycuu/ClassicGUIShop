@@ -19,8 +19,8 @@ final class AccountDialog extends WorkbenchScreen {
         super(reset ? "Reset player account" : "Set player balance");
         this.parent = parent; this.player = player; this.reset = reset; this.defaultBalance = defaultBalance; this.currency = currency;
     }
-    @Override protected int contentOffsetX() { return 48; }
-    @Override protected int canvasWidth() { return W + 48; }
+    @Override protected int contentOffsetX() { return 0; }
+    @Override protected int canvasWidth() { return W; }
     @Override protected Screen modalParent() { return parent; }
     @Override protected void init() {
         if (!reset) {

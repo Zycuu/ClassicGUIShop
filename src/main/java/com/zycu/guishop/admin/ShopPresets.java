@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.*;
 import java.util.*;
 
-/** Explicit generation only. A plan changes no live shop or player economy. */
+/** Planning for explicit editor previews and first-install Vanilla Normal setup. A plan changes no live state. */
 public final class ShopPresets {
     private ShopPresets() {}
     public record Request(String preset,double normalRatio,Double bookRatio,Double potionRatio) {
@@ -23,10 +23,15 @@ public final class ShopPresets {
     private static final Set<String> LOCKED = Set.of("air", "barrier", "bedrock", "budding_amethyst", "chain_command_block", "command_block", "command_block_minecart", "debug_stick", "end_portal_frame", "jigsaw", "knowledge_book", "light", "reinforced_deepslate", "repeating_command_block", "spawner", "structure_block", "structure_void", "trial_spawner", "vault", "enchanted_book");
     public static Plan generate(ServerPlayer player, Request request) {
         if (!AdminEditorService.allowed(player)) throw new SecurityException(AdminEditorService.DENIED);
-        if (request == null || !Set.of("normal", "hard", "easy", "basics").contains(request.preset()) || !Double.isFinite(request.normalRatio()) || request.normalRatio() < 0 || request.normalRatio() > 1) throw new IllegalArgumentException("Invalid preset");
+        return generate(player.level().getServer(),request);
+    }
+    public static Plan starter(net.minecraft.server.MinecraftServer server){return generate(server,new Request("normal",.30,.30,.30));}
+    private static Plan generate(net.minecraft.server.MinecraftServer server,Request request){
+        if (request == null || !Set.of("normal","hard","easy","basics","blank").contains(request.preset()) || !Double.isFinite(request.normalRatio()) || request.normalRatio() < 0 || request.normalRatio() > 1) throw new IllegalArgumentException("Invalid preset");
         for(Double value:new Double[]{request.bookRatio(),request.potionRatio()})if(value!=null&&(!Double.isFinite(value)||value<0||value>1))throw new IllegalArgumentException("Invalid default variant return");
         double bookRatio=request.bookRatio()==null?GuiShop.CONFIG.bookSellRatio:request.bookRatio(), potionRatio=request.potionRatio()==null?GuiShop.CONFIG.potionSellRatio:request.potionRatio();
-        var server = player.level().getServer(); var access = server.registryAccess(); var config = new ShopConfig();
+        if(request.preset().equals("blank"))return new Plan("blank",List.of(),Map.of(),0,0,0,0,0,"Start with an empty shop and create your own categories and listings.");
+        var access = server.registryAccess(); var config = new ShopConfig();
         double ratio = switch (request.preset()) { case "hard" -> .10; case "easy" -> .95; default -> request.normalRatio(); };
         if(request.preset().equals("hard")||request.preset().equals("easy")){bookRatio=ratio;potionRatio=ratio;}
         double buyFactor = switch (request.preset()) { case "hard" -> 3; case "easy" -> .75; default -> 1; };

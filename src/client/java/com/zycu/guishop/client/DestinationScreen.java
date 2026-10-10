@@ -26,8 +26,8 @@ final class DestinationScreen extends WorkbenchScreen {
                 selected.accept(value.category); minecraft.gui.setScreen(parent);
             });
         }
-        button("Previous", 80, 322, 110, () -> { page = Math.max(0, page - 1); rebuildWidgets(); });
-        button("Next", 200, 322, 110, () -> { page = Math.min(Math.max(0, (destinations.size() - 1) / 10), page + 1); rebuildWidgets(); });
+        button("Previous", 80, 322, 110, () -> { page = Math.max(0, page - 1); rebuildWidgets(); }).active=page>0;
+        button("Next", 200, 322, 110, () -> { page = Math.min(Math.max(0, (destinations.size() - 1) / 10), page + 1); rebuildWidgets(); }).active=(page+1)*10<destinations.size();
         button("Cancel", 470, 322, 110, this::onClose);
     }
     @Override protected void paint(GuiGraphicsExtractor graphics, int x, int y, float delta) {

@@ -137,7 +137,10 @@ public final class TransactionJournal {
     }
     public static String activity(Entry entry) {
         if (entry.activity() != null && !entry.activity().isBlank()) return entry.activity();
-        if (entry.action().equals("CONFIG_APPLY")) return entry.details();
+        if (entry.action().equals("CONFIG_APPLY")) {
+            String details=entry.details()==null?"Configuration updated":entry.details();
+            int summary=details.indexOf(" | ");return summary<0?details:details.substring(summary+3);
+        }
         if (entry.action().startsWith("MODE_")) {
             String details = entry.details() == null ? "" : entry.details();
             if (entry.listing().startsWith("mode.passive")) return "Online interval (duration not recorded)";

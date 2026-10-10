@@ -37,7 +37,7 @@ public final class AdminScreen extends WorkbenchScreen {
         Tile(String kind, String id, String name, String icon, ShopConfig.ShopItem item) { this(kind, id, name, icon, item, null, ""); }
     }
     private AdminDocument draft;
-    private String baseline, revision, status = "Draft ready. Changes stay local until Apply.";
+    private String baseline, revision, status = "Choose a category to edit. Save changes when ready.";
     private com.zycu.guishop.ShopModes.Catalog modeCatalog;
     private com.zycu.guishop.admin.VariantSources.Catalog variantSources;
     public void variantSources(com.zycu.guishop.admin.VariantSources.Catalog value){variantSources=value;}
@@ -49,6 +49,11 @@ public final class AdminScreen extends WorkbenchScreen {
     private int logNext;
     private int browserPage, previewPage, accessPage, logPage, logOffset;
     private boolean arranging, busy;
+    private net.minecraft.client.gui.components.Button saveButton,discardButton,presetLoadButton;
+    private int searchDebounce;
+    private AdminDocument importBefore;
+    private final WorkbenchScroll detectedScroll=new WorkbenchScroll(628,141,138,6,()->{});
+    private final WorkbenchScroll permissionScroll=new WorkbenchScroll(614,121,182,7,this::rebuildKeepingFocus);
     private boolean enchantPreview;
     private String enchantId;
     private TransactionJournal.Page logData = new TransactionJournal.Page(List.of(), 0, false, "");
@@ -74,14 +79,14 @@ public final class AdminScreen extends WorkbenchScreen {
     private String detectedSource = "", importSource;
     private int sourcePage, detectedOffset, detectionRetry, importOffset, importAdded;
     private boolean detectionRefresh;
-    private DetectedContent.Entry detectedSelection;
+
     private long detectionGeneration;
 
     public AdminScreen(AdminDocument document, String revision) {
         super("ClassicGUIShop Adminshop"); load(document, revision, false);
     }
-    @Override protected int contentOffsetX() { return 48; }
-    @Override protected int canvasWidth() { return W + 48; }
+    @Override protected int contentOffsetX() { return 144; }
+    @Override protected int canvasWidth() { return W + 144; }
     public void load(AdminDocument document, String revision, boolean saved) {
         draft = document.copy(); baseline = AdminDocument.JSON.toJson(draft); this.revision = revision;
         accountCurrency = document.config.currencySymbol; accountDefault = document.config.startingBalance;
@@ -89,17 +94,19 @@ public final class AdminScreen extends WorkbenchScreen {
         if (!categoryId.isEmpty() && draft.config.category(categoryId) == null) categoryId = "";
         selectedItem = null;
         enchantPreview = false; enchantId = null;
-        status = saved ? "Applied on the server. Previous configuration backed up." : "Draft ready. Changes stay local until Apply.";
+        status = saved ? "Saved on the server. Previous configuration backed up." : "Choose a category to edit. Save changes when ready.";
         if (width > 0) rebuildWidgets();
     }
-    public void status(String value) { status = value; }
+    public void status(String value){status=value;}
+    void bulkUpdated(ShopConfig.Category category){for(var item:category.items){String prefix=item.listingId+":";errors.keySet().removeIf(v->v.startsWith(prefix));invalidInputs.keySet().removeIf(v->v.startsWith(prefix));}status="Updated "+category.items.size()+" items in "+category.name+". Save changes when ready.";}
+    private String statusText(){return errors.isEmpty()?status:errors.values().iterator().next();}
     public void restore(com.zycu.guishop.admin.AdminEditorService.RestoreDraft restored) {
         baseline = AdminDocument.JSON.toJson(restored.live()); draft = restored.previous().copy(); revision = restored.revision();
         cancelDrag(); importSource = null; detectionRetry = 0; categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null;
         previewPage = 0; browserPage = 0; busy = false; errors.clear(); invalidInputs.clear(); tab = Tab.BUILDER;
-        status = "Previous configuration loaded into a draft. Review it, then Apply to restore."; rebuildWidgets();
+        status = "Previous configuration loaded into a draft. Review it, then Save changes to restore."; rebuildWidgets();
     }
-    public void failure(String value) { importSource = null; detectionRetry = 0; busy = false; status = value; if (width > 0) rebuildWidgets(); }
+    public void failure(String value) { if(importSource!=null&&importBefore!=null)draft=importBefore;importBefore=null;importSource = null; detectionRetry = 0; busy = false; status = value; if (width > 0) rebuildWidgets(); }
     public void addHeld(ShopConfig.ShopItem item) {
         if (heldCategory != null) {
             String destination = heldCategory; heldCategory = null;
@@ -118,13 +125,13 @@ public final class AdminScreen extends WorkbenchScreen {
     public void logs(TransactionJournal.Page page, AdminNetworking.Query request) {
         if (!matches(request) || request.generation() != historyRequestGeneration) return;
         logData = page; logOffset = page.offset(); logPage = 0; logNext=0; logPrevious.clear();
-        status = page.warning().isBlank() ? "Dates shown in " + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + ". Search local or UTC dates." : page.warning(); rebuildWidgets();
+        status = page.warning().isBlank() ? "Dates shown in " + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + ". Search local or UTC dates." : page.warning();rebuildKeepingFocus();
     }
     public void players(AdminPlayers.Page page, String filter) {
         if (tab != Tab.TRANSACTIONS || selectedPlayer != null || !query.equals(filter)) return;
         playerData = page; logOffset = page.offset(); logPage = 0;
         accountCurrency = page.currencySymbol(); accountDefault = page.defaultBalance();
-        status = "Select a player to view their transactions. Balances are current at refresh."; rebuildWidgets();
+        status="Select a player to view their transactions. Balances are current at refresh.";rebuildKeepingFocus();
     }
     public void playerHistory(AdminPlayers.History history, AdminNetworking.Query request) {
         if (!matches(request) || !history.player().uuid().equals(request.playerUuid())) return;
@@ -157,14 +164,14 @@ public final class AdminScreen extends WorkbenchScreen {
             String name = sourceName(page, importSource);
             for (var entry : page.entries()) if (importDetected(entry, importSource.isBlank() ? "all_detected" : importSource, name)) importAdded++;
             if (page.more()) { importOffset = page.offset() + page.entries().size(); detectionRetry = 6; }
-            else { importSource = null; status = "Imported " + importAdded + " new listings into the draft. Buy 0 / Sell 0. Review in Shop Builder, then Apply."; }
+            else { importSource = null;importBefore=null; status = "Imported " + importAdded + " disabled listings into the category. Enable and price items in Shop Builder, then Save changes."; }
             rebuildWidgets(); return;
         }
         if (importSource != null || !request.source().equals(detectedSource) || !request.filter().equals(query) || request.offset() != detectedOffset) return;
-        detectedData = page; detectedOffset = page.offset(); detectedSelection = null;
+        detectedData = page; detectedOffset=page.offset();detectedScroll.row=0;detectedScroll.count((page.entries().size()+1)/2);
         if (!page.ready()) { detectionRetry = 10; status = page.warning(); }
-        else status = page.warning().isBlank() ? "Loaded content detected. Imports stay in the draft with Buy 0 / Sell 0." : page.warning();
-        rebuildWidgets();
+        else status=page.warning().isBlank()?"Loaded content detected. Imports stay in the draft with Buy 0 / Sell 0.":page.warning();
+        rebuildKeepingFocus();
     }
     private static String sourceName(DetectedContent.Page page, String source) {
         return source.isBlank() ? "All detected content" : page.sources().stream().filter(value -> value.id().equals(source)).map(DetectedContent.Source::name).findFirst().orElse(source);
@@ -191,8 +198,9 @@ public final class AdminScreen extends WorkbenchScreen {
         category.items.add(listing); return true;
     }
     private void requestDetected(int offset, boolean refresh) {
+        searchDebounce=0;
         if (importSource == null) detectionGeneration++;
-        detectedOffset = offset; detectionRefresh = refresh; detectedSelection = null;
+        detectedOffset = offset; detectionRefresh=refresh;
         var request = importSource == null ? new DetectedContent.Query(detectedSource, query, offset, refresh, false, detectionGeneration)
             : new DetectedContent.Query(importSource, "", importOffset, false, true, detectionGeneration);
         if (AdminShopClient.request("detected", "", AdminDocument.JSON.toJson(request))) {
@@ -201,9 +209,11 @@ public final class AdminScreen extends WorkbenchScreen {
         } else detectionRetry = 6;
     }
     public void tickNetworking() {
+        if(searchDebounce>0&&--searchDebounce==0){if(tab==Tab.DETECTED&&importSource==null)requestDetected(0,false);else if(tab==Tab.TRANSACTIONS||tab==Tab.HISTORY)requestRecords(0);}
         if (detectionRetry > 0 && --detectionRetry == 0 && tab == Tab.DETECTED) requestDetected(detectedOffset, detectionRefresh);
         if (logRetryTicks > 0 && --logRetryTicks == 0 && (tab == Tab.HISTORY || tab == Tab.TRANSACTIONS)) requestRecords(retryOffset);
     }
+    @Override protected boolean submitSearch(){searchDebounce=0;if(tab==Tab.DETECTED&&importSource==null){requestDetected(0,false);return true;}if(tab==Tab.TRANSACTIONS||tab==Tab.HISTORY){requestRecords(0);return true;}return tab==Tab.BUILDER;}
     private boolean dirty() { return !errors.isEmpty() || !baseline.equals(AdminDocument.JSON.toJson(draft)); }
     private ShopConfig.Category category() { return draft.config.category(categoryId); }
     private ShopConfig.ShopItem selected() {
@@ -212,32 +222,33 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     @Override protected void init() {
         fields.clear(); hits.clear();
-        String[] names = {"Shop Builder", "Settings", "Access", "Detected Content", "Transactions", "Changes", "Presets", "Shop Modes"};
+        String[] names = {"Shop Builder", "Settings", "Permissions", "Detected Content", "Transactions", "Change History", "Presets", "Shop Modes"};
         net.minecraft.world.item.Item[] icons = {Items.CRAFTING_TABLE, Items.COMPARATOR, Items.IRON_DOOR, Items.SPYGLASS, Items.GOLD_INGOT, Items.WRITABLE_BOOK, Items.CHEST, Items.EXPERIENCE_BOTTLE};
         for (int index = 0; index < names.length; index++) {
             Tab target = Tab.values()[index];
             var button = addRenderableWidget(new WorkbenchTab(names[index], index, icons[index], target == tab, () -> {
                 if (busy) return;
-                cancelDrag(); importSource = null; detectionRetry = 0; tab = target; query = ""; selectedPlayer = null; logPage = 0; logOffset = 0;
+                cancelDrag(); importSource = null; detectionRetry = 0; tab = target;searchDebounce=0; query = ""; selectedPlayer = null; logPage = 0; logOffset = 0;
                 logData = new TransactionJournal.Page(List.of(), 0, false, ""); playerData = new AdminPlayers.Page(List.of(), 0, false); errors.entrySet().removeIf(entry -> entry.getKey().startsWith("view:"));
                 rebuildWidgets();
                 if (target == Tab.TRANSACTIONS || target == Tab.HISTORY) requestRecords(0);
                 if (target == Tab.DETECTED) requestDetected(0, false);
                 if (target == Tab.MODES && modeCatalog == null) { if (AdminShopClient.request("mode_catalog", "", "")) { busy = true; rebuildWidgets(); } }
-            })); button.active = !busy;
+            })); button.active = !busy&&importSource==null;
         }
-        button("Apply", 464, 352, 88, this::apply).active = !busy && importSource == null;
-        button("Discard", 558, 352, 86, () -> {
+        saveButton=button("Save changes",426,352,104,this::apply);
+        discardButton=button("Discard changes",538,352,106, () -> {
             if (busy) return;
-            confirm("Discard draft?", "Your unapplied edits will be discarded. The live server shop stays unchanged.", () -> {
+            confirm("Discard changes?", "Your unapplied edits will be discarded. The live server shop stays unchanged.", () -> {
                 importSource = null; detectionRetry = 0;
-                draft = AdminDocument.JSON.fromJson(baseline, AdminDocument.class); errors.clear(); invalidInputs.clear(); selectedItem = null; status = "Draft discarded.";
+                draft = AdminDocument.JSON.fromJson(baseline, AdminDocument.class); errors.clear(); invalidInputs.clear(); selectedItem = null; status = "Unsaved changes discarded.";
                 categoryId = ""; enchantPreview = false; enchantId = null; previewPage = 0; browserPage = 0;
             });
-        }).active = !busy;
+        });discardButton.active=!busy;
         button("Close", 16, 352, 70, this::onClose).active = !busy;
-        button("Reload", 92, 352, 76, () -> {
-            if (dirty()) confirm("Reload server shop?", "Reloading discards this local draft and fetches the current server configuration.", () -> AdminShopClient.request("open", "", ""));
+        button("Reload shop",92,352,82, () -> {
+            if(importSource!=null){status="Finish or cancel the import before refreshing.";return;}
+            if (dirty()) confirm("Reload shop?", "Reloading discards this local draft and fetches the current server configuration.", () -> AdminShopClient.request("open", "", ""));
             else AdminShopClient.request("open", "", "");
         }).active = !busy;
         if (tab == Tab.BUILDER) builder();
@@ -251,45 +262,37 @@ public final class AdminScreen extends WorkbenchScreen {
     }
 
     public void modeCatalog(com.zycu.guishop.ShopModes.Catalog catalog) {
-        modeCatalog = catalog; busy = false; status = "Detected server entities and advancements. Mode edits require Apply."; rebuildWidgets();
+        modeCatalog = catalog; busy = false; status = "Detected server entities and advancements. Mode edits require Save changes."; rebuildWidgets();
     }
     public void presetResult(com.zycu.guishop.admin.ShopPresets.Plan plan) {
         busy = false; presetPlan = plan; status = "Preset ready for review. The live shop is unchanged."; rebuildWidgets();
     }
     private void presets() {
-        button("Import / export presets",28,244,190,()->minecraft.gui.setScreen(new PresetLibraryScreen(this,draft)));
-        String[] ids = {"normal", "hard", "easy", "basics"};
-        String[] names = {"Full Vanilla Normal", "Full Vanilla Hard", "Full Vanilla Easy", "The Basics"};
-        for (int i = 0; i < ids.length; i++) { String id = ids[i]; button((presetChoice.equals(id) ? "> " : "") + names[i], 28, 82 + i * 39, 190, () -> { presetChoice = id; presetPlan = null; rebuildWidgets(); }); }
-        button("Generate preview", 242, 269, 174, () -> {
-            if (AdminShopClient.request("preset", "", AdminDocument.JSON.toJson(new com.zycu.guishop.admin.ShopPresets.Request(presetChoice, draft.config.presetSellRatio,draft.config.bookSellRatio,draft.config.potionSellRatio)))) { busy = true; status = "Building and auditing the preset on the server..."; rebuildWidgets(); }
-        }).active = !busy;
-        button("Use preset draft", 426, 269, 194, () -> {
-            if (presetPlan == null) return;
-            confirm("Replace draft shop?", "This replaces ALL draft categories and listings, including modded content. The live shop stays unchanged until Apply. Player balances and modes are preserved.", () -> {
-                draft.config.categories = new ArrayList<>(presetPlan.categories());
-
-                categoryId = ""; selectedItem = null; browserPage = 0; previewPage = 0; tab = Tab.BUILDER; status = "Preset loaded into the draft. Review categories and prices, then Apply.";
-            });
-        }).active = !busy && presetPlan != null;
-    }
-    private void paintPresets(GuiGraphicsExtractor graphics) {
-        panel(graphics, 16, 69, 214, 270, WorkbenchTheme.PANEL); panel(graphics, 236, 69, 408, 270, WorkbenchTheme.PANEL);
-        String description = switch (presetChoice) { case "hard" -> "Full Vanilla Hard: 3x base buy prices, 10% sell return."; case "easy" -> "Full Vanilla Easy: 75% of base buy prices, 95% sell return."; case "basics" -> "The Basics: raw ingredients, ores, logs and collectible resources. "+Math.round(draft.config.presetSellRatio*100)+"% sell return."; default -> "Full Vanilla Normal: base prices, "+Math.round(draft.config.presetSellRatio*100)+"% target sell return."; };
-        multiline(graphics, description, 250, 84, 370, WorkbenchTheme.TEXT);
-        multiline(graphics, "Every preset is a draft. Recipe safety caps may lower individual sell prices. Modded listings are not generated.", 250, 126, 370, WorkbenchTheme.MUTED);
-        if (presetPlan != null) {
-            text(graphics, presetPlan.items() + " listings | " + presetPlan.categories().size() + " categories | " + presetPlan.categories().stream().flatMap(c->c.items.stream()).filter(i->i.item.equals("minecraft:enchanted_book")&&i.buy>0).count() + " book variants", 250, 178, WorkbenchTheme.TEXT);
-            text(graphics, presetPlan.locked() + " locked | " + presetPlan.capped() + " sell caps | " + presetPlan.recipes() + " recipes checked", 250, 193, WorkbenchTheme.TEAL);
-            multiline(graphics, presetPlan.warning(), 250, 209, 370, WorkbenchTheme.MUTED);
+        button("Import / export presets",28,301,190,()->minecraft.gui.setScreen(new PresetLibraryScreen(this,draft)));
+        String[] ids={"normal","hard","easy","basics","blank"},names={"Full Vanilla Normal","Full Vanilla Hard","Full Vanilla Easy","The Basics","Blank shop"};
+        for(int i=0;i<ids.length;i++){String id=ids[i];button((presetChoice.equals(id)?"> ":"")+names[i],28,82+i*39,190,()->{presetChoice=id;presetPlan=null;rebuildWidgets();});}
+        if(presetChoice.equals("normal")||presetChoice.equals("basics")){
+            number("Item sell return %",250,184,110,draft.config.presetSellRatio*100,v->{draft.config.presetSellRatio=v/100;presetPlan=null;});
+            number("Book sell return %",380,184,110,draft.config.bookSellRatio*100,v->{draft.config.bookSellRatio=v/100;presetPlan=null;});
+            number("Potion sell return %",510,184,110,draft.config.potionSellRatio*100,v->{draft.config.potionSellRatio=v/100;presetPlan=null;});
         }
-        multiline(graphics, "Use preset replaces the draft's categories. Apply saves a backup before changing the live shop.", 250, 303, 370, WorkbenchTheme.MUTED);
+        button("Preview preset",250,269,174,()->{if(AdminShopClient.request("preset","",AdminDocument.JSON.toJson(new com.zycu.guishop.admin.ShopPresets.Request(presetChoice,draft.config.presetSellRatio,draft.config.bookSellRatio,draft.config.potionSellRatio)))){busy=true;status="Building and auditing the preset on the server...";rebuildWidgets();}}).active=!busy&&errors.isEmpty();
+        presetLoadButton=button("Load into editor",434,269,186,()->{if(presetPlan==null)return;confirm("Replace draft shop?","This replaces all editor categories and listings, including modded content. Review the result, then Save changes. Accounts and modes are preserved.",()->{draft.config.categories=new ArrayList<>(presetPlan.categories());if(presetPlan.preset().equals("blank"))draft.config.enchantments.clear();categoryId="";selectedItem=null;browserPage=previewPage=0;tab=Tab.BUILDER;status="Preset loaded into the editor. Review it, then Save changes.";});});presetLoadButton.active=!busy&&presetPlan!=null&&errors.isEmpty();
+    }
+    private void paintPresets(GuiGraphicsExtractor g){
+        panel(g,16,69,214,270,WorkbenchTheme.PANEL);panel(g,236,69,408,270,WorkbenchTheme.PANEL);
+        String description=switch(presetChoice){case "hard"->"Full Vanilla Hard: 3x base buy prices. Fixed 10% sell return for items, books and potions.";case "easy"->"Full Vanilla Easy: 75% base buy prices. Fixed 95% sell return for items, books and potions.";case "blank"->"Blank shop: no categories or listings. Build your own shop from scratch.";case "basics"->"The Basics: ores, logs, ingredients and collectible resources.";default->"Full Vanilla Normal: all vanilla items at base buy prices.";};
+        multiline(g,description,250,84,370,WorkbenchTheme.TEXT);multiline(g,presetChoice.equals("blank")?"Load the blank shop into the editor. Create categories and add items in Shop Builder, then Save changes.":"Defaults only set newly generated prices. Existing listing prices stay as entered. Recipe safety may lower sell returns.",250,123,370,WorkbenchTheme.MUTED);
+        if(presetChoice.equals("normal")||presetChoice.equals("basics")){text(g,"Item return %",250,170,WorkbenchTheme.MUTED);text(g,"Book return %",380,170,WorkbenchTheme.MUTED);text(g,"Potion return %",510,170,WorkbenchTheme.MUTED);}
+        if(presetPlan!=null&&presetChoice.equals("blank"))text(g,"Empty shop ready to load.",250,218,WorkbenchTheme.TEAL);
+        if(presetPlan!=null&&!presetChoice.equals("blank")){text(g,presetPlan.items()+" listings | "+presetPlan.categories().size()+" categories",250,218,WorkbenchTheme.TEXT);text(g,presetPlan.locked()+" disabled | "+presetPlan.capped()+" safety caps | "+presetPlan.recipes()+" recipes checked",250,233,WorkbenchTheme.TEAL);}
+        multiline(g,"Preview preset > Load into editor > Save changes. Loading a preset replaces all editor listings.",250,303,370,WorkbenchTheme.MUTED);if(presetLoadButton!=null)presetLoadButton.active=!busy&&presetPlan!=null&&errors.isEmpty();
     }
     private void modes() {
         var m = draft.config.modes;
         String[] names = {"Passive Income", "Cash Mobs", "Advancement Hunter", "Warrior Mode", "Mishap Charge"};
         for (int i = 0; i < names.length; i++) { String name = names[i]; button((modeSection.equals(name) ? "> " : "") + name, 26, 80 + i * 35, 170, () -> { modeSection = name; rebuildWidgets(); }); }
-        button("Refresh detected IDs", 26, 301, 170, () -> { if (AdminShopClient.request("mode_catalog", "", "")) { busy = true; rebuildWidgets(); } });
+        button("Refresh content", 26, 301, 170, () -> { if (AdminShopClient.request("mode_catalog", "", "")) { busy = true; rebuildWidgets(); } });
         if (modeSection.equals("Passive Income")) {
             toggle("Passive Income", 218, 81, 182, m.passiveEnabled, value -> m.passiveEnabled = value);
             number("Income amount", 218, 125, 174, m.passiveAmount, value -> m.passiveAmount = value);
@@ -298,15 +301,15 @@ public final class AdminScreen extends WorkbenchScreen {
         } else if (modeSection.equals("Cash Mobs")) {
             toggle("Cash Mobs", 218, 81, 182, m.mobsEnabled, value -> m.mobsEnabled = value);
             toggle("Quick farming", 418, 81, 194, m.allowSpawnerFarming, value -> m.allowSpawnerFarming = value);
-            number("Default entity payout", 218, 125, 174, m.mobDefault, value -> m.mobDefault = value);
+            number("Default mob reward", 218, 125, 174, m.mobDefault, value -> m.mobDefault = value);
             number("Kill cooldown minutes", 418, 125, 194, m.mobCooldownMinutes, value -> m.mobCooldownMinutes = value);
             modeColor("Prefix color", 218, 181, m.mobsColor, value -> m.mobsColor = value);
-            button("Edit entity payouts", 418, 181, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, false))).active = modeCatalog != null;
+            button("Edit mob rewards", 418, 181, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, false))).active = modeCatalog != null;
         } else if (modeSection.equals("Advancement Hunter")) {
             toggle("Advancement Hunter", 218, 81, 200, m.advancementsEnabled, value -> m.advancementsEnabled = value);
-            number("Default mod advancement payout", 218, 125, 394, m.advancementDefault, value -> m.advancementDefault = value);
+            number("Default mod advancement reward", 218, 125, 394, m.advancementDefault, value -> m.advancementDefault = value);
             modeColor("Prefix color", 218, 181, m.advancementsColor, value -> m.advancementsColor = value);
-            button("Edit advancement payouts", 418, 181, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, true))).active = modeCatalog != null;
+            button("Edit advancement rewards", 418, 181, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, true))).active = modeCatalog != null;
         } else if(modeSection.equals("Mishap Charge")){
             toggle("Mishap Charge",218,81,182,m.mishapEnabled,value->m.mishapEnabled=value);
             toggle("Allow debt",418,81,194,m.mishapAllowDebt,value->m.mishapAllowDebt=value);
@@ -317,21 +320,22 @@ public final class AdminScreen extends WorkbenchScreen {
             toggle("Allow debt", 418, 81, 194, m.allowNegativeBalance, value -> m.allowNegativeBalance = value);
             number("Kill reward", 218, 125, 174, m.warriorReward, value -> m.warriorReward = value);
             number("Victim deduction", 418, 125, 194, m.warriorDeduction, value -> m.warriorDeduction = value);
-            number("Pair cooldown minutes", 218, 172, 174, m.warriorCooldownMinutes, value -> m.warriorCooldownMinutes = value);
-            number("Minimum online minutes", 418, 172, 194, m.warriorMinimumOnlineMinutes, value -> m.warriorMinimumOnlineMinutes = value);
-            toggle("Block same address", 218, 208, 182, m.blockSameAddress, value -> m.blockSameAddress = value);
+            number("Repeat kill cooldown (min)", 218, 172, 174, m.warriorCooldownMinutes, value -> m.warriorCooldownMinutes = value);
+            number("Online time required (min)", 418, 172, 194, m.warriorMinimumOnlineMinutes, value -> m.warriorMinimumOnlineMinutes = value);
+            toggle("Shared-IP reward block", 218, 208, 182, m.blockSameAddress, value -> m.blockSameAddress = value);
             modeColor("Prefix color", 418, 208, m.warriorColor, value -> m.warriorColor = value);
         }
         String prefix = m.prefix(modeSection.equals("Passive Income")?"passive":modeSection.equals("Cash Mobs")?"mobs":modeSection.equals("Advancement Hunter")?"advancement":modeSection.equals("Mishap Charge")?"mishap":"warrior");
-        field("Prefix name",218,243,394,prefix,value->{switch(modeSection){case "Passive Income"->m.passivePrefix=value;case "Cash Mobs"->m.mobsPrefix=value;case "Advancement Hunter"->m.advancementsPrefix=value;case "Mishap Charge"->m.mishapPrefix=value;default->m.warriorPrefix=value;}}).setMaxLength(32);
+        field("Chat prefix name",218,243,394,prefix,value->{switch(modeSection){case "Passive Income"->m.passivePrefix=value;case "Cash Mobs"->m.mobsPrefix=value;case "Advancement Hunter"->m.advancementsPrefix=value;case "Mishap Charge"->m.mishapPrefix=value;default->m.warriorPrefix=value;}}).setMaxLength(32);
     }
-    private void modeColor(String label, int x, int y, String color, Consumer<String> changed) { field(label, x, y, 174, color, changed); }
+    private void modeColor(String label,int x,int y,String color,Consumer<String> changed){colorChoice(label,x,y,174,color,changed);}
+    private void colorChoice(String label,int x,int y,int width,String color,Consumer<String> changed){button(ChoiceDialog.label(color)+"...",x,y,width,()->minecraft.gui.setScreen(new ChoiceDialog(this,label,color,ChoiceDialog.colors(),value->{changed.accept(value);rebuildWidgets();})));}
     private void paintModes(GuiGraphicsExtractor graphics) {
         panel(graphics, 16, 69, 188, 270, WorkbenchTheme.PANEL); panel(graphics, 208, 69, 436, 270, WorkbenchTheme.PANEL);
-        String[] labels = switch (modeSection) { case "Passive Income" -> new String[]{"Income amount", "Interval minutes"}; case "Cash Mobs" -> new String[]{"Default entity payout", "Kill cooldown minutes"}; case "Advancement Hunter" -> new String[]{"Default mod advancement payout", ""}; case "Mishap Charge" -> new String[]{"Death charge", ""}; default -> new String[]{"Kill reward", "Victim deduction"}; };
+        String[] labels = switch (modeSection) { case "Passive Income" -> new String[]{"Income amount", "Interval minutes"}; case "Cash Mobs" -> new String[]{"Default mob reward", "Kill cooldown minutes"}; case "Advancement Hunter" -> new String[]{"Default mod advancement reward", ""}; case "Mishap Charge" -> new String[]{"Death charge", ""}; default -> new String[]{"Kill reward", "Victim deduction"}; };
         int y = 112;
         text(graphics, labels[0], 218, y, WorkbenchTheme.MUTED); text(graphics, labels[1], 418, y, WorkbenchTheme.MUTED);
-        if (modeSection.equals("Warrior Mode")) { text(graphics, "Pair cooldown minutes", 218, 159, WorkbenchTheme.MUTED); text(graphics, "Minimum online minutes", 418, 159, WorkbenchTheme.MUTED); text(graphics, "Prefix color", 418, 195, WorkbenchTheme.MUTED); }
+        if (modeSection.equals("Warrior Mode")) { text(graphics, "Repeat kill cooldown (min)", 218, 159, WorkbenchTheme.MUTED); text(graphics, "Online time required (min)", 418, 159, WorkbenchTheme.MUTED); text(graphics, "Prefix color", 418, 195, WorkbenchTheme.MUTED); }
         else text(graphics, "Prefix color", 218, 168, WorkbenchTheme.MUTED);
         String help = switch (modeSection) {
             case "Passive Income" -> "Survival/adventure play earns income. AFK counts; offline time and disabled periods do not.";
@@ -340,29 +344,30 @@ public final class AdminScreen extends WorkbenchScreen {
             case "Mishap Charge" -> "Each survival/adventure death is charged once. Debt is optional. Warrior deductions apply separately.";
             default -> "Repeat pairs, self kills and creative/spectator players do not pay. Same-address blocking includes shared connections.";
         };
-        text(graphics,"Prefix name",218,230,WorkbenchTheme.MUTED);
+        text(graphics,"Chat prefix name",218,230,WorkbenchTheme.MUTED);
         multiline(graphics, help, 218, 277, 406, WorkbenchTheme.MUTED);
-        text(graphics, "Modes can run together. Apply saves changes.", 218, 325, WorkbenchTheme.TEAL);
+        text(graphics, "Modes can run together. Save changes when ready.", 218, 325, WorkbenchTheme.TEAL);
     }
 
     private void builder() {
         button("+ Category", 22, 76, 124, () -> createCategory());
-        button("<", 22, 316, 38, () -> { browserPage = Math.max(0, browserPage - 1); rebuildWidgets(); });
-        button(">", 108, 316, 38, () -> { browserPage++; rebuildWidgets(); });
-        button("Home", 166, 76, 62, this::home);
-        button(arranging ? "Exit arrange mode" : "Arrange mode", 234, 76, 157, () -> {
+        button("<",22,316,38,()->{browserPage=Math.max(0,browserPage-1);rebuildWidgets();}).active=browserPage>0;
+        button(">",108,316,38,()->{browserPage++;rebuildWidgets();}).active=(browserPage+1)*9<draft.config.categories.size();
+        button("Categories",166,76,80,this::home);
+        button(arranging ? "Exit arrange mode" : "Arrange mode", 252,76,137, () -> {
             cancelDrag(); arranging = !arranging; query = ""; previewPage = 0; selectedItem = null;
             status=arranging?"Arrange mode: drag listings or categories.":"Click any listing to edit it, including disabled imports.";
             rebuildWidgets();
         });
-        button("Up", 397, 76, 55, this::up);
-        button("Adjust prices",344,107,108,()->minecraft.gui.setScreen(new PriceAdjustScreen(this,draft.config,categoryId.isEmpty()?null:categoryId,selectedItem)));
+        button("Back",397,76,55,this::up).active=category()!=null;
+        button("Bulk Adjust",344,107,108,()->minecraft.gui.setScreen(new PriceAdjustScreen(this,draft.config,categoryId,selectedItem))).active=category()!=null&&!category().items.isEmpty();
         search = field("Search listings", 166, 107, 172, query, value -> query = value);
         search.setHint(Component.literal("Search by name or item ID..."));
         search.setResponder(value -> { query = value; previewPage = 0; });
-        search.setEditable(arranging);
-        button("<", 166, 316, 40, () -> { previewPage = Math.max(0, previewPage - 1); });
-        button(">", 412, 316, 40, () -> { previewPage++; });
+        search.setEditable(true);
+        if(draft.config.categories.isEmpty()){button("Create category",176,205,126,this::createCategory);button("Choose a preset",312,205,132,()->{tab=Tab.PRESETS;rebuildWidgets();});}
+        button("<",166,316,40,()->{previewPage=Math.max(0,previewPage-1);rebuildWidgets();}).active=previewPage>0;
+        button(">",412,316,40,()->{previewPage++;rebuildWidgets();}).active=(previewPage+1)*(category()==null?CategoryLayout.PAGE_SIZE:45)<tiles().size();
         inspector();
     }
     private void home() {
@@ -380,7 +385,7 @@ public final class AdminScreen extends WorkbenchScreen {
             number("Buy price", 472, 147, 164, item.buy, value -> { item.buy = value; item.manualPrice = true; });
             number("Sell price", 472, 187, 164, item.sell, value -> { item.sell = value; item.manualPrice = true; });
             button("Move listing...", 472, 219, 164, () -> minecraft.gui.setScreen(new DestinationScreen(this, draft, cat -> move(item, cat))));
-            button("Remove listing", 472, 245, 164, () -> confirm("Remove listing?", item.name + " will be removed when you Apply. The previous configuration will be backed up.", () -> {
+            button("Remove listing", 472, 245, 164, () -> confirm("Remove listing?", item.name + " will be removed when you Save changes. The previous configuration will be backed up.", () -> {
                 category.items.remove(item); selectedItem = null;
             }));
             button("Move earlier", 472, 276, 79, () -> reorder(category.items, item, -1));
@@ -391,7 +396,7 @@ public final class AdminScreen extends WorkbenchScreen {
             button("Choose icon...", 472, 141, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Choose category icon", false, icons -> {
                 var icon = icons.getFirst(); category.icon = icon.item; category.iconStack = icon.stack.deepCopy();
             })));
-            button("+ Select item", 472, 181, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Add item listings", true, items -> {
+            button("+ Add items", 472, 181, 164, () -> minecraft.gui.setScreen(new IconPickerScreen(this, "Add item listings", true, items -> {
                 if (draft.config.categories.stream().mapToInt(value -> value.items.size()).sum() + items.size() > 10000) throw new IllegalArgumentException("Listing limit reached. Select fewer items.");
                 categoryId = category.id;
                 for (var itemToAdd : items) addListing(itemToAdd);
@@ -399,7 +404,7 @@ public final class AdminScreen extends WorkbenchScreen {
             button("+ Add held item", 472, 207, 164, () -> {
                 if (AdminShopClient.request("held", "", "")) { heldCategory = categoryId; }
             });
-            button("Remove category", 472, 245, 164, () -> confirm("Remove category?", "This also removes its " + category.items.size() + " listings when you Apply.", () -> {
+            button("Remove category", 472, 245, 164, () -> confirm("Remove category?", "This also removes its " + category.items.size() + " listings when you Save changes.", () -> {
                 draft.config.categories.remove(category); categoryId = ""; selectedItem = null;
             }));
             button("Move earlier", 472, 276, 79, () -> reorder(draft.config.categories, category, -1));
@@ -424,7 +429,7 @@ public final class AdminScreen extends WorkbenchScreen {
         for (var category : draft.config.categories) for (var listing : category.items) used.add(listing.listingId.toLowerCase(Locale.ROOT));
         item.listingId = com.zycu.guishop.ItemStackData.unusedListingId(item.listingId, used);
         item.buy = 0; item.sell = 0; item.manualPrice = true;
-        category().items.add(item); selectedItem = item.listingId; arranging = true;
+        category().items.add(item); selectedItem = item.listingId;
         status = "Listing added to draft with prices disabled. Set buy and sell prices before applying.";
     }
     private void move(ShopConfig.ShopItem item, String destination) {
@@ -462,63 +467,48 @@ public final class AdminScreen extends WorkbenchScreen {
             toggle("Damaged item selling",32,196,276,config.sellDamagedItems,value->config.sellDamagedItems=value);
             toggle("Enchanted equipment selling",350,196,276,config.sellEnchantedEquipment,value->config.sellEnchantedEquipment=value);
             toggle("Show operator balances publicly",32,235,594,config.showOperatorBalances,value->config.showOperatorBalances=value);
-            number("Default preset sell return percent",32,279,276,config.presetSellRatio*100,value->config.presetSellRatio=value/100);
+            button("Preset price defaults",32,279,276,()->{tab=Tab.PRESETS;rebuildWidgets();});
         } else if (settingsSection.equals("Messages")) {
             field("Chat prefix", 32, 142, 276, config.chatPrefix, value -> config.chatPrefix = value);
-            field("Prefix color", 350, 142, 276, config.chatPrefixColor, value -> config.chatPrefixColor = value);
-            field("Information color", 32, 196, 276, config.chatInfoColor, value -> config.chatInfoColor = value);
-            field("Success color", 350, 196, 276, config.chatSuccessColor, value -> config.chatSuccessColor = value);
-            field("Warning color", 32, 250, 276, config.chatWarningColor, value -> config.chatWarningColor = value);
-            field("Error color", 350, 250, 276, config.chatErrorColor, value -> config.chatErrorColor = value);
+            colorChoice("Prefix color", 350, 142, 276, config.chatPrefixColor, value -> config.chatPrefixColor = value);
+            colorChoice("Information color", 32, 196, 276, config.chatInfoColor, value -> config.chatInfoColor = value);
+            colorChoice("Success color", 350, 196, 276, config.chatSuccessColor, value -> config.chatSuccessColor = value);
+            colorChoice("Warning color", 32, 250, 276, config.chatWarningColor, value -> config.chatWarningColor = value);
+            colorChoice("Error color", 350, 250, 276, config.chatErrorColor, value -> config.chatErrorColor = value);
         } else {
             if(variantSources==null)AdminShopClient.request("variant_sources","","");
             button("Enchantments",32,123,276,()->minecraft.gui.setScreen(new VariantScreen(this,config,true)));
             button("Potions",350,123,276,()->minecraft.gui.setScreen(new VariantScreen(this,config,false)));
         }
     }
-    private void access() {
-        List<Map.Entry<String, Integer>> entries = draft.config.permissionDefaults.entrySet().stream()
-            .filter(entry -> !entry.getKey().contains("admin") && !entry.getKey().contains("ident")).sorted(Map.Entry.comparingByKey()).toList();
-        int pages = Math.max(1, (entries.size() + 6) / 7); accessPage = Math.min(accessPage, pages - 1);
-        for (int index = 0; index < 7 && accessPage * 7 + index < entries.size(); index++) {
-            var entry = entries.get(accessPage * 7 + index); int y = 127 + index * 26;
-            number(entry.getKey(), 450, y, 160, entry.getValue(), value -> draft.config.permissionDefaults.put(entry.getKey(), (int) value));
-        }
-        button("Previous", 32, 313, 110, () -> { accessPage = Math.max(0, accessPage - 1); rebuildWidgets(); });
-        button("Next", 150, 313, 110, () -> { accessPage = Math.min(pages - 1, accessPage + 1); rebuildWidgets(); });
-    }
+    private List<Map.Entry<String,Integer>> permissionEntries(){return draft.config.permissionDefaults.entrySet().stream().filter(e->!e.getKey().contains("admin")&&!e.getKey().contains("ident")).sorted(Comparator.comparing(e->permissionName(e.getKey()))).toList();}
+    private String permissionName(String key){if(key.startsWith("guishop.category.")){String id=key.substring(17);var cat=draft.config.category(id);return "Category: "+(cat==null?ChoiceDialog.label(id):cat.name);}return switch(key){case "guishop.buy"->"Buy items";case "guishop.sell"->"Sell items";case "guishop.enchant"->"Trade enchanted books";case "guishop.creative.bypass"->"Trade while in creative mode";case "guishop.command.shop"->"Open the shop";case "guishop.command.balance"->"View balances";case "guishop.command.pay"->"Send money";case "guishop.command.sellhand"->"Sell held items";case "guishop.command.worth"->"Check item value";default->ChoiceDialog.label(key.replace("guishop.","").replace('.',' '));};}
+    @Override protected WorkbenchScroll scroller(){return tab==Tab.ACCESS?permissionScroll:tab==Tab.DETECTED?detectedScroll:null;}
+    private void access(){var entries=permissionEntries();permissionScroll.count(entries.size());for(int row=0;row<7&&permissionScroll.row+row<entries.size();row++){var e=entries.get(permissionScroll.row+row);String role=ChoiceDialog.roles().get(e.getValue()).label();button(role,430,122+row*26,174,()->minecraft.gui.setScreen(new ChoiceDialog(this,permissionName(e.getKey()),Integer.toString(e.getValue()),ChoiceDialog.roles(),v->{draft.config.permissionDefaults.put(e.getKey(),Integer.parseInt(v));rebuildWidgets();})));}}
+    private int importCount(){return detectedData.sourceCount();}
+    private String destinationName(){String key=detectedSource.isBlank()?"all_detected":detectedSource;var cat=draft.config.categories.stream().filter(v->key.equals(v.detectedSource)).findFirst().orElse(null);return cat==null?sourceName(detectedData,detectedSource):cat.name;}
     private void detection() {
         search = field("Search detected items", 184, 110, 346, query, value -> query = value); search.setMaxLength(128);
-        search.setHint(Component.literal("Search item name, ID, or source path...")); search.setEditable(importSource == null);
+        search.setHint(Component.literal("Search item name, ID, or source path...")); search.setEditable(importSource==null);search.setResponder(v->{query=v;searchDebounce=6;});
         button("Search", 536, 110, 94, () -> requestDetected(0, false)).active = importSource == null;
         button("Rescan", 536, 76, 94, () -> requestDetected(0, true)).active = importSource == null;
         button("<", 24, 313, 40, () -> { sourcePage = Math.max(0, sourcePage - 1); rebuildWidgets(); });
         button(">", 118, 313, 40, () -> { sourcePage++; rebuildWidgets(); });
-        button("Previous", 184, 313, 84, () -> requestDetected(Math.max(0, detectedOffset - DetectedContent.PAGE_SIZE), false)).active = importSource == null && detectedOffset > 0;
-        button("Next", 274, 313, 68, () -> requestDetected(detectedOffset + DetectedContent.PAGE_SIZE, false)).active = importSource == null && detectedData.more();
-        button("Import item", 350, 313, 102, () -> {
-            if (detectedSelection == null) return;
-            String destination = detectedSource.isBlank() ? detectedSelection.source() : detectedSource;
-            String name = sourceName(detectedData, destination);
-            try {
-                boolean added = importDetected(detectedSelection, destination, name);
-                status = added ? "Imported to its source category in the draft. Buy 0 / Sell 0. Review, then Apply." : "That exact variant is already in its source category. Existing prices were preserved.";
-            } catch (IllegalArgumentException invalid) { status = invalid.getMessage(); }
-            rebuildWidgets();
-        }).active = importSource == null && detectedSelection != null;
-        String action = detectedSource.isBlank() ? "Import all" : detectedSource.startsWith("datapack_") ? "Import pack" : "Import source";
-        button(importSource == null ? action : "Cancel import", 460, 313, 170, () -> {
-            if (importSource != null) { importSource = null; detectionRetry = 0; status = "Import stopped. Items already added remain in the draft with prices 0."; rebuildWidgets(); }
-            else confirm("Import into one category?", "Add ALL items across ALL pages to one category. Search is ignored. New prices stay 0; existing prices are preserved. Apply saves later.", () -> {
-                detectionGeneration++; importSource = detectedSource; importOffset = 0; importAdded = 0; requestDetected(0, false);
+        button("Previous",184,279,76, () -> requestDetected(Math.max(0, detectedOffset - DetectedContent.PAGE_SIZE), false)).active = importSource == null && detectedOffset > 0;
+        button("Next",268,279,60, () -> requestDetected(detectedOffset + DetectedContent.PAGE_SIZE, false)).active = importSource == null && detectedData.more();
+        String action=detectedSource.isBlank()?"Choose a source":detectedSource.startsWith("datapack_")?"Import entire pack":"Import entire source";
+        button(importSource == null ? action : "Cancel import", 184,313,446, () -> {
+            if(importSource!=null){importSource=null;detectionRetry=0;detectionGeneration++;if(importBefore!=null)draft=importBefore;importBefore=null;status="Import cancelled. The editor has been restored.";rebuildWidgets();}
+            else confirm("Import into one category?", importCount()+" detected items from "+sourceName(detectedData,detectedSource)+" will go into category "+destinationName()+". Includes every page and ignores search. New prices are 0; existing prices stay unchanged.", () -> {
+                importBefore=draft.copy();detectionGeneration++; importSource = detectedSource; importOffset = 0; importAdded = 0; requestDetected(0, false);
             });
-        }).active = importSource != null || detectedData.ready();
+        }).active=importSource!=null||detectedData.ready()&&!detectedSource.isBlank();
     }
     private void paintDetected(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         panel(graphics, 16, 69, 148, 270, WorkbenchTheme.PANEL); panel(graphics, 172, 69, 472, 270, WorkbenchTheme.PANEL);
         text(graphics, "CONTENT SOURCES", 24, 82, WorkbenchTheme.MUTED);
-        text(graphics, "New imports: Buy 0 / Sell 0", 184, 82, WorkbenchTheme.MUTED);
-        text(graphics, "Select a Pack: row, then Import pack for one category.", 184, 96, WorkbenchTheme.MUTED);
+        text(graphics, "Imports start hidden: Buy 0 / Sell 0", 184, 82, WorkbenchTheme.MUTED);
+        text(graphics, "Choose a source, then import it into one category.", 184, 96, WorkbenchTheme.MUTED);
         var sources = new ArrayList<>(detectedData.sources());
         sourcePage = Math.min(sourcePage, Math.max(0, (sources.size() - 1) / 9));
         graphics.fill(22, 109, 158, 127, detectedSource.isBlank() ? WorkbenchTheme.SELECTED : WorkbenchTheme.ROW);
@@ -530,37 +520,37 @@ public final class AdminScreen extends WorkbenchScreen {
             hits.add(new Hit(22, y, 136, 18, "detected:source", source.id(), "", null));
         }
         text(graphics, Integer.toString(sourcePage + 1), 85, 322, WorkbenchTheme.MUTED);
-        text(graphics, "Page " + (detectedOffset / DetectedContent.PAGE_SIZE + 1) + " | Unsupported definitions: " + detectedData.skipped(), 184, 283, WorkbenchTheme.TEXT);
-        text(graphics, detectedData.ready() ? font.plainSubstrByWidth(sourceName(detectedData, detectedSource) + " | Whole imports include every page.", 440) : "Missing a variant? Use Add held item in Shop Builder.", 184, 296, WorkbenchTheme.TEXT);
-        for (int index = 0; index < detectedData.entries().size(); index++) {
-            var entry = detectedData.entries().get(index); int x = 184 + index % 4 * 112, y = 141 + index / 4 * 23;
+        text(graphics,"Page "+(detectedOffset/DetectedContent.PAGE_SIZE+1)+" | "+detectedData.sourceCount()+" detected in source",340,284,WorkbenchTheme.MUTED);
+        text(graphics, detectedData.ready() ? font.plainSubstrByWidth(detectedSource.isBlank()?"Select a source to import it into its own category.":"Category: "+destinationName(), 440) : "Missing a variant? Use Add held item in Shop Builder.",184,302,WorkbenchTheme.MUTED);
+        detectedScroll.paint(graphics);
+        for(int index=detectedScroll.row*2;index<Math.min(detectedData.entries().size(),(detectedScroll.row+6)*2);index++){
+            var entry = detectedData.entries().get(index); int x=184+index%2*218,y=141+(index/2-detectedScroll.row)*23;
             ItemStack item = entry.listing().createStack(minecraft.level.registryAccess());
-            boolean selected = entry.equals(detectedSelection);
-            graphics.fill(x, y, x + 108, y + 22, selected ? WorkbenchTheme.SELECTED : WorkbenchTheme.ROW);
+            boolean selected=x<=mouseX&&mouseX<x+212&&y<=mouseY&&mouseY<y+22;
+            graphics.fill(x, y, x + 212, y + 22, selected ? WorkbenchTheme.SELECTED : WorkbenchTheme.ROW);
             graphics.item(item, x + 2, y + 3);
-            text(graphics, font.plainSubstrByWidth(item.getHoverName().getString(), 86), x + 21, y + 7, WorkbenchTheme.TEXT);
-            hits.add(new Hit(x, y, 108, 22, "detected:item", Integer.toString(index), "", null));
-            if (x <= mouseX && mouseX < x + 108 && y <= mouseY && mouseY < y + 22) {
-                graphics.fill(182, 281, 634, 310, WorkbenchTheme.PANEL);
-                text(graphics, font.plainSubstrByWidth(item.getHoverName().getString() + " | " + entry.listing().item, 440), 184, 283, WorkbenchTheme.TEXT);
-                text(graphics, font.plainSubstrByWidth(entry.origin(), 440), 184, 296, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(item.getHoverName().getString(),190), x + 21, y + 7, WorkbenchTheme.TEXT);
+
+            if (x <= mouseX && mouseX < x + 212 && y <= mouseY && mouseY < y + 22) {
+                graphics.setTooltipForNextFrame(font,font.split(Component.literal(item.getHoverName().getString()+"\n"+entry.listing().item+"\n"+entry.origin()),350),(int)(originX+(mouseX+contentOffsetX())*scale),(int)(originY+mouseY*scale));
+
             }
         }
         if (detectedData.entries().isEmpty()) text(graphics, detectedData.ready() ? "No matching detected items. Held-item import is also available." : "Inspecting server content...", 184, 169, WorkbenchTheme.MUTED);
     }
     private void history() {
         boolean roster = tab == Tab.TRANSACTIONS && selectedPlayer == null;
-        search = field(roster ? "Search players" : "Filter transactions", 32, 110, 450, query, value -> query = value);
-        search.setMaxLength(128);
+        search = field(roster ? "Search players" : "Search records", 32, 110, 450, query, value -> query = value);
+        search.setMaxLength(128);search.setResponder(v->{query=v;searchDebounce=6;});
         search.setHint(Component.literal(roster ? "Search player name or UUID..." : "Search item, source, action, or local / UTC date..."));
         if (selectedPlayer != null) {
             button("Set balance", 320, 76, 100, () -> minecraft.gui.setScreen(new AccountDialog(this, selectedPlayer, false, accountDefault, accountCurrency)));
             button("Reset", 428, 76, 84, () -> minecraft.gui.setScreen(new AccountDialog(this, selectedPlayer, true, accountDefault, accountCurrency)));
-            button("Players", 540, 76, 84, () -> {
+            button("Back to players",522,76,106, () -> {
             selectedPlayer = null; query = ""; logPage = 0; requestRecords(0); rebuildWidgets();
             });
         }
-        if(tab==Tab.TRANSACTIONS && selectedPlayer==null)button("Trending",494,76,130,()->minecraft.gui.setScreen(new TrendingScreen(this,accountCurrency)));
+        if(tab==Tab.TRANSACTIONS)button("Trending",selectedPlayer==null?494:250,selectedPlayer==null?76:313,selectedPlayer==null?130:118,()->minecraft.gui.setScreen(new TrendingScreen(this,accountCurrency)));
         button("Search", 494, 110, 130, () -> requestRecords(0));
         button("Previous", 32, 313, 100, () -> { if(!roster && !logPrevious.isEmpty())logPage=logPrevious.pop(); else if (roster && logPage > 0) logPage--; else if (logOffset > 0) requestRecords(Math.max(0, logOffset - 100)); });
         button("Next", 140, 313, 100, () -> {
@@ -573,6 +563,7 @@ public final class AdminScreen extends WorkbenchScreen {
         button("Refresh", 494, 313, 130, () -> requestRecords(logOffset));
     }
     private void requestRecords(int offset) {
+        searchDebounce=0;
         historyRequestGeneration++;
         retryOffset = offset; logPage = 0; logNext=0; logPrevious.clear();
         String action, body;
@@ -591,7 +582,7 @@ public final class AdminScreen extends WorkbenchScreen {
         field.setMaxLength(200); field.setValue(value == null ? "" : value);
         field.setResponder(changed); fields.add(field); addRenderableWidget(field); return field;
     }
-    private void number(String label, int x, int y, int width, double value, DoubleConsumer changed) {
+    private EditBox number(String label, int x, int y, int width, double value, DoubleConsumer changed) {
         String context = tab == Tab.MODES ? modeSection : tab == Tab.BUILDER ? selectedItem : tab == Tab.SETTINGS && settingsSection.equals("Enchantments") ? "offer:" + accessPage + ":" + y : tab.name();
         String key = context + ":" + label;
         var field = field(label, x, y, width, invalidInputs.getOrDefault(key, number(value)), ignored -> {});
@@ -601,12 +592,14 @@ public final class AdminScreen extends WorkbenchScreen {
                 if (!Double.isFinite(parsed) || parsed < 0) throw new NumberFormatException();
                 if ((label.equals("Max level") || label.startsWith("guishop.")) && parsed != Math.rint(parsed)) throw new NumberFormatException();
                 if (label.startsWith("guishop.") && parsed > 4 || label.equals("Max level") && parsed > 255) throw new NumberFormatException();
-                errors.remove(key); invalidInputs.remove(key); changed.accept(parsed);
+                if((label.contains("return")||label.contains("%"))&&parsed>100)throw new NumberFormatException();
+                errors.remove(key);invalidInputs.remove(key);field.setTextColor(WorkbenchTheme.TEXT);changed.accept(parsed);
             } catch (NumberFormatException exception) {
-                invalidInputs.put(key, input);
+                field.setTextColor(WorkbenchTheme.DANGER);invalidInputs.put(key, input);
                 errors.put(key, label + " has an invalid number. Correct it or discard the draft.");
             }
         });
+        if(invalidInputs.containsKey(key))field.setTextColor(WorkbenchTheme.DANGER);return field;
     }
     private void toggle(String label, int x, int y, int width, boolean value, Consumer<Boolean> changed) {
         button(label + ": " + (value ? "On" : "Off"), x, y, width, () -> { changed.accept(!value); rebuildWidgets(); });
@@ -625,8 +618,9 @@ public final class AdminScreen extends WorkbenchScreen {
         minecraft.gui.setScreen(new EditorDialog(this, title, message, null, ignored -> accepted.run()));
     }
     @Override public void onClose() {
+        if(importSource!=null){status="Finish or cancel the import before closing.";return;}
         if (busy) { status = "Wait for the server to finish applying this draft."; return; }
-        if (dirty()) confirm("Close without applying?", "Unapplied edits will be discarded. The live server shop stays unchanged.", () -> { importSource = null; detectionRetry = 0; minecraft.gui.setScreen(null); });
+        if (dirty()) confirm("Close without saving?", "Unsaved edits will be discarded. The live server shop stays unchanged.", () -> { importSource = null; detectionRetry = 0; minecraft.gui.setScreen(null); });
         else { importSource = null; detectionRetry = 0; minecraft.gui.setScreen(null); }
     }
     @Override public boolean keyPressed(KeyEvent event) {
@@ -636,14 +630,14 @@ public final class AdminScreen extends WorkbenchScreen {
 
     @Override protected void paint(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         hoveredRecord = null;
-        hits.clear(); panel(graphics, -48, 0, W + 48, H, WorkbenchTheme.SURFACE);
-        graphics.text(font, Component.literal("ClassicGUIShop").withStyle(style -> style.withBold(true)), -28, 12, WorkbenchTheme.TEXT, false);
-        text(graphics, "Admin Workbench", -28, 25, WorkbenchTheme.MUTED);
+        hits.clear(); panel(graphics, -144, 0, W + 144, H, WorkbenchTheme.SURFACE);
+        graphics.text(font, Component.literal("ClassicGUIShop").withStyle(style -> style.withBold(true)), -124, 12, WorkbenchTheme.TEXT, false);
+        text(graphics, "Admin Workbench", -124, 25, WorkbenchTheme.MUTED);
         String version=net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("guishop").orElseThrow().getMetadata().getVersion().getFriendlyString().replace("-beta."," BETA ").replace("-alpha."," ALPHA ");
         text(graphics,version,636-font.width(version),17,WorkbenchTheme.MUTED);
-        graphics.fill(-32, 41, W - 16, 42, 0x553C515A);
-        panel(graphics, -36, 69, 34, 270, 0xAA142027);
-        String heading = switch (tab) { case BUILDER -> "Shop Builder"; case SETTINGS -> "Settings"; case ACCESS -> "Access"; case DETECTED -> "Detected Content"; case TRANSACTIONS -> "Transactions"; case HISTORY -> "Changes"; case PRESETS -> "Presets"; case MODES -> "Shop Modes"; };
+        graphics.fill(-128, 41, W - 16, 42, 0x553C515A);
+        panel(graphics, -136, 69, 132, 270, 0xAA142027);
+        String heading = switch (tab) { case BUILDER -> "Shop Builder"; case SETTINGS -> "Settings"; case ACCESS -> "Permissions"; case DETECTED -> "Detected Content"; case TRANSACTIONS -> "Transactions"; case HISTORY -> "Change History"; case PRESETS -> "Presets"; case MODES -> "Shop Modes"; };
         text(graphics, heading, 20, 52, WorkbenchTheme.MUTED);
         if (tab == Tab.BUILDER) paintBuilder(graphics, mouseX, mouseY);
         else if (tab == Tab.SETTINGS) paintSettings(graphics);
@@ -652,21 +646,28 @@ public final class AdminScreen extends WorkbenchScreen {
         else if (tab == Tab.PRESETS) paintPresets(graphics);
         else if (tab == Tab.MODES) paintModes(graphics);
         else paintHistory(graphics, mouseX, mouseY);
-        graphics.fill(-32, 343, W - 16, 344, 0x553C515A);
-        text(graphics, font.plainSubstrByWidth(status, 620), 20, 375, busy ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
+        for(var child:children())if(child instanceof net.minecraft.client.gui.components.Button button){String label=button.getMessage().getString();
+            if(tab==Tab.BUILDER&&(label.equals("<")||label.equals(">"))){boolean previous=label.equals("<");button.active=button.getX()<160?(previous?browserPage>0:(browserPage+1)*9<draft.config.categories.size()):(previous?previewPage>0:(previewPage+1)*(category()==null?CategoryLayout.PAGE_SIZE:45)<tiles().size());}
+            else if(tab==Tab.DETECTED&&(label.equals("<")||label.equals(">")))button.active=importSource==null&&(label.equals("<")?sourcePage>0:(sourcePage+1)*9<detectedData.sources().size());
+            else if((tab==Tab.TRANSACTIONS||tab==Tab.HISTORY)&&(label.equals("Previous")||label.equals("Next"))){boolean roster=tab==Tab.TRANSACTIONS&&selectedPlayer==null;button.active=label.equals("Previous")?logOffset>0||(roster?logPage>0:!logPrevious.isEmpty()):(roster?(logPage+1)*10<playerData.players().size()||playerData.more():logNext<logData.entries().size()||logData.more());}
+            else if(label.equals("Preview preset"))button.active=!busy&&errors.isEmpty();
+        }
+        graphics.fill(-128, 343, W - 16, 344, 0x553C515A);
+        text(graphics, font.plainSubstrByWidth(statusText(),620), 20, 375, busy ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
+        saveButton.active=!busy&&importSource==null&&dirty()&&errors.isEmpty();discardButton.active=!busy&&importSource==null&&dirty();
         WorkbenchTheme.rounded(graphics, 183, 360, 3, 3, 1, dirty() ? WorkbenchTheme.GOLD : WorkbenchTheme.TEAL);
-        text(graphics, dirty() ? "Unapplied changes" : "Matches server snapshot", 193, 358, dirty() ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
+        text(graphics, dirty() ? "Unsaved changes" : "All changes saved", 193, 358, dirty() ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
     }
     @Override protected void afterWidgets(GuiGraphicsExtractor graphics, int x, int y, float delta) {
         if (hoveredRecord != null) {
             String text = hoveredDate ? com.zycu.guishop.admin.JournalDates.full(hoveredRecord.time(), localZone) + " (" + localZone.getId() + ")\nUTC: " + com.zycu.guishop.admin.JournalDates.full(hoveredRecord.time(), java.time.ZoneId.of("UTC"))
-                : com.zycu.guishop.admin.TransactionJournal.action(hoveredRecord) + "\n" + com.zycu.guishop.admin.TransactionJournal.activity(hoveredRecord) + "\n" + hoveredRecord.listing() + "\nQuantity: " + hoveredRecord.quantity() + " | Total: " + accountMoney(hoveredRecord.total()) + "\n" + hoveredRecord.details();
+                : tab==Tab.HISTORY ? hoveredRecord.player()+"\n"+TransactionJournal.activity(hoveredRecord)+"\nClick to view the backup" : com.zycu.guishop.admin.TransactionJournal.action(hoveredRecord) + "\n" + com.zycu.guishop.admin.TransactionJournal.activity(hoveredRecord) + "\n" + hoveredRecord.listing() + "\nQuantity: " + hoveredRecord.quantity() + " | Total: " + accountMoney(hoveredRecord.total()) + "\n" + hoveredRecord.details();
             graphics.setTooltipForNextFrame(font, font.split(Component.literal(text), 280), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
+        for(Hit hit:hits)if(hit.kind.equals("detected:source")&&hit.contains(x,y))graphics.setTooltipForNextFrame(font,font.split(Component.literal(sourceName(detectedData,hit.id)+"\n"+detectedData.sources().stream().filter(v->v.id().equals(hit.id)).map(v->v.count()+" detected items").findFirst().orElse("All detected items")),360),(int)(originX+(x+contentOffsetX())*scale),(int)(originY+y*scale));
         for (Hit hit : hits) if (hit.item != null && hit.contains(x, y) && hit.kind.equals("tile:item")) {
             var item = hit.item;
-            var icon = com.zycu.guishop.ShopIcons.listing(item.createStack(minecraft.level.registryAccess()), item.name, item.description,
-                item.buy, item.sell, draft.config, true);
+            var icon = com.zycu.guishop.ShopIcons.editor(item.createStack(minecraft.level.registryAccess()),item.name,item.description,item.buy,item.sell,draft.config);
             graphics.setTooltipForNextFrame(font, icon, (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
         for (Hit hit : hits) if (hit.contains(x, y) && (hit.kind.equals("tile:level") || hit.kind.equals("tile:offer"))) {
@@ -678,7 +679,7 @@ public final class AdminScreen extends WorkbenchScreen {
             graphics.setTooltipForNextFrame(font, rail.getMessage(), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
         if (y >= 373 && y < H && x >= 20 && x < W - 20) graphics.setTooltipForNextFrame(font,
-            Component.literal(status), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
+            Component.literal(statusText()), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         if (arranging && dragged && dragging != null) {
             var category = draft.config.category(dragging.id);
             ItemStack ghost = dragging.item != null && minecraft.level != null ? dragging.item.createStack(minecraft.level.registryAccess())
@@ -727,22 +728,21 @@ public final class AdminScreen extends WorkbenchScreen {
             text(graphics, "Tooltip description", 474, 302, WorkbenchTheme.MUTED);
         } else {
             multiline(graphics, "Create or select a category to edit it. Drag categories to reorder them.", 477, 112, 151, WorkbenchTheme.MUTED);
-            multiline(graphics, "Arrange mode lets you drag categories and listings. Left-click buys; right-click sells in the live shop.", 477, 207, 151, WorkbenchTheme.MUTED);
+            multiline(graphics, "Click a listing to edit its prices. Arrange mode lets you drag listings and categories.", 477, 207, 151, WorkbenchTheme.MUTED);
         }
     }
     private boolean visible(ShopConfig.ShopItem item) {
         return (item.sell > 0 || item.buy > 0) && (minecraft.level == null || VersionedListingStore.isRuntimeAvailable(item, minecraft.level.registryAccess()));
     }
     private List<Tile> tiles() {
-        var category = category(); List<Tile> tiles = new ArrayList<>();
+        var category=category();List<Tile> tiles=new ArrayList<>();String search=query.toLowerCase(Locale.ROOT);
 
         if (category == null) {
-            for (var value : draft.config.categories) tiles.add(new Tile("category", value.id, value.name, value.icon, null,
-                com.zycu.guishop.ShopIcons.category(value, minecraft.level.registryAccess(), value.name), value.description));
+            for(var value:draft.config.categories){if(!search.isBlank()&&!(value.name+" "+value.id).toLowerCase(Locale.ROOT).contains(search)&&value.items.stream().noneMatch(item->(item.name+" "+item.item+" "+item.listingId).toLowerCase(Locale.ROOT).contains(search)))continue;tiles.add(new Tile("category", value.id, value.name, value.icon, null,
+                com.zycu.guishop.ShopIcons.category(value, minecraft.level.registryAccess(), value.name), value.description));}
 
             return tiles;
         }
-        String search=query.toLowerCase(Locale.ROOT);
         var groups=com.zycu.guishop.BookGroups.groups(category.items,minecraft.level.registryAccess());
         if(enchantId==null)for(var entry:groups.entrySet()){
             String name=com.zycu.guishop.BookGroups.name(entry.getKey(),minecraft.level.registryAccess());
@@ -759,6 +759,9 @@ public final class AdminScreen extends WorkbenchScreen {
         return tiles;
     }
     private void paintPreview(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        String breadcrumb="Shop"+(category()==null?"":" > "+category().name)+(enchantId==null?"":" > "+com.zycu.guishop.BookGroups.name(enchantId,minecraft.level.registryAccess()));
+        text(graphics,font.plainSubstrByWidth(breadcrumb,278),166,132,WorkbenchTheme.MUTED);
+        if(draft.config.categories.isEmpty()){panel(graphics,160,145,298,160,WorkbenchTheme.PANEL);text(graphics,"Build your first shop",176,166,WorkbenchTheme.TEXT);text(graphics,"Start with a category or a vanilla preset.",176,183,WorkbenchTheme.MUTED);return;}
         List<Tile> tiles = tiles(); boolean root = category() == null && !enchantPreview;
         int perPage = root ? CategoryLayout.PAGE_SIZE : 45;
         int pages = Math.max(1, (tiles.size() + perPage - 1) / perPage); previewPage = Math.min(previewPage, pages - 1);
@@ -781,12 +784,13 @@ public final class AdminScreen extends WorkbenchScreen {
             Tile tile = tiles.get(start + index); int slot = slots.get(index), x = left + slot % 9 * 18, y = top + slot / 9 * 18;
             var stack = tile.preview != null ? tile.preview : tile.item != null && minecraft.level != null ? tile.item.createStack(minecraft.level.registryAccess()) : stack(tile.icon);
             if (stack.isEmpty()) stack = new ItemStack(Items.BARRIER);
-            graphics.item(stack, x + 1, y + 1);
+            graphics.item(stack,x+1,y+1);
+            if(tile.item!=null&&!visible(tile.item))graphics.fill(x,y,x+18,y+18,0x60303840);
             if (tile.id.equals(selectedItem)) graphics.outline(x, y, 18, 18, 0xFF65D5C1);
             if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
                 graphics.fill(x, y, x + 18, y + 18, 0x44FFFFFF);
                 text(graphics, font.plainSubstrByWidth(tile.name, 278), 169, 297, WorkbenchTheme.MUTED);
-                if (tile.item != null) text(graphics, "Buy " + number(tile.item.buy) + " | Sell " + number(tile.item.sell), 169, 308, WorkbenchTheme.MUTED);
+                if (tile.item != null) text(graphics, "Buy " + number(tile.item.buy) + " | Sell " + number(tile.item.sell)+(!visible(tile.item)?" | Hidden from players":""), 169, 308, WorkbenchTheme.MUTED);
                 else if (!tile.detail.isBlank()) text(graphics, font.plainSubstrByWidth(tile.detail, 278), 169, 308, WorkbenchTheme.MUTED);
             }
             hits.add(new Hit(x, y, 18, 18, "tile:" + tile.kind, tile.id, categoryId, tile.item));
@@ -801,7 +805,7 @@ public final class AdminScreen extends WorkbenchScreen {
         if (!root) footer(graphics, left, footer, Items.BARRIER, "back");
         if (previewPage > 0) footer(graphics, left + (root ? 0 : 3 * 18), footer, Items.ARROW, "previous");
         if (previewPage + 1 < pages) footer(graphics, left + (root ? 7 : 5) * 18, footer, Items.ARROW, "next");
-        if (shown == 0) text(graphics, arranging ? "No listings yet" : "No enabled listings", 248, 194, WorkbenchTheme.TEXT);
+        if (shown == 0) text(graphics, root?"No matching categories":"No matching listings", 248, 194, WorkbenchTheme.TEXT);
         for (Hit hit : hits) if (hit.kind.startsWith("preview:") && hit.contains(mouseX, mouseY)) {
             String hint = switch (hit.kind) {
                 case "preview:back" -> "Back";
@@ -811,7 +815,7 @@ public final class AdminScreen extends WorkbenchScreen {
             };
             text(graphics, hint, 169, 297, WorkbenchTheme.MUTED);
         }
-        text(graphics, "Page " + (previewPage + 1) + "/" + pages + (arranging ? " | Arrange mode" : " | Listing editor"), 214, 322, WorkbenchTheme.MUTED);
+        text(graphics, "Page " + (previewPage + 1) + "/" + pages + (arranging ? " | Arrange mode" : " | Click to edit"), 214, 322, WorkbenchTheme.MUTED);
     }
     private void footer(GuiGraphicsExtractor graphics, int x, int y, net.minecraft.world.item.Item icon, String action) {
         graphics.item(new ItemStack(icon), x + 1, y + 1);
@@ -824,42 +828,36 @@ public final class AdminScreen extends WorkbenchScreen {
             multiline(graphics,"The player shop uses vanilla menus. Admin editing requires the matching client mod and server permission.",32,247,580,WorkbenchTheme.MUTED);
         } else if(settingsSection.equals("Economy")) {
             text(graphics,"Currency prefix (display only)",32,129,WorkbenchTheme.MUTED);text(graphics,"Starting balance for new players",350,129,WorkbenchTheme.MUTED);
-            text(graphics,"Default preset sell return (%)",32,264,WorkbenchTheme.MUTED);
-            multiline(graphics,"Default sell return applies to new Normal/Basics presets. Existing listing prices and player balances stay unchanged.",32,307,584,WorkbenchTheme.MUTED);
+            text(graphics,"New preset prices",32,264,WorkbenchTheme.MUTED);
+            multiline(graphics,"Edit listing prices in Shop Builder. Set new preset defaults in Presets. Existing balances are preserved.",32,307,584,WorkbenchTheme.MUTED);
         } else if(settingsSection.equals("Messages")) {
             labels(graphics,new String[]{"Chat prefix","Information color","Warning color"},32,new int[]{129,183,237});labels(graphics,new String[]{"Prefix color","Success color","Error color"},350,new int[]{129,183,237});
-            text(graphics,"Use Minecraft color names such as gold, aqua, green, or light_purple.",32,296,WorkbenchTheme.MUTED);
+            text(graphics,"Choose a color to preview it, then Update and Save changes.",32,296,WorkbenchTheme.MUTED);
         } else if(minecraft.level!=null) {
             VariantScreen.paintSummary(graphics,font,draft.config,minecraft.level.registryAccess(),true,32,165,variantSources);
             VariantScreen.paintSummary(graphics,font,draft.config,minecraft.level.registryAccess(),false,350,165,variantSources);
-            multiline(graphics,"View registered enchantments and potions, and set default returns for new presets. Edit actual listing prices in the Shop Builder.",32,294,584,WorkbenchTheme.MUTED);
+            multiline(graphics,"Browse registered enchantments and potions here. Set new preset defaults in Presets; edit listing prices in Shop Builder.",32,294,584,WorkbenchTheme.MUTED);
         }
     }
-    private void paintAccess(GuiGraphicsExtractor graphics) {
-        panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);
-        text(graphics, "Admin tools require OP level 2 or higher. Installing the client grants no permissions.", 32, 82, WorkbenchTheme.MUTED);
-        text(graphics, "Player permissions: 0 everyone, 1 moderator, 2 gamemaster, 3 admin, 4 owner.", 32, 98, WorkbenchTheme.MUTED);
-        var entries = draft.config.permissionDefaults.entrySet().stream().filter(entry -> !entry.getKey().contains("admin") && !entry.getKey().contains("ident")).sorted(Map.Entry.comparingByKey()).toList();
-        for (int index = 0; index < 7 && accessPage * 7 + index < entries.size(); index++) text(graphics, entries.get(accessPage * 7 + index).getKey(), 32, 133 + index * 26, WorkbenchTheme.MUTED);
-    }
+    private void paintAccess(GuiGraphicsExtractor g){panel(g,16,69,628,270,WorkbenchTheme.PANEL);text(g,"Choose who can use each action. Adminshop requires OP level 2 or higher.",32,82,WorkbenchTheme.MUTED);text(g,"Installing the client grants no server permissions.",32,98,WorkbenchTheme.MUTED);var entries=permissionEntries();permissionScroll.count(entries.size());for(int row=0;row<7&&permissionScroll.row+row<entries.size();row++){var e=entries.get(permissionScroll.row+row);int y=122+row*26;g.fill(30,y,420,y+22,WorkbenchTheme.ROW);text(g,font.plainSubstrByWidth(permissionName(e.getKey()),375),36,y+7,WorkbenchTheme.TEXT);}permissionScroll.paint(g);text(g,"Update a role, then Save changes to apply it on the server.",32,316,WorkbenchTheme.MUTED);}
     private void paintHistory(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         hoveredRecord = null;
         panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);
         if (tab == Tab.TRANSACTIONS && selectedPlayer == null) { paintPlayers(graphics); return; }
-        String heading = tab == Tab.HISTORY ? "Server configuration changes" : selectedPlayer.name() + " | Balance: " + accountMoney(selectedPlayer.balance());
+        String heading = tab == Tab.HISTORY ? "Configuration updates | Click a change to view its backup" : selectedPlayer.name() + " | Balance: " + accountMoney(selectedPlayer.balance());
         text(graphics, font.plainSubstrByWidth(heading, selectedPlayer == null ? 590 : 278), 32, 82, WorkbenchTheme.MUTED);
         graphics.fill(30,139,629,155,0xFF304850);
         text(graphics,"Time ("+com.zycu.guishop.admin.JournalDates.zoneLabel(localZone)+")",36,143,WorkbenchTheme.TEXT);
-        text(graphics,"Action",180,143,WorkbenchTheme.TEXT);text(graphics,"Activity / item",310,143,WorkbenchTheme.TEXT);text(graphics,"Total",550,143,WorkbenchTheme.TEXT);
+        text(graphics,tab==Tab.HISTORY?"Changed by":"Action",180,143,WorkbenchTheme.TEXT);text(graphics,tab==Tab.HISTORY?"Summary":"Activity / item",310,143,WorkbenchTheme.TEXT);if(tab!=Tab.HISTORY)text(graphics,"Total",550,143,WorkbenchTheme.TEXT);
         int y=158,row=0;logNext=logPage;
         for(int index=logPage;index<logData.entries().size();index++){
             var entry=logData.entries().get(index);
             String activity=com.zycu.guishop.admin.TransactionJournal.activity(entry);
-            if(tab==Tab.HISTORY)activity=entry.player()+": "+activity;
+
             var date=font.split(Component.literal(com.zycu.guishop.admin.JournalDates.display(entry.time(),localZone)),136);
-            var action=font.split(Component.literal(com.zycu.guishop.admin.TransactionJournal.action(entry)),120);
-            var description=font.split(Component.literal(activity==null?"":activity),230);
-            var total=font.split(Component.literal(accountMoney(com.zycu.guishop.admin.TransactionJournal.signedTotal(entry))),76);
+            var action=font.split(Component.literal(tab==Tab.HISTORY?entry.player():com.zycu.guishop.admin.TransactionJournal.action(entry)),120);
+            var description=font.split(Component.literal(activity==null?"":activity),tab==Tab.HISTORY?307:230);
+            var total=font.split(Component.literal(tab==Tab.HISTORY?"":accountMoney(com.zycu.guishop.admin.TransactionJournal.signedTotal(entry))),76);
             int height=Math.min(132,6+12*Math.max(Math.max(date.size(),action.size()),Math.max(description.size(),total.size())));
             if(y+height>295 && row>0)break;
             graphics.fill(30,y,629,y+height,row++%2==0?0x30283D45:WorkbenchTheme.ROW);
@@ -904,7 +902,7 @@ public final class AdminScreen extends WorkbenchScreen {
         if (busy) return true;
         if (button == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT) {
             for (Hit hit : hits) if (hit.contains(x, y) && (hit.kind.equals("tile:item") || hit.kind.equals("tile:level"))) {
-                status = "Simulator only: right-click sells 1 in the live shop. No items or money change here."; return true;
+                status = "Click a listing to edit it. Arrange mode lets you drag it. Purchases happen in /shop."; return true;
             }
             return false;
         }
@@ -912,10 +910,6 @@ public final class AdminScreen extends WorkbenchScreen {
         for (Hit hit : hits) if (hit.contains(x, y)) {
             if (hit.kind.equals("detected:source")) {
                 if (importSource == null) { detectedSource = hit.id; query = ""; requestDetected(0, false); rebuildWidgets(); }
-                return true;
-            }
-            if (hit.kind.equals("detected:item")) {
-                if (importSource == null) { detectedSelection = detectedData.entries().get(Integer.parseInt(hit.id)); rebuildWidgets(); }
                 return true;
             }
             if (hit.kind.startsWith("preview:")) {

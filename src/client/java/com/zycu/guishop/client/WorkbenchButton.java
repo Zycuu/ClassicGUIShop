@@ -12,8 +12,8 @@ class WorkbenchButton extends Button {
         this.label = label;
     }
     @Override protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        boolean primary = label.equals("Apply"), danger = label.startsWith("Remove") || label.equals("Reset");
-        boolean quiet = label.equals("Close") || label.equals("Reload") || label.equals("Home") || label.equals("Up");
+        boolean primary = label.equals("Save changes")||label.equals("Update")||label.equals("Update category")||label.equals("Load into editor"), danger = label.startsWith("Remove") || label.equals("Reset");
+        boolean quiet = label.equals("Close") || label.equals("Reload shop")||label.equals("Refresh")||label.equals("Categories")||label.equals("Back")||label.equals("Cancel");
         int fill = primary ? WorkbenchTheme.TEAL : quiet ? 0x181A272D : 0xEF34464F;
         int text = primary ? 0xFF142A28 : danger ? WorkbenchTheme.DANGER : WorkbenchTheme.TEXT;
         int edge = primary ? WorkbenchTheme.TEAL : danger ? 0x885F4246 : 0xFF465C65;

@@ -41,7 +41,9 @@ public final class DetectedContent {
     public record Source(String id, String name, int count) {}
     public record Entry(String source, String origin, ShopConfig.ShopItem listing, List<String> packs, List<String> namespaces) {}
     private record Identity(ItemStack stack, int index) {}
-    public record Page(List<Source> sources, List<Entry> entries, int offset, boolean more, boolean ready, String warning, int skipped) {}
+    public record Page(List<Source> sources,List<Entry> entries,int offset,boolean more,boolean ready,String warning,int skipped,int sourceCount){
+        public Page(List<Source> sources,List<Entry> entries,int offset,boolean more,boolean ready,String warning,int skipped){this(sources,entries,offset,more,ready,warning,skipped,0);}
+    }
     private record Input(Identifier id, JsonElement json, String pack) {}
     private record Inputs(List<Input> files, int skipped, String warning) {}
     private static Scan active;
@@ -61,10 +63,10 @@ public final class DetectedContent {
             clear(); active = new Scan(server);
         }
         if (!active.ready) return new Page(List.of(), List.of(), 0, false, false, "Inspecting loaded content... " + (active.cursor + active.registryCursor) + " definitions checked.", active.skipped);
-        var entries = active.entries.stream().filter(entry -> source.isEmpty() || entry.namespaces().contains(source) || entry.packs().contains(source))
-            .filter(entry -> searchMatches(entry, filter)).toList();
+        var sourceEntries=active.entries.stream().filter(entry->source.isEmpty()||entry.namespaces().contains(source)||entry.packs().contains(source)).toList();
+        var entries=sourceEntries.stream().filter(entry->searchMatches(entry,filter)).toList();
         int offset = Math.min(query.offset(), entries.size()), end = Math.min(entries.size(), offset + PAGE_SIZE);
-        return new Page(active.sources, entries.subList(offset, end), offset, end < entries.size(), true, active.warning, active.skipped);
+        return new Page(active.sources, entries.subList(offset, end), offset, end < entries.size(), true,active.warning,active.skipped,sourceEntries.size());
     }
 
     private static boolean searchMatches(Entry entry, String filter) {
