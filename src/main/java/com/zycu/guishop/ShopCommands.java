@@ -58,11 +58,18 @@ public final class ShopCommands {
 
         dispatcher.register(Commands.literal("bal")
             .requires(source -> ShopPermissions.user(source, "guishop.command.balance"))
-            .executes(ShopCommands::balance)
-            .then(Commands.argument("player", StringArgumentType.word()).suggests(ShopSuggestions.PLAYERS).executes(ShopCommands::otherBalance)));
-        dispatcher.register(Commands.literal("baltop").requires(source -> ShopPermissions.user(source, "guishop.command.balance")).executes(context -> {
-            int rank = 0; for (var entry : PublicBalances.top(context.getSource().getServer())) { String message = (++rank) + ". " + entry.name() + " | " + GuiShop.CONFIG.money(entry.amount()); context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(message), false); } return 1;
-        }));
+            .executes(ShopCommands::balance));
+        dispatcher.register(Commands.literal("econ")
+            .requires(source -> ShopPermissions.user(source, "guishop.command.balance"))
+            .then(Commands.literal("bal").executes(ShopCommands::balance)
+                .then(Commands.argument("player", StringArgumentType.word()).suggests(ShopSuggestions.PLAYERS).executes(ShopCommands::otherBalance)))
+            .then(Commands.literal("leaderboard").executes(context -> {
+                var source=context.getSource(); var entries=PublicBalances.top(source.getServer());
+                if(entries.isEmpty()) source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(GuiShop.CONFIG.showOperatorBalances?"No known player accounts to display.":"No players to display. Operator balances are hidden by the Economy setting."), false);
+                int rank=0; for(var entry:entries){String message=(++rank)+". "+entry.name()+" | "+GuiShop.CONFIG.money(entry.amount());source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(message),false);}
+                return 1;
+            })));
+
 
     }
 
@@ -88,10 +95,16 @@ public final class ShopCommands {
     }
 
     private static int otherBalance(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        var viewer = context.getSource().getPlayerOrException();
-        var target = GuiShop.PLAYERS.resolve(context.getSource().getServer(), StringArgumentType.getString(context,"player"));
-        if (target == null || !target.uuid().equals(viewer.getUUID()) && !PublicBalances.visible(context.getSource().getServer(),target.uuid())) { ShopMessages.warning(viewer,"That player's balance is unavailable."); return 0; }
-        ShopMessages.info(viewer,target.name() + " | Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.readBalance(target.uuid()))); return 1;
+        var source=context.getSource();var viewer=source.getPlayer();
+        if(viewer!=null)remember(viewer);
+        var target=GuiShop.PLAYERS.resolve(source.getServer(),StringArgumentType.getString(context,"player"));
+        if(target==null){source.sendFailure(net.minecraft.network.chat.Component.literal("Unknown player. They must have joined this server at least once."));return 0;}
+        boolean owner=source.permissions().hasPermission(new net.minecraft.server.permissions.Permission.HasCommandLevel(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS));
+        if(!owner&&(viewer==null||!target.uuid().equals(viewer.getUUID()))&&!PublicBalances.visible(source.getServer(),target.uuid())){
+            source.sendFailure(net.minecraft.network.chat.Component.literal("This player's balance is hidden by the server's operator privacy setting."));return 0;
+        }
+        String message=target.name()+" | Balance: "+GuiShop.CONFIG.money(GuiShop.ECONOMY.readBalance(target.uuid()));
+        source.sendSuccess(()->net.minecraft.network.chat.Component.literal(message),false);return 1;
     }
     private static int pay(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer sender = context.getSource().getPlayerOrException();

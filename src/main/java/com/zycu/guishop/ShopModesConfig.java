@@ -6,6 +6,9 @@ import java.util.Set;
 
 /** Independent earning switches. Unknown registry content stays disabled until priced. */
 public final class ShopModesConfig {
+    public String mishapPrefix="Mishap Charge", mishapColor="red";
+    public boolean mishapEnabled, mishapAllowDebt;
+    public double mishapAmount=50;
     public String passivePrefix = "Passive Income", mobsPrefix = "Cash Mobs", advancementsPrefix = "Advancement Hunter", warriorPrefix = "Warrior Mode";
     public double passiveMinutes = -1, mobCooldownMinutes = -1, warriorCooldownMinutes = -1, warriorMinimumOnlineMinutes = -1;
     public boolean passiveEnabled, mobsEnabled, advancementsEnabled, warriorEnabled;
@@ -25,17 +28,17 @@ public final class ShopModesConfig {
     public int warriorCooldown() { return seconds(warriorCooldownMinutes, warriorCooldownSeconds); }
     public int warriorMinimumOnline() { return seconds(warriorMinimumOnlineMinutes, warriorMinimumOnlineSeconds); }
     private static int seconds(double minutes, int legacy) { return minutes < 0 ? legacy : (int)Math.round(minutes * 60); }
-    public String prefix(String source) { return switch(source) { case "passive" -> passivePrefix; case "mobs" -> mobsPrefix; case "advancement" -> advancementsPrefix; case "warrior" -> warriorPrefix; default -> source; }; }
+    public String prefix(String source) { return switch(source) { case "passive" -> passivePrefix; case "mobs" -> mobsPrefix; case "advancement" -> advancementsPrefix; case "warrior" -> warriorPrefix; case "mishap" -> mishapPrefix; default -> source; }; }
     public void validate() {
-        for (String name : new String[]{passivePrefix, mobsPrefix, advancementsPrefix, warriorPrefix})
+        for (String name : new String[]{passivePrefix, mobsPrefix, advancementsPrefix, warriorPrefix, mishapPrefix})
             if (name == null || name.isBlank() || name.length() > 32 || name.chars().anyMatch(c -> Character.isISOControl(c) || c == 167)) throw new IllegalArgumentException("Mode prefix must contain 1 to 32 plain characters");
         for (double minutes : new double[]{passiveMinutes, mobCooldownMinutes, warriorCooldownMinutes, warriorMinimumOnlineMinutes})
             if (!Double.isFinite(minutes) || minutes < -1 || minutes > 10080 || minutes >= 0 && Math.abs(minutes * 60 - Math.rint(minutes * 60)) > .000001) throw new IllegalArgumentException("Mode minutes must resolve to whole seconds");
-        for (double value : new double[]{passiveAmount, mobDefault, advancementDefault, warriorReward, warriorDeduction}) amount(value);
+        for (double value : new double[]{passiveAmount, mobDefault, advancementDefault, warriorReward, warriorDeduction, mishapAmount}) amount(value);
         if (passiveInterval() < 1 || passiveInterval() > 86400 || mobCooldown() < 0 || mobCooldown() > 86400
             || warriorCooldown() < 1 || warriorCooldown() > 604800 || warriorMinimumOnline() < 0 || warriorMinimumOnline() > 86400) throw new IllegalArgumentException("Invalid mode interval or cooldown");
         var colors = Set.of("aqua", "gold", "light_purple", "red", "green", "yellow", "blue", "white", "gray", "dark_aqua", "dark_green", "dark_red", "dark_purple", "black", "dark_blue", "dark_gray");
-        for (String color : new String[]{passiveColor, mobsColor, advancementsColor, warriorColor}) if (!colors.contains(color == null ? "" : color)) throw new IllegalArgumentException("Invalid mode message color");
+        for (String color : new String[]{passiveColor, mobsColor, advancementsColor, warriorColor, mishapColor}) if (!colors.contains(color == null ? "" : color)) throw new IllegalArgumentException("Invalid mode message color");
         for (var map : java.util.Arrays.asList(mobPrices, advancementPrices)) {
             if (map == null || map.size() > 10000) throw new IllegalArgumentException("Invalid mode payout list");
             for (var entry : map.entrySet()) {

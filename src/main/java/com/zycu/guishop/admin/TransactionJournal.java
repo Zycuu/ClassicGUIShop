@@ -130,6 +130,7 @@ public final class TransactionJournal {
             if (source.startsWith("mode.passive")) return "Passive Income";
             if (source.startsWith("mode.mobs")) return "Cash Mobs";
             if (source.startsWith("mode.advancement")) return "Advancement Hunter";
+            if (source.startsWith("mode.mishap")) return "Mishap Charge";
             if (source.startsWith("mode.warrior")) return "Warrior Mode";
         }
         return entry.action().replace('_',' ');

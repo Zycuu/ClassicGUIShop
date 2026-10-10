@@ -1,6 +1,6 @@
 # Quick Start
 
-1. Back up `config/guishop/` and install Alpha 1 on a Minecraft 26.3 test server.
+1. Back up `config/guishop/` and install 1.4.1 Beta on a Minecraft 26.3 test server.
 2. Install the same JAR on your matching Fabric client and join with OP level 2 or higher.
 3. Press F8, create a category, and choose its icon.
 4. Add a selected item or your exact held stack. Set buy/sell prices; zero disables that side.
@@ -8,4 +8,4 @@
 6. Apply, then open `/shop` to check the real player menu and test buying/selling.
 7. Review Transactions and Changes in Adminshop.
 
-`/bal [player]`, `/baltop`, `/shop pay`, `/sellhand`, and `/worth` remain player commands. `/adminshop` opens the new client editor, requiring the matching client mod and OP level 2. `/ident`, automatic catalog generation, legacy admin subcommands and old folder commands remain removed.
+`/bal`, `/econ bal <player>`, `/econ leaderboard`, `/shop pay`, `/sellhand`, and `/worth` remain player commands. `/adminshop` opens the new client editor, requiring the matching client mod and OP level 2. `/ident`, automatic catalog generation, legacy admin subcommands and old folder commands remain removed.

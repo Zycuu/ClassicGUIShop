@@ -13,7 +13,7 @@ import java.util.UUID;
 public final class AccountChecks {
     private AccountChecks() {}
     public static void run(ServerPlayer viewer) throws Exception {
-        var server = viewer.level().getServer(); var source = viewer.createCommandSourceStack();
+        var server = viewer.level().getServer(); var source = server.createCommandSourceStack();
         double original = GuiShop.ECONOMY.balance(viewer.getUUID());
         UUID other = UUID.nameUUIDFromBytes("ClassicGUIShop account isolation fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         GuiShop.ECONOMY.setBalance(other, 123);

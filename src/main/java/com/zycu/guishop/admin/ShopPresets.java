@@ -10,7 +10,9 @@ import java.util.*;
 /** Explicit generation only. A plan changes no live shop or player economy. */
 public final class ShopPresets {
     private ShopPresets() {}
-    public record Request(String preset, double normalRatio) {}
+    public record Request(String preset,double normalRatio,Double bookRatio,Double potionRatio) {
+        public Request(String preset,double normalRatio){this(preset,normalRatio,.30,.30);}
+    }
     public record Plan(String preset, List<ShopConfig.Category> categories, Map<String, ShopConfig.EnchantmentOffer> enchantments, double ratio, int items, int locked, int capped, int recipes, String warning) {}
     private record Group(String tab, String id, String name, String icon) {}
     private static final List<Group> GROUPS = List.of(
@@ -21,9 +23,12 @@ public final class ShopPresets {
     private static final Set<String> LOCKED = Set.of("air", "barrier", "bedrock", "budding_amethyst", "chain_command_block", "command_block", "command_block_minecart", "debug_stick", "end_portal_frame", "jigsaw", "knowledge_book", "light", "reinforced_deepslate", "repeating_command_block", "spawner", "structure_block", "structure_void", "trial_spawner", "vault", "enchanted_book");
     public static Plan generate(ServerPlayer player, Request request) {
         if (!AdminEditorService.allowed(player)) throw new SecurityException(AdminEditorService.DENIED);
-        if (request == null || !Set.of("normal", "hard", "easy", "basics").contains(request.preset()) || !Double.isFinite(request.normalRatio()) || request.normalRatio() < 0 || request.normalRatio() > .95) throw new IllegalArgumentException("Invalid preset");
+        if (request == null || !Set.of("normal", "hard", "easy", "basics").contains(request.preset()) || !Double.isFinite(request.normalRatio()) || request.normalRatio() < 0 || request.normalRatio() > 1) throw new IllegalArgumentException("Invalid preset");
+        for(Double value:new Double[]{request.bookRatio(),request.potionRatio()})if(value!=null&&(!Double.isFinite(value)||value<0||value>1))throw new IllegalArgumentException("Invalid default variant return");
+        double bookRatio=request.bookRatio()==null?GuiShop.CONFIG.bookSellRatio:request.bookRatio(), potionRatio=request.potionRatio()==null?GuiShop.CONFIG.potionSellRatio:request.potionRatio();
         var server = player.level().getServer(); var access = server.registryAccess(); var config = new ShopConfig();
         double ratio = switch (request.preset()) { case "hard" -> .10; case "easy" -> .95; default -> request.normalRatio(); };
+        if(request.preset().equals("hard")||request.preset().equals("easy")){bookRatio=ratio;potionRatio=ratio;}
         double buyFactor = switch (request.preset()) { case "hard" -> 3; case "easy" -> .75; default -> 1; };
         var used = new HashSet<String>(); for (var category : GuiShop.CONFIG.categories) for (var item : category.items) used.add(item.listingId.toLowerCase(Locale.ROOT));
         var identities = new HashSet<String>(); int locked = 0;
@@ -55,6 +60,7 @@ public final class ShopPresets {
             }
             if (!other.items.isEmpty()) config.categories.add(other);
         }
+        for(var category:config.categories)for(var item:category.items)if(Set.of("minecraft:potion","minecraft:splash_potion","minecraft:lingering_potion").contains(item.item)&&item.buy>0)item.sell=floor(item.buy*potionRatio);
         var audit = EconomyExploitScanner.audit(server, config); int capped = 0;
         for (var issue : audit.exploits()) {
             var item = config.findItem(issue.listingId()).item(); item.sell = floor(issue.acquisitionCostPerItem() * .95); capped++;
@@ -67,9 +73,9 @@ public final class ShopPresets {
             String id = holder.key().identifier().toString(); if (!id.startsWith("minecraft:")) continue;
             var offer = new ShopConfig.EnchantmentOffer(); offer.name = holder.value().description().getString(); offer.pricePerLevel = 100 * buyFactor; offer.maxLevel = holder.value().getMaxLevel(); config.enchantments.put(id, offer);
         }
-        PriceMigration.flattenBooks(config, access, 1, ratio);
+        PriceMigration.flattenBooks(config, access, 1, bookRatio);
         count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
-        return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, audit.recipesChecked(), "Recipe caps can reduce the target return. Admin-only items are locked; component variants are buy-only. Villager trades, world drops and arbitrary mod mechanics need separate review.");
+        return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, audit.recipesChecked(), "Recipe caps can reduce the target return. Admin-only items are locked; other component variants are buy-only. Villager trades, world drops and arbitrary mod mechanics need separate review.");
     }
     private static ShopConfig.ShopItem listing(ItemStack stack, String category, double ratio, double factor, Set<String> used, net.minecraft.core.RegistryAccess access) {
         var item = new ShopConfig.ShopItem(); item.item = ShopService.itemId(stack); item.stack = ItemStackData.encode(stack, access); item.name = stack.getHoverName().getString();

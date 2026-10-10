@@ -10,7 +10,7 @@ Syntax key:
 
 `/adminshop` launches the client UI. Legacy editing subcommands remain removed. F8 opens the same UI. Access is checked on the server at OP level 2 or higher; non-OP clients receive the permission popup, and administrators without the matching client receive installation guidance. The console receives in-game-only guidance.
 
-`/shopreward` is a separate trusted integration command, available to the server console, authenticated RCON, or OP level 2 or higher. It does not restore the old Adminshop editing subcommands.
+`/shopreward` is a separate trusted integration command, available only to the server console or authenticated RCON. It is hidden from all player command trees, including OPs. It does not restore the old Adminshop editing subcommands.
 
 ```text
 /shopreward <player-name-or-UUID> <amount> <source> <unique-reference> [note]
@@ -71,11 +71,11 @@ Pays another known player.
 Shows the player's balance.
 
 ```text
-/bal <player-name>
-/baltop
+/econ bal <player-name>
+/econ leaderboard
 ```
 
-Looks up a known online/offline player's balance, or lists the five richest eligible accounts. Operator accounts are hidden publicly unless Economy / Show operator balances publicly is enabled. Self balance stays available. Hidden accounts are filtered before the top-five limit. All player commands work without ClassicGUIShop on the client.
+Looks up a known online/offline player's balance, or lists the five richest eligible accounts. Operator accounts are hidden publicly unless Economy / Show operator balances publicly is enabled. Self balance stays available through `/bal`, which has no player-name argument. OP level 2 or higher can inspect hidden accounts through `/econ bal`. An empty leaderboard explains the privacy setting. Hidden accounts are filtered before the top-five limit. All player commands work without ClassicGUIShop on the client.
 
 ### `/sellhand`
 
@@ -97,7 +97,7 @@ Sells up to the requested amount from the held stack.
 
 Sells every exact matching item in the player inventory.
 
-Recognizes exact ordinary book variants. Economy can enable generic damaged and enchanted equipment sales; `/worth` explains the same calculation.
+Recognizes exact ordinary book variants. Economy can enable generic damaged and enchanted equipment sales; `/worth` shows the same final sell value on one chat line.
 
 ### `/worth`
 

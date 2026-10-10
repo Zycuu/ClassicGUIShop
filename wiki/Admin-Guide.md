@@ -46,9 +46,9 @@ Resource reading runs off the tick thread. Codec work is divided across ticks; s
 
 ## Settings and Access
 
-Settings has General, Economy, Messages, and Enchantments/Potions. General controls the shop title, creative transactions and offline payments. Economy controls currency, starting balance, damaged/enchanted command sales and public operator balance visibility. Messages controls the general chat prefix/colors. Enchantments/Potions reports detected source counts and store listings; its two buttons open variant managers. Books and normal/splash/lingering potions become ordinary exact listings, with explicit one-time scaling and optional custom book levels through 255. Other mods own anvil/application rules.
+Settings has General, Economy, Messages, and Enchantments/Potions. Economy contains the default return for new Normal/Basics presets. The registered book/potion lists show sources and variants with default returns for new Normal presets. Actual listing prices are edited in the Shop Builder. Enchantment folders group exact book levels automatically; no custom folder controls are added.
 
-Use Adjust prices for selected listings, a category or the whole shop. Review a one-time buy/sell percentage change or a sell-return percentage before changing the draft. There is no live multiplier or book-specific sell ratio. Presets generate the same stored listing amounts.
+Use the Shop Builder's Adjust prices button for a plain buy/sell price sheet of the current category, or the whole shop from Home. Edit rows individually or Set all amounts. Done updates the draft; Cancel drops the sheet edits; Apply saves. No percentage adjustment or live modifier is applied.
 
 Access controls player command, transaction, and category requirements using vanilla command levels 0 to 4. Adminshop stays fixed at level 2 or higher.
 
@@ -72,9 +72,11 @@ Backups are under `config/guishop/backups/`; daily journals are under `config/gu
 
 Presets and Shop Modes have their own navigation tabs. Presets generates a server-audited preview, then Use preset draft confirms replacing all draft categories and listings, including modded content. The live shop remains unchanged until Apply. Normal targets 30%, Hard 10% with triple buying costs, Easy 95% with 75% buying costs, and Basics targets 30% for raw resources. Full presets include ordinary exact vanilla book variants at natural levels; Basics omits them. Locked entries and recipe caps appear in the review. Keep the old shop backup and review every enabled price.
 
-Shop Modes has four independent switches, all off initially. Choose a mode to edit its amount, minute timing, prefix name/color and safeguards. Cash Mobs and Advancement Hunter open searchable payout editors using the server's detected IDs. Zero disables a payout. Use defaults clears only the draft payout overrides after confirmation. Refresh detected IDs reloads current server definitions; saved unavailable overrides are preserved and shown. All mode edits require Apply. Each active mode can run alongside the others.
+Shop Modes has five independent switches, all off initially. Choose a mode to edit its amount, minute timing, prefix name/color and safeguards. Cash Mobs and Advancement Hunter open searchable payout editors using the server's detected IDs. Zero disables a payout. Use defaults clears only the draft payout overrides after confirmation. Refresh detected IDs reloads current server definitions; saved unavailable overrides are preserved and shown. All mode edits require Apply. Each active mode can run alongside the others.
 
 Warrior's same-address check can block legitimate players sharing a connection. Allow debt is an explicit opt-in; switching it off prevents additional debt but preserves existing debt for repayment. Passive income counts AFK online time. Full behavior and preset limitations are described in [Economy and Pricing](Economy-and-Pricing.md).
 
 
 Import / export presets opens the server library. Export current draft validates the unapplied draft and writes data-only JSON to the server and a uniquely named client copy under config/guishop/presets. Import a local JSON path, review dependencies and unavailable variants, then Use reviewed draft and Apply. Missing variants keep their raw data with both prices disabled. Accounts, journals, permissions, currency and earning modes are never imported. Original imported files remain in the library.
+
+Mishap Charge defaults off at 50 currency units. Survival/adventure deaths are charged once and journaled with the saved prefix. Funds clamp at zero unless its own Allow debt setting is enabled. It can stack with Warrior victim deductions.

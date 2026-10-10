@@ -101,7 +101,7 @@ public final class ModesPresetChecks {
             players.remove(player); players.remove(victim); player.level().removePlayerImmediately(player, Entity.RemovalReason.DISCARDED); victim.level().removePlayerImmediately(victim, Entity.RemovalReason.DISCARDED);
         }
     }
-    private static ServerPlayer fake(ServerPlayer viewer, String name) {
+    static ServerPlayer fake(ServerPlayer viewer, String name) {
         var server = viewer.level().getServer(); var player = new ServerPlayer(server, viewer.level(), new GameProfile(UUID.randomUUID(), name), ClientInformation.createDefault());
         var connection = new Connection(PacketFlow.SERVERBOUND);
         try { var address = Connection.class.getDeclaredField("address"); address.setAccessible(true); address.set(connection, new java.net.InetSocketAddress("127.0.0.1", 25500)); }

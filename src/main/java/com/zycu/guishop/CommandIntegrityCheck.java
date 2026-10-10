@@ -15,8 +15,9 @@ public final class CommandIntegrityCheck {
         CommandNode<CommandSourceStack> root = dispatcher.getRoot();
 
         requireCommand(root, "bal", missing);
-        requirePath(root,missing,"bal","player");
-        requireCommand(root,"baltop",missing);
+        requirePath(root,missing,"econ","bal","player");
+        requirePath(root,missing,"econ","leaderboard");
+        if(root.getChild("bal").getChild("player")!=null||root.getChild("baltop")!=null)throw new IllegalStateException("Public lookups belong under /econ");
         requireCommand(root, "shop", missing);
         requirePath(root, missing, "shop", "buy");
         requirePath(root, missing, "shop", "sell");

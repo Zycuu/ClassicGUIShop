@@ -40,6 +40,7 @@ dependencies {
     if (project.hasProperty('fullFabricApiTestJar')) runtimeOnly files(project.property('fullFabricApiTestJar'))
     if (project.hasProperty('travelersBackpackTestJar')) runtimeOnly files(project.property('travelersBackpackTestJar'))
     if (project.hasProperty('forgeConfigTestJar')) runtimeOnly files(project.property('forgeConfigTestJar'))
+    if (project.hasProperty('additionalClientTestJars')) runtimeOnly files(project.property('additionalClientTestJars').toString().split(java.io.File.pathSeparator))
 }
 
 processResources {

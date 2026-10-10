@@ -7,17 +7,21 @@ import net.minecraft.commands.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.permissions.*;
 
-/** Trusted bridges run this through the server console, RCON, or an OP-level-2 account. */
+/** External reward bridges may use the server console or RCON, never a player or command block. */
 public final class RewardCommand {
     private RewardCommand() {}
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("shopreward")
-            .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+            .requires(RewardCommand::console)
             .then(Commands.argument("player", StringArgumentType.word()).suggests(ShopSuggestions.PLAYERS)
             .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0.01, 1_000_000_000_000.0))
             .then(Commands.argument("source", StringArgumentType.string())
             .then(Commands.argument("reference", StringArgumentType.string()).executes(context -> execute(context, ""))
             .then(Commands.argument("note", StringArgumentType.greedyString()).executes(context -> execute(context, StringArgumentType.getString(context, "note")))))))));
+    }
+    public static boolean console(CommandSourceStack source) {
+        return source.getEntity() == null && (((com.zycu.guishop.mixin.CommandSourceAccess)source).guishop$source() instanceof net.minecraft.server.MinecraftServer
+            || ((com.zycu.guishop.mixin.CommandSourceAccess)source).guishop$source() instanceof net.minecraft.server.rcon.RconConsoleSource);
     }
     private static int execute(CommandContext<CommandSourceStack> context, String note) {
         try {

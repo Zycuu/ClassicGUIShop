@@ -1,41 +1,45 @@
 package com.zycu.guishop.client;
 import com.zycu.guishop.ShopConfig;
-import com.zycu.guishop.admin.BulkPricing;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import java.util.*;
-/** One-time changes to a detached draft, with selection and a review before modification. */
+/** A straightforward price sheet. Amounts are final, per-item prices, held locally until Done. */
 final class PriceAdjustScreen extends WorkbenchScreen {
-    private final AdminScreen parent; private final ShopConfig config; private final String category;
-    private final Set<String> selected=new HashSet<>(); private List<ShopConfig.ShopItem> shown=List.of();
-    private String filter="",buy="0",sell="0",ratio="30",scope="category",error="";private boolean useRatio;private int page;
-    PriceAdjustScreen(AdminScreen parent,ShopConfig config,String category,String item){super("Adjust prices");this.parent=parent;this.config=config;this.category=category;if(item!=null){selected.add(item);scope="selected";}if(category==null)scope="all";}
-    PriceAdjustScreen(AdminScreen parent,ShopConfig config,boolean books){
-        this(parent,config,null,null);filter=books?"minecraft:enchanted_book":"potion";scope="selected";
-        for(var cat:config.categories)for(var item:cat.items)if(books?item.item.equals("minecraft:enchanted_book"):Set.of("minecraft:potion","minecraft:splash_potion","minecraft:lingering_potion").contains(item.item))selected.add(item.listingId);
+    private record Row(ShopConfig.ShopItem item,String category) {}
+    private final AdminScreen parent;private final ShopConfig config;private final List<Row> rows;
+    private final Map<ShopConfig.ShopItem,String[]> prices=new IdentityHashMap<>();
+    private List<Row> shown=List.of();private String filter="",buy="",sell="",error="";private int page;
+    PriceAdjustScreen(AdminScreen parent,ShopConfig config,String category,String ignored){
+        super("Listing prices");this.parent=parent;this.config=config;
+        rows=config.categories.stream().filter(cat->category==null||cat.id.equals(category)).flatMap(cat->cat.items.stream().map(item->new Row(item,cat.name))).toList();
+        for(var row:rows)prices.put(row.item(),new String[]{Double.toString(row.item().buy),Double.toString(row.item().sell)});
     }
-    private void input(String name,int x,int y,int w,String value,java.util.function.Consumer<String> change){var field=new WorkbenchField(font,x,y,w,Component.literal(name));field.setValue(value);field.setResponder(change);addRenderableWidget(field);}
+    private void input(String name,int x,int y,int width,String value,java.util.function.Consumer<String> change){var field=new WorkbenchField(font,x,y,width,Component.literal(name));field.setValue(value);field.setResponder(change);addRenderableWidget(field);}
     @Override protected void init(){
-        var all=config.categories.stream().flatMap(cat->cat.items.stream()).toList();shown=all.stream().filter(item->(item.name+" "+item.listingId).toLowerCase(Locale.ROOT).contains(filter.toLowerCase(Locale.ROOT))).toList();page=Math.min(page,Math.max(0,(shown.size()-1)/8));
-        input("Filter listings",32,59,420,filter,value->filter=value);button("Search",464,59,164,()->{page=0;rebuildWidgets();});
-        button("Scope: "+scope,32,92,192,()->{scope=scope.equals("selected")?category==null?"all":"category":scope.equals("category")?"all":"selected";rebuildWidgets();});
-        button("Select shown",236,92,186,()->{for(var item:shown.subList(page*8,Math.min(shown.size(),page*8+8)))selected.add(item.listingId);rebuildWidgets();});button("Clear selection",434,92,194,()->{selected.clear();rebuildWidgets();});
-        input("Buy adjustment percent",32,281,176,buy,value->buy=value);input("Sell adjustment percent",226,281,176,sell,value->sell=value);input("Sell return percent",420,281,208,ratio,value->ratio=value);
-        button(useRatio?"Sell = % of buy":"Separate buy / sell %",32,313,238,()->{useRatio=!useRatio;rebuildWidgets();});button("Previous",282,313,96,()->{page=Math.max(0,page-1);rebuildWidgets();});button("Next",390,313,80,()->{page++;rebuildWidgets();});
-        button("Review",480,313,148,this::review);button("Done",514,345,114,this::onClose);
+        shown=rows.stream().filter(row->(row.item().name+" "+row.item().item+" "+row.category()).toLowerCase(Locale.ROOT).contains(filter.toLowerCase(Locale.ROOT))).toList();page=Math.min(page,Math.max(0,(shown.size()-1)/6));
+        input("Search listings",32,58,438,filter,value->filter=value);button("Search",482,58,146,()->{page=0;rebuildWidgets();});
+        for(int row=0;row<6&&page*6+row<shown.size();row++){
+            var item=shown.get(page*6+row).item();var amounts=prices.get(item);int y=112+row*25;
+            input("Buy "+item.listingId,382,y,112,amounts[0],value->amounts[0]=value);
+            input("Sell "+item.listingId,506,y,122,amounts[1],value->amounts[1]=value);
+        }
+        input("Buy amount for all",32,298,150,buy,value->buy=value);input("Sell amount for all",194,298,150,sell,value->sell=value);
+        button("Set all "+rows.size()+" listings",356,298,272,()->{try{amount(buy);amount(sell);for(var row:rows)prices.put(row.item(),new String[]{buy,sell});error="Set all draft amounts. Done returns to the builder.";rebuildWidgets();}catch(Exception bad){error="Enter both buy and sell amounts, from 0 to 1 billion.";}});
+        button("Previous",32,338,90,()->{page=Math.max(0,page-1);rebuildWidgets();});button("Next",134,338,70,()->{page++;rebuildWidgets();});button("Cancel",406,338,100,this::onClose);
+        button("Done",518,338,110,()->{try{for(var row:rows){var values=prices.get(row.item());amount(values[0]);amount(values[1]);}for(var row:rows){var values=prices.get(row.item());row.item().buy=amount(values[0]);row.item().sell=amount(values[1]);row.item().manualPrice=true;}parent.status("Listing prices updated in the draft. Apply saves them.");minecraft.gui.setScreen(parent);}catch(Exception bad){error="A listing contains an invalid price. Use an amount from 0 to 1 billion.";}});
     }
-    private void review(){try{
-        var items=config.categories.stream().filter(cat->!scope.equals("category")||cat.id.equals(category)).flatMap(cat->cat.items.stream()).filter(item->!scope.equals("selected")||selected.contains(item.listingId)).toList();
-        var changes=BulkPricing.preview(items,Double.parseDouble(buy),Double.parseDouble(sell),useRatio?Double.parseDouble(ratio):null);
-        long enabled=changes.stream().filter(change->change.item().sell==0&&change.sell()>0).count();
-        String method="Scope: "+scope+". Buy change "+buy+"%. "+(useRatio?"Sell return "+ratio+"% of adjusted buy.":"Sell change "+sell+"%.");
-        String example=changes.isEmpty()?"No prices change.":changes.getFirst().item().name+": buy "+config.money(changes.getFirst().item().buy)+" to "+config.money(changes.getFirst().buy())+", sell "+config.money(changes.getFirst().item().sell)+" to "+config.money(changes.getFirst().sell())+".";
-        minecraft.gui.setScreen(new EditorDialog(this,"Change draft prices?",method+" "+changes.size()+" listings change; "+enabled+" sell prices enabled. "+example+" Apply is still required.",null,ignored->{BulkPricing.apply(changes);error="Changed "+changes.size()+" draft listings";rebuildWidgets();}));
-    }catch(Exception invalid){error=invalid.getMessage();}}
-    @Override protected void paint(GuiGraphicsExtractor g,int x,int y,float delta){panel(g,16,16,628,356,WorkbenchTheme.SURFACE);text(g,"Adjust prices | draft only",32,30,WorkbenchTheme.TEXT);
-        for(int row=0;row<8&&page*8+row<shown.size();row++){var item=shown.get(page*8+row);int yy=124+row*16;g.fill(30,yy,630,yy+15,selected.contains(item.listingId)?WorkbenchTheme.SELECTED:WorkbenchTheme.ROW);text(g,font.plainSubstrByWidth(item.name,310),36,yy+3,WorkbenchTheme.TEXT);text(g,"Buy "+config.money(item.buy)+" | Sell "+config.money(item.sell),350,yy+3,WorkbenchTheme.MUTED);}
-        text(g,"Buy change %",32,265,WorkbenchTheme.MUTED);text(g,"Sell change %",226,265,WorkbenchTheme.MUTED);text(g,"Sell return % of buy",420,265,WorkbenchTheme.MUTED);text(g,font.plainSubstrByWidth(error.isBlank()?"Page "+(page+1)+" | Negative percentages lower prices. Zero prices stay disabled unless explicitly given a sell return.":error,464),32,350,WorkbenchTheme.MUTED);
+    private static double amount(String value){double amount=Double.parseDouble(value);if(!Double.isFinite(amount)||amount<0||amount>1e9)throw new IllegalArgumentException("Invalid price");return amount;}
+    @Override protected void paint(GuiGraphicsExtractor g,int x,int y,float delta){
+        panel(g,16,16,628,356,WorkbenchTheme.SURFACE);text(g,"Listing prices | "+rows.size()+" listings",32,30,WorkbenchTheme.TEXT);
+        text(g,"Item",32,94,WorkbenchTheme.MUTED);text(g,"Buy / item",382,94,WorkbenchTheme.MUTED);text(g,"Sell / item",506,94,WorkbenchTheme.MUTED);
+        for(int row=0;row<6&&page*6+row<shown.size();row++){var entry=shown.get(page*6+row);int yy=112+row*25;g.fill(30,yy,370,yy+21,WorkbenchTheme.ROW);
+            if(minecraft.level!=null&&com.zycu.guishop.VersionedListingStore.isRuntimeAvailable(entry.item(),minecraft.level.registryAccess()))g.item(entry.item().createStack(minecraft.level.registryAccess()),33,yy+2);
+            text(g,font.plainSubstrByWidth(entry.item().name,306),55,yy+5,WorkbenchTheme.TEXT);
+            if(x>=30&&x<370&&y>=yy&&y<yy+21)g.setTooltipForNextFrame(font,font.split(Component.literal(entry.item().name+" | "+entry.category()+" | "+entry.item().listingId),320),(int)(originX+x*scale),(int)(originY+y*scale));
+        }
+        text(g,"Set the same prices for every listing in this sheet:",32,264,WorkbenchTheme.MUTED);
+        text(g,"Buy / item",32,282,WorkbenchTheme.MUTED);text(g,"Sell / item",194,282,WorkbenchTheme.MUTED);
+        text(g,font.plainSubstrByWidth(error.isBlank()?"Page "+(page+1)+" | 0 disables buying or selling. Apply saves your draft.":error,590),32,323,error.isBlank()?WorkbenchTheme.MUTED:WorkbenchTheme.GOLD);
     }
-    @Override protected boolean click(double x,double y,int button){if(button!=com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT||x<30||x>=630||y<124||y>=252)return false;int index=page*8+(int)((y-124)/16);if(index>=shown.size())return false;String id=shown.get(index).listingId;if(!selected.remove(id))selected.add(id);return true;}
-    @Override public void onClose(){parent.status("Price edits remain in the draft until Apply.");minecraft.gui.setScreen(parent);}
+    @Override public void onClose(){minecraft.gui.setScreen(parent);}
 }

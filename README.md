@@ -2,18 +2,20 @@
 
 A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.0 Beta 1** combines the pricing, editor and audit passes. Listings store final buy/sell amounts; presets and bulk price edits create reviewable drafts. Enchanted books and potions are ordinary exact item variants. Commands can value and sell damaged or enchanted equipment, with permission and component checks. Public balance commands and full-journal Trending add useful oversight. Shop Modes use minutes and editable prefix names/colors. Ordinary players use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`**. Every editor request requires OP level 2 or higher.
+**1.4.1 Beta 1** simplifies the editor based on Beta 1 testing. The Shop Builder always shows disabled imports, enchanted books navigate through one folder per enchantment, and Adjust prices is a plain buy/sell price sheet. Economy and registered enchantment/potion screens contain generation defaults rather than live price modifiers. `/econ bal <player>` and `/econ leaderboard` provide public balance lookups; `/bal` stays self-only. Rewards are console/RCON only. Mishap Charge is an optional death charge, disabled by default at 50 currency units.
+
+Ordinary players use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`**. Every editor request requires OP level 2 or higher.
 
 ## Adminshop
 
 - Shop Builder: create, rename, order, and remove categories; choose exact item appearances as icons with shop-only tooltips; select multiple items from vanilla creative groups or detected mod/pack tabs, or add exact held stacks; edit display names, descriptions, and buy/sell prices; drag listings or move them between categories.
-- Simulator: navigate a chest-style preview of the unified shop, including both prices, category pages and exact book levels. Preview clicks do not transact. It previews layout and enabled offers, rather than a particular player's permissions or balance.
-- Settings: General, Economy, Messages, and Enchantments/Potions. Economy controls currency, starting balance, damaged/enchanted command sales and public operator balance visibility. Adjust prices reviews one-time changes for selected listings, a category, or the whole shop. Variant managers show detected sources/counts and listed variants; create exact books or normal/splash/lingering potions with explicit price scaling.
+- Simulator: navigate a chest-style preview of the unified shop, including both prices, category pages and exact book levels. Preview clicks do not transact. Disabled listings stay visible for editing; the live player shop still hides them. Each enchantment has its own automatic folder containing its exact listed levels.
+- Settings: General, Economy, Messages, and Enchantments/Potions. Economy controls currency, starting balance, damaged/enchanted command sales, public operator balance visibility and the default Normal/Basics preset sell return. Registered enchantment/potion lists have their own default returns for new Normal presets. These defaults do not change existing prices. Hard and Easy keep their 10% and 95% preset returns. The Shop Builder's Adjust prices opens a sheet for the current category, or the whole shop from Home, with editable buy/sell amounts per listing and a Set all action. Zero disables that side. Done updates the draft; Cancel drops sheet changes; Apply saves.
 - Access: configure the exact vanilla command level required for player actions and categories. Adminshop access stays fixed at OP level 2 or higher.
 - Detected Content: inspect vanilla items, registered mod items, and static custom datapack loot variants. Select a named Pack row and use Import pack to collect its detected variants into one category across namespaces. Import all collects the full detected list into one category. Every new import starts at **Buy 0 / Sell 0** and stays in the draft until Apply. Repeat imports preserve existing listings and prices.
 - Transactions: select a known online or offline player by name and current balance, then view only their transactions. Dates use hh:mm:ss AM/PM (DD/MMM/YY) in the client's timezone, with its abbreviation and zone ID shown. Search local or UTC dates; hover dates for both full timestamps. Totals use the live server currency and debit signs. Mode actions use the saved prefix name and readable activities. Rows wrap, with normal hover tooltips for long records, and remain read-only. Trending has separate top-20 Purchased/Sold lists by unit quantity, 24-hour/7-day/30-day periods, and item to player to archived transaction drilldowns. Set balance and Reset use confirmation popups over the workbench and apply immediately, independently of the shop draft.
-- Presets: generate Normal (30% target return), Hard (3x buy, 10% return), Easy (75% buy, 95% return), or The Basics. Review locks, exact book variants and recipe caps before replacing draft categories, then Apply. Import/export uses versioned data-only JSON, preserves exact components and checks unavailable dependencies. Export includes unapplied valid draft edits; import goes through library review before Use reviewed draft and Apply.
-- Shop Modes: independent earning switches, minute intervals, detected entity/advancement payout editors, editable prefix names/colors and PvP safeguards. Mode payouts and deductions are journaled.
+- Presets: generate Normal (30% default target return), Hard (3x buy, 10% return), Easy (75% buy, 95% return), or The Basics. Review locks, exact book variants and recipe caps before replacing draft categories, then Apply. Import/export uses versioned data-only JSON, preserves exact components and checks unavailable dependencies. Export includes unapplied valid draft edits; import goes through library review before Use reviewed draft and Apply.
+- Shop Modes: independent earning/death-charge switches, minute intervals, detected entity/advancement payout editors, editable prefix names/colors and PvP safeguards. Mode payouts and deductions are journaled. Mishap Charge defaults off with a charge of 50; it clamps at zero unless its separate Allow debt switch is enabled. It charges survival/adventure deaths once, including environmental deaths, and can run alongside Warrior deductions.
 - Changes: configuration history and backup details. Load a previous configuration into a draft, review it, then Apply to restore it.
 
 Edits remain in a detached draft until **Apply**. The server validates prices, item identity, and category structure, rejects stale drafts and external file changes, and saves a backup before writing. Discard leaves the live shop unchanged. Existing player balances are preserved.
@@ -31,7 +33,7 @@ Folders have been removed. Listings appear directly in their parent category. Ex
 Use Minecraft **26.3**, Java **25+**, and Fabric Loader **0.19.5+**. This Beta targets 26.3 specifically; the previous compatibility JARs remain separate builds.
 
 1. Stop the server and back up `config/guishop/` before updating.
-2. Replace the old server JAR with `ClassicGUIShop-v1.4.0-beta.1.jar`, then start the server.
+2. Replace the old server JAR with `ClassicGUIShop-v1.4.1-beta.1.jar`, then start the server.
 3. For administrators, install that same JAR on a matching Fabric client and press F8 in-game. Rebind it under Controls if needed.
 
 The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching Minecraft 26.3.
@@ -46,17 +48,18 @@ Item mods still need their usual client dependencies. Datapack custom models req
 /shop sell
 /shop enchant
 /shop pay <player> <amount>
-/bal [player-name]
-/baltop
+/bal
+/econ bal <player-name>
+/econ leaderboard
 /sellhand [amount|all]
 /worth
 /worth all
 /worth <item-or-listing-id> [amount]
 ```
 
-Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells all matching items. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. Beta 1 uses editor protocol v6, so older administrator clients cannot edit it.
+Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells all matching items. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. 1.4.1 Beta uses editor protocol v7, so older administrator clients cannot edit it.
 
-Trusted console/RCON integrations or OP-level-2 administrators can run:
+Trusted integrations can run this only through the server console or authenticated RCON:
 
 ```text
 /shopreward <player-name-or-UUID> <amount> <source> <unique-reference> [note]
@@ -94,7 +97,7 @@ Modes/preset checks build all four drafts and verify recipe caps, locked adminis
 
 Account checks cover local/UTC 12-hour searches, midnight/noon and historical daylight saving, confirmed balance changes, stale requests, isolated history resets, archived journal preservation, console and known offline rewards, durable replay protection, and recovery after a forced audit-write failure.
 
-Detector checks cover read-only discovery, exact components against actual loot, zero prices, cross-category duplicates and price conflicts, quoted listing commands, and exact custom trades. The catalog integrity audit checks every loaded registered item and detected variant for source mutation, native models, codec/component preservation, shop-only tooltips and actual purchase/sale round trips. Maps receive separate saved-data/destination or no-charge-failure checks; missing mod components must fail closed. The local fixture contains 1,859 registered items and 2,050 detected stacks, including Traveler's Backpack, UsefulFood and 189 Vanilla Plus variants. This verifies the installed catalog, not every possible third-party mod's gameplay hooks. Install the small fixture with `python .github/scripts/install_detection_fixture.py <disposable-server> --disposable`. Third-party binaries and pack assets are not bundled.
+Detector checks cover read-only discovery, exact components against actual loot, zero prices, cross-category duplicates and price conflicts, quoted listing commands, and exact custom trades. The catalog integrity audit checks every loaded registered item and detected variant for source mutation, native models, codec/component preservation, shop-only tooltips and actual purchase/sale round trips. Maps receive separate saved-data/destination or no-charge-failure checks; missing mod components must fail closed. The earlier Beta 1 fixture contained 1,859 registered items and 2,050 detected stacks, including Traveler's Backpack, UsefulFood and 189 Vanilla Plus variants. This verifies the installed catalog, not every possible third-party mod's gameplay hooks. Install the small fixture with `python .github/scripts/install_detection_fixture.py <disposable-server> --disposable`. Third-party binaries and pack assets are not bundled.
 
 The optional desktop client test uses `gradle -PalphaUiTest=true runClient` against a disposable loopback server on port 25573, with its operator state controlled by `.github/scripts/run_alpha_ui_test.py`. Pass the prepared server directory, `--java-home`, `--gradle`, and `--disposable`. The server must be offline and bound to `127.0.0.1:25573`. Use fresh shop fixtures for the editor run; `--player-client` then verifies the persisted result with ClassicGUIShop disabled on the client. It drives actual rendered screens and saves screenshots. Test classes and metadata are also excluded from the release JAR.
 
@@ -111,10 +114,10 @@ Stop the server and preserve the previous JAR plus the **entire** `config/guisho
 
 Seconds convert exactly to minute fields; a five-second cooldown becomes `0.08333333333333333` minutes. Inputs must resolve to whole seconds. Existing accounts, journals, earning switches, reward receipts and passive progress remain preserved. Pending passive rewards remember the interval and prefix that earned them. Rollback requires the prior JAR **and its matching full data backup**, restored while stopped. Do not restore only prices or only the wallet after later financial operations.
 
-`/bal <name>` and `/baltop` work without the client mod. Operator balances are hidden publicly by default, including offline operator accounts; self balance and Adminshop remain available. `/baltop` filters hidden accounts before selecting five, with stable ties.
+`/econ bal <name>` and `/econ leaderboard` work without the client mod. Operator balances are hidden publicly by default, including offline operator accounts. Authorized admins can inspect hidden balances with `/econ bal`; `/bal` has no player-name argument. The leaderboard filters hidden accounts before selecting five, with stable ties, and explains an empty result.
 
 `/worth` and `/sellhand` share `(base sell + eligible exact book sell values) x remaining durability`, floored to cents. Explicit exact variant prices take priority, including zero sell prices. Custom names, lore, trims, potion data and other components are preserved in matching. Unpriced enchantments add zero. Damaged command sales default on; enchanted equipment sales default off. `/sellhand all` sells inventory copies of the held exact variant; `/worth all` totals all eligible inventory items. Shop clicks keep exact listing matching. Standard modded damage/enchantment components work; proprietary energy/wear and arbitrary mod mechanics are not guessed.
 
 Preset JSON is saved to `config/guishop/presets` on the server; exports also create a uniquely named client copy there. Import accepts a local JSON file path. It contains categories, layout, icons, exact variants, final prices and dependency metadata, never accounts, journals, currency, permissions or earning modes. Missing variants retain raw components with both prices disabled and their original file retained in the library. Install dependencies, inspect the item and explicitly price it before use. Presets are not mods or executable scripts.
 
-This is **1.4.0-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
+This is **1.4.1-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.

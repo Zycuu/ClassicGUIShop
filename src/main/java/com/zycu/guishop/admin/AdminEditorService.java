@@ -146,6 +146,7 @@ public final class AdminEditorService {
         ShopConfig config = draft.config;
         if (config.modes == null) fail("Missing Shop Modes settings");
         config.modes.validate();
+        for(double ratio:new double[]{config.presetSellRatio,config.bookSellRatio,config.potionSellRatio})if(!Double.isFinite(ratio)||ratio<0||ratio>1)fail("Default sell returns must be from 0% to 100%");
         text(config.currencySymbol, 32, "Currency symbol");
         text(config.shopTitle, 64, "Shop title");
         if (config.shopTitle.isBlank()) fail("Shop title cannot be empty");

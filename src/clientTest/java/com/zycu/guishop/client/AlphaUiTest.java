@@ -393,23 +393,33 @@ public final class AlphaUiTest implements ClientModInitializer {
                         nativeHit(client, (WorkbenchScreen) screen, "category", category.id); nativeButton(client, true); nativeButton(client, false);
                         subphase = 24; delay = 4; return;
                     }
-                    if (subphase == 24) {
-                        capture(client, "alpha10-imported-usefulfood.png"); startSettings(screen); return;
+                    if(subphase==24){if((boolean)get(screen,"arranging"))click(screen,"Exit arrange mode");subphase=25;delay=4;return;}
+                    if(subphase==25){
+                        check(!(boolean)get(screen,"arranging")&&hitCount(screen,"tile:item")>0,"Disabled imported items visible without Arrange mode");
+                        capture(client,"beta2-disabled-import-editor.png");
+                        if(net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet().stream().anyMatch(id->id.getNamespace().equals("farmersdelight"))){click(screen,"Detected Content");subphase=26;delay=10;return;}startSettings(screen);return;
                     }
+                    if(subphase==26){var page=(com.zycu.guishop.admin.DetectedContent.Page)get(screen,"detectedData");if(!page.ready())return;nativeHit(client,(WorkbenchScreen)screen,"detected:source","farmersdelight");nativeButton(client,true);nativeButton(client,false);subphase=27;delay=10;return;}
+                    if(subphase==27){var page=(com.zycu.guishop.admin.DetectedContent.Page)get(screen,"detectedData");if(page.entries().isEmpty()||!page.entries().getFirst().source().equals("farmersdelight"))return;click(screen,"Import source");subphase=28;delay=4;return;}
+                    if(subphase==28){click(screen,"Confirm");subphase=29;delay=15;return;}
+                    if(subphase==29){if(get(screen,"importSource")!=null)return;click(screen,"Shop Builder");subphase=35;delay=4;return;}
+                    if(subphase==35){var doc=(AdminDocument)get(screen,"draft");var category=doc.config.categories.stream().filter(cat->"farmersdelight".equals(cat.detectedSource)).findFirst().orElseThrow();nativeHit(client,(WorkbenchScreen)screen,"category",category.id);nativeButton(client,true);nativeButton(client,false);subphase=36;delay=4;return;}
+                    if(subphase==36){var doc=(AdminDocument)get(screen,"draft");var category=doc.config.category((String)get(screen,"categoryId"));check(category.items.size()>50&&category.items.stream().allMatch(item->item.buy==0&&item.sell==0),"Farmer's Delight imports disabled");check(!(boolean)get(screen,"arranging")&&hitCount(screen,"tile:item")>0,"Farmer's Delight visible in normal builder");nativeHit(client,(WorkbenchScreen)screen,"tile:item",category.items.getFirst().listingId);nativeButton(client,true);nativeButton(client,false);subphase=37;delay=4;return;}
+                    if(subphase==37){set(screen,"Buy price","12");set(screen,"Sell price","3");capture(client,"beta2-farmers-delight-price-editor.png");var doc=(AdminDocument)get(screen,"draft");check(doc.config.findItem((String)get(screen,"selectedItem")).item().buy==12,"Farmer's Delight prices editable without Arrange mode");startSettings(screen);return;}
                     if(subphase==30){
-                        check(screen instanceof VariantScreen,"New enchantment variant manager");set(screen,"Filter variants","minecraft:unbreaking");click(screen,"Search");click(screen,"Select shown");set(screen,"Base buy price","120");set(screen,"Custom maximum level","5");click(screen,"Review variants");subphase=31;delay=4;return;
+                        check(screen instanceof VariantScreen,"Registered enchantment list opens");set(screen,"Search registered content","minecraft:unbreaking");click(screen,"Search");set(screen,"Default sell return percent","30");capture(client,"beta2-registered-enchantments.png");click(screen,"Done");subphase=33;delay=4;return;
                     }
-                    if(subphase==31){capture(client,"beta1-enchantment-review.png");click(screen,"Confirm");subphase=32;delay=4;return;}
-                    if(subphase==32){click(screen,"Done");subphase=33;delay=4;return;}
                     AdminDocument draft = (AdminDocument) get(screen, "draft");
-                    check(draft.config.category("enchanted_books").items.size()==5,"Five ordinary exact book variants including above vanilla");subphase=0;
+                    var books=new com.zycu.guishop.ShopConfig.Category();books.id="enchanted_books";books.name="Enchanted Books";books.icon="minecraft:enchanted_book";
+                    var holder=client.player.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT).get(net.minecraft.resources.Identifier.withDefaultNamespace("unbreaking")).orElseThrow();
+                    for(int level=1;level<=5;level++){var stack=com.zycu.guishop.EnchantmentShopService.createBook(holder,level);var item=new com.zycu.guishop.ShopConfig.ShopItem();item.item="minecraft:enchanted_book";item.name="Unbreaking "+com.zycu.guishop.EnchantmentShopService.roman(level);item.stack=com.zycu.guishop.ItemStackData.encode(stack,client.player.registryAccess());item.listingId=com.zycu.guishop.ItemStackData.listingId(stack,client.player.registryAccess());item.buy=level*120;item.sell=level*36;books.items.add(item);}draft.config.categories.add(books);subphase=0;
                     addTradeFixtures(draft, client);click(screen,"Apply");next();
                 }
                 case 21 -> {
                     if ((boolean) get(screen, "busy")) return;
                     if (subphase == 0) {
                         check(((String) get(screen, "status")).startsWith("Applied on the server"), "Server acknowledged Apply");
-                        click(screen, "Shop Builder"); click(screen, "Home"); subphase = 1; delay = 4; return;
+                        click(screen, "Shop Builder"); click(screen, "Home");if(!(boolean)get(screen,"arranging"))click(screen,"Arrange mode"); subphase = 1; delay = 4; return;
                     }
                     check(hitCount(screen,"tile:enchant")==0 && ((AdminDocument)get(screen,"draft")).config.category("enchanted_books")!=null,"Books are an ordinary category without special pricing menu");
                     check(screen.children().stream().noneMatch(widget -> widget instanceof Button button && java.util.List.of("Build", "Simulate", "Buy", "Sell").contains(button.getMessage().getString())), "Obsolete mode controls removed");
@@ -432,17 +442,12 @@ public final class AlphaUiTest implements ClientModInitializer {
                 }
                 case 22 -> {
                     if(subphase==0){nativeHit(client,(WorkbenchScreen)screen,"tile:category","enchanted_books");nativeButton(client,true);nativeButton(client,false);subphase=1;delay=4;return;}
-                    if(subphase==1){check(hitCount(screen,"tile:item")==5,"Ordinary book simulator shows five exact levels");capture(client,"beta1-book-simulator.png");click(screen,"Arrange mode");subphase=2;delay=4;return;}
-                    if(subphase==2){check(hitCount(screen,"tile:item")==5,"Book variants survive arrange toggle");click(screen,"Exit arrange mode");click(screen,"Settings");click(screen,"Economy");capture(client,"beta1-economy-settings.png");click(screen,"Adjust prices...");subphase=3;delay=4;return;}
-                    if(subphase==3){check(screen instanceof PriceAdjustScreen,"Unified bulk pricing opens");set(screen,"Filter listings","Unbreaking");click(screen,"Search");at((WorkbenchScreen)screen,100,128,false);check(((java.util.Set<?>)get(screen,"selected")).size()==1,"Native mouse selects listing for bulk edits");click(screen,"Select shown");click(screen,"Scope: all");set(screen,"Buy adjustment percent","20");set(screen,"Sell adjustment percent","20");capture(client,"beta1-adjust-prices.png");click(screen,"Review");subphase=4;delay=4;return;}
-                    if(subphase==4){capture(client,"beta1-price-review.png");click(screen,"Confirm");subphase=5;delay=4;return;}
-                    if(subphase==5){click(screen,"Done");subphase=6;delay=4;return;}
-                    if(subphase==6){var config=((AdminDocument)get(screen,"draft")).config;check(config.category("enchanted_books").items.getFirst().buy==144,"Bulk price adjustment writes only selected draft listings");click(screen,"Enchantments/Potions");subphase=7;delay=4;return;}
-                    if(subphase==7){capture(client,"beta1-variants-summary.png");click(screen,"Potions");subphase=8;delay=4;return;}
-                    if(subphase==8){set(screen,"Filter variants","healing");click(screen,"Search");at((WorkbenchScreen)screen,100,128,false);check(((java.util.Set<?>)get(screen,"picks")).size()==1,"Native mouse selects potion variant");click(screen,"Select shown");set(screen,"Base buy price","20");capture(client,"beta1-potion-variants.png");click(screen,"Review variants");subphase=9;delay=4;return;}
-                    if(subphase==9){click(screen,"Confirm");subphase=10;delay=4;return;}
-                    if(subphase==10){click(screen,"Done");subphase=11;delay=4;return;}
-                    check(((AdminDocument)get(screen,"draft")).config.category("potions").items.size()>0,"Potion variants stored as exact ordinary listings");click(screen,"Apply");subphase=0;next();delay=20;
+                    if(subphase==1){check(hitCount(screen,"tile:bookgroup")==1&&hitCount(screen,"tile:item")==0,"Books are grouped into enchantment folders");capture(client,"beta2-book-folders.png");nativeHit(client,(WorkbenchScreen)screen,"tile:bookgroup","minecraft:unbreaking");nativeButton(client,true);nativeButton(client,false);subphase=2;delay=4;return;}
+                    if(subphase==2){check(hitCount(screen,"tile:item")==5,"Folder contains all exact levels, including above vanilla");capture(client,"beta2-book-levels.png");click(screen,"Adjust prices");subphase=3;delay=4;return;}
+                    if(subphase==3){check(screen instanceof PriceAdjustScreen,"Manual price sheet opens from builder");set(screen,"Buy amount for all","144");set(screen,"Sell amount for all","43.20");click(screen,"Set all 5 listings");capture(client,"beta2-manual-price-sheet.png");click(screen,"Done");subphase=4;delay=4;return;}
+                    if(subphase==4){check(((AdminDocument)get(screen,"draft")).config.category("enchanted_books").items.stream().allMatch(item->item.buy==144&&item.sell==43.2),"Plain bulk amounts update all five listings");click(screen,"Settings");click(screen,"Economy");check(screen.children().stream().filter(c->c instanceof Button).map(c->((Button)c).getMessage().getString()).noneMatch(label->label.contains("Adjust prices")),"Economy no longer contains bulk adjustment");set(screen,"Default preset sell return percent","30");capture(client,"beta2-economy-settings.png");click(screen,"Enchantments/Potions");click(screen,"Potions");subphase=5;delay=4;return;}
+                    if(subphase==5){set(screen,"Search registered content","healing");click(screen,"Search");set(screen,"Default sell return percent","30");capture(client,"beta2-registered-potions.png");click(screen,"Done");subphase=6;delay=4;return;}
+                    click(screen,"Apply");subphase=0;next();delay=20;
                 }
                 case 23 -> {
                     if (subphase == 0) { click(screen, "Presets"); click(screen, "Generate preview"); subphase = 1; delay = 20; return; }
@@ -471,7 +476,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         set(screen, "Payout minecraft:story/mine_stone", "11"); capture(client, "alpha10-advancement-payouts.png"); click(screen, "Done"); click(client.gui.screen(), "Warrior Mode"); subphase = 8; delay = 4; return;
                     }
                     if (subphase == 8) {
-                        capture(client, "alpha10-warrior-mode.png"); click(screen, "Apply"); subphase = 9; delay = 20; return;
+                        capture(client, "beta2-warrior-mode.png");click(screen,"Mishap Charge");capture(client,"beta2-mishap-charge.png");click(screen,"Apply"); subphase = 9; delay = 20; return;
                     }
                     if (subphase == 9) {
                         if ((boolean)get(screen, "busy")) return;
@@ -529,7 +534,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         if (selected.balance() != 2000) return;
                         check(((com.zycu.guishop.admin.TransactionJournal.Page) get(screen, "logData")).entries().isEmpty(), "Reset clears selected player's active history and restores default");
                         rewardReference = "gui-" + java.util.UUID.randomUUID();
-                        client.getConnection().sendCommand("shopreward " + selectedHistoryUuid + " 25 vote " + rewardReference + " GUI vote reward");
+                        System.out.println("[Alpha UI test] CONSOLE_REWARD: "+selectedHistoryUuid+" "+rewardReference);
                         subphase = 32; delay = 20; return;
                     }
                     if (subphase == 32) {

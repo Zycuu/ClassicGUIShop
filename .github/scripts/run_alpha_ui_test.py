@@ -3,6 +3,7 @@ import argparse
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import time
 
@@ -15,6 +16,7 @@ parser.add_argument('--player-client', action='store_true', help='Disable Classi
 parser.add_argument('--usefulfood-jar', type=pathlib.Path, help='Optional 26.3 Fabric fixture, installed on this disposable server too')
 parser.add_argument('--travelersbackpack-jar', type=pathlib.Path, help='Optional Traveler backpack fixture; requires --forge-config-jar')
 parser.add_argument('--forge-config-jar', type=pathlib.Path, help='Optional Forge Config API Port fixture')
+parser.add_argument('--additional-mod-jar', type=pathlib.Path, action='append', default=[], help='Additional optional client/server fixtures, never bundled')
 parser.add_argument('--disposable', action='store_true', help='Confirm this server and its contents are test fixtures')
 args = parser.parse_args()
 if not args.disposable:
@@ -42,6 +44,14 @@ if args.travelersbackpack_jar:
                            '-PforgeConfigTestJar=' + str(args.forge_config_jar.resolve())])
     if not args.usefulfood_jar:
         client_command.append('-PfullFabricApiTestJar=' + str(server_dir / 'mods' / 'fabric-api.jar'))
+if args.additional_mod_jar:
+    for jar in args.additional_mod_jar:
+        fixture = jar.resolve()
+        if not fixture.is_file(): parser.error('Missing additional mod fixture: ' + str(fixture))
+        shutil.copy2(fixture, server_dir / 'mods' / fixture.name)
+    client_command.append('-PadditionalClientTestJars=' + os.pathsep.join(str(jar.resolve()) for jar in args.additional_mod_jar))
+    if not args.usefulfood_jar and not args.travelersbackpack_jar:
+        client_command.append('-PfullFabricApiTestJar=' + str(server_dir / 'mods' / 'fabric-api.jar'))
 if os.name == 'nt' and gradle.suffix.lower() in ('.bat', '.cmd'):
     client_command = ['cmd.exe', '/d', '/c', *client_command]
 env = os.environ.copy()
@@ -66,6 +76,7 @@ with server_log.open('w', encoding='utf8') as server_output, client_log.open('w'
         client = subprocess.Popen(client_command,
                                   cwd=repo, env=env, stdout=client_output, stderr=subprocess.STDOUT)
         granted = revoked = False
+        console_rewards = set()
         seen = set()
         for _ in range(600):
             time.sleep(1)
@@ -78,6 +89,9 @@ with server_log.open('w', encoding='utf8') as server_output, client_log.open('w'
                 server.stdin.write(f'op {player[1]}\ngive {player[1]} minecraft:diamond 1\n'); server.stdin.flush(); granted = True
             if player and '[Alpha UI test] REVOKE_READY' in text and not revoked:
                 server.stdin.write(f'deop {player[1]}\n'); server.stdin.flush(); revoked = True
+            for uuid, reference in re.findall(r'\[Alpha UI test\] CONSOLE_REWARD: ([a-f0-9-]{36}) (gui-[a-f0-9-]{36})', text):
+                if reference not in console_rewards:
+                    server.stdin.write(f'shopreward {uuid} 25 vote {reference} GUI vote reward\n'); server.stdin.flush(); console_rewards.add(reference)
             if marker + ' FAIL' in text:
                 raise RuntimeError(text[-10000:])
             if client.poll() is not None:

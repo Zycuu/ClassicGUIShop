@@ -101,6 +101,16 @@ public final class ShopModes {
             }
         } catch (Exception error) { report(error); }
     }
+    public static void died(ServerPlayer player,net.minecraft.world.damagesource.DamageSource source){
+        if(state==null||GuiShop.CONFIG==null||!eligible(player)||!GuiShop.CONFIG.modes.mishapEnabled)return;
+        var config=GuiShop.CONFIG.modes;if(config.mishapAmount<.01)return;
+        try{
+            String reference=player.getUUID()+":"+player.level().getGameTime()+":"+player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.DEATHS));
+            double before=GuiShop.ECONOMY.readBalance(player.getUUID());
+            if(AccountOperations.modeCharge(player,reference,config.mishapAmount,config.mishapAllowDebt,source.getLocalizedDeathMessage(player).getString(),config.mishapPrefix))
+                message(player,config.mishapPrefix,config.mishapColor,"Death charge: "+GuiShop.CONFIG.money(before-GuiShop.ECONOMY.readBalance(player.getUUID()))+".");
+        }catch(Exception error){report(error);}
+    }
     public static void advancement(ServerPlayer player, AdvancementHolder advancement) {
         if (state == null || GuiShop.CONFIG == null || !GuiShop.CONFIG.modes.advancementsEnabled || !eligible(player)) return;
         String id = advancement.id().toString();
@@ -133,6 +143,6 @@ public final class ShopModes {
     }
     private static void report(Exception error) {
         long now = System.currentTimeMillis(); if (now - lastError < 10000) return; lastError = now;
-        System.err.println("[ClassicGUIShop Shop Modes] Payout refused: " + error.getMessage());
+        System.err.println("[ClassicGUIShop Shop Modes] Mode operation refused: " + error.getMessage());
     }
 }

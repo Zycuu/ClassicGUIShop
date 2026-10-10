@@ -169,10 +169,9 @@ public final class ShopService {
         var held = player.getMainHandItem();
         if (held.isEmpty()) { ShopMessages.warning(player, "You are not holding an item."); return false; }
         var quote = SaleValuation.quote(player, held);
-        ShopMessages.info(player, held.getHoverName().getString() + " | Sell: " + GuiShop.CONFIG.money(quote.unit()) + " each / " + GuiShop.CONFIG.money(round(quote.unit()*held.getCount())) + " total");
-        ShopMessages.info(player, "Base " + GuiShop.CONFIG.money(quote.base()) + " + enchantments " + GuiShop.CONFIG.money(quote.enchantments()) + " | Condition " + String.format(java.util.Locale.ROOT,"%.2f%%",quote.condition()*100));
-        if(quote.exact())ShopMessages.info(player,"Buy: "+(quote.listing().item().buy>0?GuiShop.CONFIG.money(quote.listing().item().buy)+" each":"not purchasable"));
-        ShopMessages.info(player,quote.note()); return true;
+        boolean sellable=quote.unit()>0&&safeMapSale(player,held,quote.listing().item());
+        String buy=quote.exact()&&quote.listing().item().buy>0?GuiShop.CONFIG.money(quote.listing().item().buy):"unavailable";
+        ShopMessages.info(player,held.getHoverName().getString()+" x"+held.getCount()+" | Buy "+buy+" | Sell "+(sellable?GuiShop.CONFIG.money(quote.unit())+" each ("+GuiShop.CONFIG.money(round(quote.unit()*held.getCount()))+" total)":"unavailable"));return true;
     }
 
     public static boolean showWorth(ServerPlayer player, String identifier, int amount) {
@@ -194,12 +193,9 @@ public final class ShopService {
         double buy = item.buy;
         double sell = item.sell;
         int quantity = Math.max(1, amount);
-        String buyText = buy > 0 ? GuiShop.CONFIG.money(buy) + " each / " + GuiShop.CONFIG.money(round(buy * quantity)) + " total" : "not purchasable";
-        String sellText = sell > 0 ? GuiShop.CONFIG.money(sell) + " each / " + GuiShop.CONFIG.money(round(sell * quantity)) + " total" : "not sellable";
-        ShopMessages.info(player, item.name + " [" + item.listingId + "]");
-        ShopMessages.info(player, "Buy: " + buyText);
-        ShopMessages.info(player, "Sell: " + sellText);
-        ShopMessages.info(player, "Category: " + found.category().name + " | Quantity checked: " + quantity);
+        String buyText=buy>0?GuiShop.CONFIG.money(buy):"unavailable";
+        String sellText=sell>0?GuiShop.CONFIG.money(sell)+" each ("+GuiShop.CONFIG.money(round(sell*quantity))+" total)":"unavailable";
+        ShopMessages.info(player,item.name+" x"+quantity+" | Buy "+buyText+" | Sell "+sellText);
         return true;
     }
 

@@ -12,5 +12,5 @@ public abstract class ServerPlayerMixin {
     @Inject(method = "die", at = @At("HEAD"))
     private void guishop$captureDeathCredit(DamageSource source, CallbackInfo ci) { guishop$deathCredit = ((ServerPlayer)(Object)this).getKillCredit(); }
     @Inject(method = "die", at = @At("TAIL"))
-    private void guishop$modeDeath(DamageSource source, CallbackInfo ci) { ShopModes.killed((ServerPlayer)(Object)this, guishop$deathCredit); guishop$deathCredit = null; }
+    private void guishop$modeDeath(DamageSource source, CallbackInfo ci) { ShopModes.killed((ServerPlayer)(Object)this, guishop$deathCredit); guishop$deathCredit = null; ShopModes.died((ServerPlayer)(Object)this,source); }
 }

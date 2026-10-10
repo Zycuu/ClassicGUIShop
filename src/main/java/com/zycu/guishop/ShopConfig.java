@@ -33,6 +33,7 @@ public final class ShopConfig {
     public String currencySymbol = "$";
     public String shopTitle = "ClassicGUIShop";
     public double startingBalance = 500.0;
+    public double presetSellRatio=.30, bookSellRatio=.30, potionSellRatio=.30;
     public double priceMultiplier = 1.0;
     public Boolean allowCreativeTransactions = false;
     public Boolean allowOfflinePayments = true;
@@ -189,6 +190,7 @@ public final class ShopConfig {
         if (balancedPricingEnabled == null) balancedPricingEnabled = true;
         if (rebalanceGeneratedItems == null) rebalanceGeneratedItems = true;
         if (enchantmentsEnabled == null) enchantmentsEnabled = true;
+        for(double ratio:new double[]{presetSellRatio,bookSellRatio,potionSellRatio})if(!Double.isFinite(ratio)||ratio<0||ratio>1)throw new IllegalArgumentException("Default sell returns must be between 0 and 1");
         if (!Double.isFinite(startingBalance) || startingBalance < 0) startingBalance = 0;
         if (!Double.isFinite(priceMultiplier) || priceMultiplier < 0) priceMultiplier = 1;
         if (!Double.isFinite(catalogSellRatio) || catalogSellRatio < 0 || catalogSellRatio > 1) catalogSellRatio = 0.32;
@@ -309,6 +311,7 @@ public final class ShopConfig {
         if (file.economy != null) {
             currencySymbol = file.economy.currencySymbol;
             startingBalance = file.economy.startingBalance;
+            presetSellRatio=file.economy.presetSellRatio;bookSellRatio=file.economy.bookSellRatio;potionSellRatio=file.economy.potionSellRatio;
             sellDamagedItems = file.economy.sellDamagedItems;
             sellEnchantedEquipment = file.economy.sellEnchantedEquipment;
             showOperatorBalances = file.economy.showOperatorBalances;
@@ -358,6 +361,7 @@ public final class ShopConfig {
         file.general.allowOfflinePayments = allowOfflinePayments;
         file.economy.currencySymbol = currencySymbol;
         file.economy.startingBalance = startingBalance;
+        file.economy.presetSellRatio=presetSellRatio;file.economy.bookSellRatio=bookSellRatio;file.economy.potionSellRatio=potionSellRatio;
         file.economy.sellDamagedItems = sellDamagedItems;
         file.economy.sellEnchantedEquipment = sellEnchantedEquipment;
         file.economy.showOperatorBalances = showOperatorBalances;
@@ -419,6 +423,9 @@ public final class ShopConfig {
         notes.put("general.allowCreativeTransactions", "When true, players in Creative mode may buy and sell. When false, Creative transactions require the guishop.creative.bypass permission.");
         notes.put("general.allowOfflinePayments", "When true, /shop pay may send money to a player who is offline but has joined before. When false, the recipient must be online.");
         notes.put("economy.currencySymbol", "Text displayed before money values, such as $, €, or Coins: . This changes display only.");
+        notes.put("economy.presetSellRatio", "Default Normal/Basics preset sell return, from 0 to 1. Never changes existing listing prices.");
+        notes.put("economy.bookSellRatio", "Sell return for newly generated vanilla book variants only. Modded variants start disabled.");
+        notes.put("economy.potionSellRatio", "Sell return for newly generated vanilla potion variants only. Existing prices stay unchanged.");
         notes.put("economy.startingBalance", "Balance assigned when ClassicGUIShop first creates a balance record for a player. Changing it does not alter existing balances.");
         notes.put("chat.prefix", "Text placed at the start of every ClassicGUIShop chat message.");
         notes.put("chat.prefixColor", "Minecraft color name used for the chat prefix, such as gold, aqua, green, yellow, red, or light_purple.");
@@ -518,6 +525,7 @@ public final class ShopConfig {
     }
 
     private static final class EconomySection {
+        double presetSellRatio=.30, bookSellRatio=.30, potionSellRatio=.30;
         boolean sellDamagedItems = true, sellEnchantedEquipment, showOperatorBalances;
         String currencySymbol = "$";
         double startingBalance = 500.0;

@@ -139,4 +139,4 @@ Then open **Enchanted Books**, select the matching enchantment level, and right-
 Shop transactions are blocked in Creative mode unless the server allows Creative transactions or grants the player the Creative bypass permission.
 
 
-Beta 1 adds `/bal <player>` and `/baltop`, with operator accounts hidden publicly by default. `/worth` and `/sellhand` can value damaged and enchanted equipment when the server enables those options. An exact listing takes priority; unpriced enchantments add no value. `/worth all` totals all eligible inventory items; `/sellhand all` sells copies of the held exact variant.
+Beta 1 adds `/econ bal <player>` and `/econ leaderboard`, with operator accounts hidden publicly by default. `/worth` and `/sellhand` can value damaged and enchanted equipment when the server enables those options. An exact listing takes priority; unpriced enchantments add no value. `/worth all` totals all eligible inventory items; `/sellhand all` sells copies of the held exact variant.

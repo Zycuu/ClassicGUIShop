@@ -4,6 +4,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "CommandsMixin",
+    "CommandSourceAccess",
     "MinecraftServerMixin",
     "LivingEntityMixin",
     "ServerPlayerMixin",
