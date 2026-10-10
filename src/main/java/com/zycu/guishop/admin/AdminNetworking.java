@@ -14,8 +14,9 @@ public final class AdminNetworking {
     private static final Map<UUID, Long> LAST_REQUEST = new HashMap<>();
     private static java.util.concurrent.ThreadPoolExecutor journalWorker;
     private AdminNetworking() {}
-    public record Query(String filter, int offset, boolean changes, String playerUuid) {
-        public Query(String filter, int offset, boolean changes) { this(filter, offset, changes, null); }
+    public record Query(String filter, int offset, boolean changes, String playerUuid, String zoneId, long generation) {
+        public Query(String filter, int offset, boolean changes) { this(filter, offset, changes, null, "UTC", 0); }
+        public Query(String filter, int offset, boolean changes, String playerUuid) { this(filter, offset, changes, playerUuid, "UTC", 0); }
     }
     public record PlayersQuery(String filter, int offset) {}
 
@@ -108,6 +109,10 @@ public final class AdminNetworking {
                     if (query == null) throw new IllegalArgumentException("Missing player query");
                     reply(player, message.id(), "players", "", AdminDocument.JSON.toJson(AdminPlayers.list(player, query.filter(), query.offset())));
                 }
+                case "account" -> {
+                    var change = AdminDocument.JSON.fromJson(assembly.body(), AccountOperations.Change.class);
+                    reply(player, message.id(), "account_saved", "", AdminDocument.JSON.toJson(AccountOperations.change(player, change)));
+                }
                 default -> throw new IllegalArgumentException("Unknown editor request");
             }
         } catch (SecurityException denied) {
@@ -123,10 +128,12 @@ public final class AdminNetworking {
         var server = player.createCommandSourceStack().getServer();
         String selected = query.playerUuid() == null || query.playerUuid().isBlank() ? null : UUID.fromString(query.playerUuid()).toString();
         if (selected != null && query.changes()) throw new IllegalArgumentException("Invalid player history query");
+        if (query.zoneId() != null && query.zoneId().length() > 80) throw new IllegalArgumentException("Invalid timezone");
+        java.time.ZoneId.of(query.zoneId() == null || query.zoneId().isBlank() ? "UTC" : query.zoneId());
         // Journal searches can read multiple daily files. Keep that work off the tick thread.
         journalWorker().execute(() -> {
             String body, action;
-            try { body = AdminDocument.JSON.toJson(TransactionJournal.query(query.filter(), query.offset(), query.changes(), selected)); action = "logs"; }
+            try { body = AdminDocument.JSON.toJson(TransactionJournal.query(query.filter(), query.offset(), query.changes(), selected, query.zoneId())); action = "logs"; }
             catch (Exception failure) { body = "Could not read server records: " + failure.getMessage(); action = "error"; }
             final String responseBody = body, responseAction = action;
             server.execute(() -> {
@@ -134,7 +141,7 @@ public final class AdminNetworking {
                 if (!AdminEditorService.allowed(player)) reply(player, id, "denied", "", AdminEditorService.DENIED);
                 else if (selected != null && responseAction.equals("logs")) {
                     var history = AdminDocument.JSON.fromJson(responseBody, TransactionJournal.Page.class);
-                    reply(player, id, "player_logs", "", AdminDocument.JSON.toJson(new AdminPlayers.History(AdminPlayers.player(player, selected), history)));
+                    reply(player, id, "player_logs", "", AdminDocument.JSON.toJson(new AdminPlayers.History(AdminPlayers.player(player, selected), history, GuiShop.CONFIG.currencySymbol, GuiShop.CONFIG.startingBalance)));
                 } else reply(player, id, responseAction, "", responseBody);
             });
         });

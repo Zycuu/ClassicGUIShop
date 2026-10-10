@@ -12,4 +12,25 @@ Configure enchanted-book offers explicitly under Settings / Enchantments. Buy co
 
 Alpha 8 treats map offers differing only in generated map ID and destination as overlapping for cross-listing price validation. It also rejects clonable-map sell prices above the cheapest enabled empty-map buy price, because each additional vanilla map copy consumes one empty map. The live GUI and held/inventory sales enforce this guard even for manually edited files. It does not replace the broader recipe or mod economy audit. Map generation happens before payment; failed destination searches or missing saved map data do not charge money.
 
-Successful buys, sales, enchanted-book trades, and payments are logged on the server. Adminshop can search recent records and open their details.
+Successful buys, sales, enchanted-book trades, and payments are logged on the server. Adminshop can search recent records; transaction rows stay in the list.
+
+Alpha 9 transaction rows are read-only, with local hh:mm:ss AM/PM (DD/MMM/YY) dates and currency-prefixed totals. Set balance and Reset are immediate server operations with confirmation and stale-value protection. Reset restores the current starting balance and clears active history for one UUID, preserving journal archives and external reward receipts. Trusted external events use `/shopreward`, with a unique source/reference pair to prevent duplicate payouts. Account intent, balance and audit writes are completed before success is acknowledged; pending operations recover before further mutations.
+
+## Planned presets and earning modes
+
+These are the next feature stage and are not implemented in Alpha 9. Presets should create reviewable shop drafts and pass a recipe/variant exploit audit before Apply. The current legacy sell-ratio default remains 32%, meaning a 100 buy price gives a 32 sell price. Zycu referred to the default returns when clarifying Normal; review that baseline and the initial approximate 30% description before implementing the preset.
+
+- Full Vanilla Normal: vanilla catalog and deliberate buy prices, with the normal selling return confirmed during preset review.
+- Full Vanilla Hard: expensive buying and low returns; exact multipliers will be reviewed with Zycu.
+- Full Vanilla Easy: affordable buying and approximately 95% return, subject to recipe and duplicate-price safeguards.
+- The Basics: raw crafting resources, ores/minerals, logs, and rare collectible ingredients. Membership and unobtainable-item policy need review.
+- Additional themes and kits remain discussion items.
+
+Shop Modes will have a dedicated Adminshop tab, with independent switches so several can run together. Each payout must be logged and use its mode name as the chat prefix with its own configured color.
+
+- Passive income: configurable payout and online interval; no offline accrual. Session persistence and optional AFK handling need explicit rules.
+- Cash Mobs: detect installed entity types and configure payouts, with a choice of quick spawner farming or kill cooldowns. Repeated-kill and ownership rules need review.
+- Advancement Hunter: detect server advancements, one-time payouts with replay protection, vanilla rarity tiers, and an initial proposed 100 for detected non-vanilla advancements. Revocation/regrant must not multiply payouts.
+- Warrior Mode: player-kill rewards, repeat-victim and alt-farming safeguards, optional victim deduction, and a separately configurable negative-balance policy. Negative balances are not enabled by Alpha 9.
+
+The account operation/reward ledger is groundwork for these modes. It does not enable them or make a preset safe automatically. A future 2.0.0 milestone still requires Zycu's explicit release approval.

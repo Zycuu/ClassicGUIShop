@@ -15,6 +15,8 @@ enchantments.json
 versioned-listings.json
 balances.json
 players.json
+account-operations.json
+account-audit.jsonl
 ```
 
 ## `settings.json`
@@ -86,9 +88,19 @@ This file preserves data. It is not a trash can.
 
 Stores player balances.
 
+Alpha 9 keeps the existing UUID-to-balance format. Back up this file together with `account-operations.json` and `transactions/` while the server is stopped.
+
+## `account-operations.json` and `account-audit.jsonl`
+
+The operation ledger stores external reward receipts, active transaction-history generations and any pending account operation. It prevents a repeated source/reference pair from paying twice, including after a reset or restart. Pending operations recover before another balance mutation. Do not manually remove receipts or pending state.
+
+Reset advances one player's active history generation and writes a separate account audit record. Previous daily journal files remain available as recovery archives, but their older records no longer appear in that player's transaction view. Other players' histories remain visible. Set balance and rewards appear in the player's active history.
+
+Preserve the ledger, audit and daily journals with the balances backup. Restoring only part of this account data can lose replay protection or produce inconsistent balances and history. Older releases do not understand these safeguards; stop external reward delivery before rolling back and review a consistent backup.
+
 ## `players.json`
 
-Stores known player names and UUIDs for payments .
+Stores known player names and UUIDs for payments and external rewards.
 
 ## Backups and migration
 
@@ -115,6 +127,6 @@ Successful transactions and configuration applies are appended to UTC daily `tra
 - Stop the server before editing JSON.
 - Back up the file first.
 - Use a JSON validator if editing by hand.
-- Use Adminshop for in-game configuration edits. Legacy administrator commands remain removed.
+- Use Adminshop for in-game configuration edits. `/adminshop` opens the workbench; `/shopreward` is the trusted external reward command. Other legacy administrator commands remain removed.
 - Avoid editing serialized stack data manually.
 - Restart the server after safe manual edits.

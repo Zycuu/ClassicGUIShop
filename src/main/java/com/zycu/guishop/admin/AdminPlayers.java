@@ -14,8 +14,10 @@ import java.util.UUID;
 public final class AdminPlayers {
     private AdminPlayers() {}
     public record Player(String uuid, String name, double balance, boolean online) {}
-    public record Page(List<Player> players, int offset, boolean more) {}
-    public record History(Player player, TransactionJournal.Page history) {}
+    public record Page(List<Player> players, int offset, boolean more, String currencySymbol, double defaultBalance) {
+        public Page(List<Player> players, int offset, boolean more) { this(players, offset, more, "$", 0); }
+    }
+    public record History(Player player, TransactionJournal.Page history, String currencySymbol, double defaultBalance) {}
 
     private static void authorize(ServerPlayer viewer) {
         if (!AdminEditorService.allowed(viewer)) throw new SecurityException(AdminEditorService.DENIED);
@@ -42,6 +44,6 @@ public final class AdminPlayers {
             .sorted(Comparator.<Map.Entry<UUID, String>, String>comparing(Map.Entry::getValue, String.CASE_INSENSITIVE_ORDER).thenComparing(entry -> entry.getKey().toString()))
             .skip(offset).limit(101).forEach(entry -> result.add(new Player(entry.getKey().toString(), entry.getValue(),
                 GuiShop.ECONOMY.readBalance(entry.getKey()), server.getPlayerList().getPlayer(entry.getKey()) != null)));
-        return new Page(result.size() > 100 ? List.copyOf(result.subList(0, 100)) : List.copyOf(result), offset, result.size() > 100);
+        return new Page(result.size() > 100 ? List.copyOf(result.subList(0, 100)) : List.copyOf(result), offset, result.size() > 100, GuiShop.CONFIG.currencySymbol, GuiShop.CONFIG.startingBalance);
     }
 }

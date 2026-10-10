@@ -23,6 +23,7 @@ public abstract class WorkbenchScreen extends Screen {
         return new MouseButtonEvent((event.x() - originX) / scale - contentOffsetX(), (event.y() - originY) / scale, event.buttonInfo());
     }
     @Override public final void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        var parent = modalParent(); if (parent != null) parent.extractRenderState(graphics, -100, -100, delta);
         geometry();
         graphics.fill(0, 0, width, height, 0x70202528);
         graphics.pose().pushMatrix(); graphics.pose().translate(originX + contentOffsetX() * scale, originY); graphics.pose().scale(scale, scale);
@@ -33,6 +34,7 @@ public abstract class WorkbenchScreen extends Screen {
         graphics.pose().popMatrix();
     }
     protected abstract void paint(GuiGraphicsExtractor graphics, int x, int y, float delta);
+    protected Screen modalParent() { return null; }
     protected void afterWidgets(GuiGraphicsExtractor graphics, int x, int y, float delta) {}
     protected boolean click(double x, double y, int button) { return false; }
     protected boolean release(double x, double y, int button) { return false; }

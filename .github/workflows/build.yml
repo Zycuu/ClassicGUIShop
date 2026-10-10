@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 env:
-  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.8
+  ARTIFACT_BASE: ClassicGUIShop-v1.4.0-alpha.9
 
 jobs:
   build:
@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           jar tf "build/libs/$ARTIFACT_BASE.jar" > jar-contents.txt
-          if grep -E 'AlphaUiTest|PlayerShopUiTest|AlphaServerChecks|DetectedContentChecks|CombinedShopChecks|CatalogIntegrityChecks|InventoryOverflowTest|guishop_alpha_test' jar-contents.txt; then
+          if grep -E 'AlphaUiTest|PlayerShopUiTest|AlphaServerChecks|AccountChecks|DetectedContentChecks|CombinedShopChecks|CatalogIntegrityChecks|InventoryOverflowTest|guishop_alpha_test' jar-contents.txt; then
             echo "Test harness entered release JAR" >&2
             exit 1
           fi
@@ -100,12 +100,14 @@ jobs:
           cmp folders-original.json server/config/guishop/folders.json
           grep -F '[ClassicGUIShop Alpha test] PASS:' server/startup.log
           grep -F '[Detected content test] PASS:' server/startup.log
+          grep -F '[Account test] PASS:' server/startup.log
           grep -F 'Command integrity verified' server/startup.log
           cp server/config/guishop/shops.json shops-before-restart.json
           cp server/config/guishop/folders.json folders-before-restart.json
           bash .github/scripts/boot_fabric_server.sh server restart.log
           grep -F '[ClassicGUIShop Alpha test] PASS:' server/restart.log
           grep -F '[Detected content test] PASS:' server/restart.log
+          grep -F '[Account test] PASS:' server/restart.log
           cmp shops-before-restart.json server/config/guishop/shops.json
           cmp folders-before-restart.json server/config/guishop/folders.json
       - uses: actions/upload-artifact@v4

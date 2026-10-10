@@ -12,7 +12,7 @@ class WorkbenchButton extends Button {
         this.label = label;
     }
     @Override protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        boolean primary = label.equals("Apply"), danger = label.startsWith("Remove");
+        boolean primary = label.equals("Apply"), danger = label.startsWith("Remove") || label.equals("Reset");
         boolean quiet = label.equals("Close") || label.equals("Reload") || label.equals("Home") || label.equals("Up");
         int fill = primary ? WorkbenchTheme.TEAL : quiet ? 0x181A272D : 0xEF34464F;
         int text = primary ? 0xFF142A28 : danger ? WorkbenchTheme.DANGER : WorkbenchTheme.TEXT;

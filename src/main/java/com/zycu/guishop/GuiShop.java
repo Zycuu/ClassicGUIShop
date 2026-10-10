@@ -19,6 +19,7 @@ public final class GuiShop implements ModInitializer {
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             initializedServer = null;
             initializeStores();
+            com.zycu.guishop.admin.AccountOperations.initialize();
         });
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             com.zycu.guishop.admin.AdminNetworking.clear(); ShopMaps.clear();

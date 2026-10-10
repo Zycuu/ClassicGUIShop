@@ -31,6 +31,7 @@ public final class CommandIntegrityCheck {
         requirePath(root, missing, "worth", "item");
 
         requireCommand(root, "adminshop", missing);
+        requirePath(root, missing, "shopreward", "player", "amount", "source", "reference");
         if (root.getChild("adminshop") != null && !root.getChild("adminshop").getChildren().isEmpty() || root.getChild("ident") != null) {
             throw new IllegalStateException("Legacy admin subcommands and /ident must not be registered");
         }

@@ -50,28 +50,45 @@ public final class EconomyStore {
         return result;
     }
 
-    public synchronized boolean withdraw(UUID player, double amount) {
+    public boolean withdraw(UUID player, double amount) {
+        return com.zycu.guishop.admin.AccountOperations.mutate(() -> { synchronized (this) {
         if (!validAmount(amount)) return false;
         double current = balance(player);
         if (current + 0.000001 < amount) return false;
         balances.put(player.toString(), round(current - amount));
         save();
         return true;
+        }});
     }
 
-    public synchronized void deposit(UUID player, double amount) {
-        if (!validAmount(amount)) return;
+    public void deposit(UUID player, double amount) {
+        com.zycu.guishop.admin.AccountOperations.mutate(() -> { synchronized (this) {
+        if (!validAmount(amount)) return null;
         balances.put(player.toString(), round(balance(player) + amount));
         save();
+        return null;
+        }});
     }
 
-    public synchronized void setBalance(UUID player, double amount) {
-        if (!Double.isFinite(amount) || amount < 0) return;
+    public void setBalance(UUID player, double amount) {
+        com.zycu.guishop.admin.AccountOperations.mutate(() -> { synchronized (this) {
+        if (!Double.isFinite(amount) || amount < 0) return null;
         balances.put(player.toString(), round(amount));
         save();
+        return null;
+        }});
     }
 
-    public synchronized boolean transfer(UUID from, UUID to, double amount) {
+    /** Account-operation recovery bypasses its own gate and commits disk before exposing the new value. */
+    public synchronized void setBalanceChecked(UUID player, double amount) throws Exception {
+        if (!Double.isFinite(amount) || amount < 0) throw new IllegalArgumentException("Invalid balance");
+        var next = new HashMap<>(balances); next.put(player.toString(), round(amount));
+        com.zycu.guishop.admin.AccountOperations.writeAtomic(file, GSON.toJson(next));
+        balances.clear(); balances.putAll(next);
+    }
+
+    public boolean transfer(UUID from, UUID to, double amount) {
+        return com.zycu.guishop.admin.AccountOperations.mutate(() -> { synchronized (this) {
         if (!validAmount(amount) || from.equals(to)) return false;
         double current = balance(from);
         if (current + 0.000001 < amount) return false;
@@ -79,6 +96,7 @@ public final class EconomyStore {
         balances.put(to.toString(), round(balance(to) + amount));
         save();
         return true;
+        }});
     }
 
     private boolean validAmount(double amount) {

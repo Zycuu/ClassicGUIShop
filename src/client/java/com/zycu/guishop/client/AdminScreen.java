@@ -57,6 +57,12 @@ public final class AdminScreen extends WorkbenchScreen {
     private double pressedX, pressedY;
     private AdminPlayers.Page playerData = new AdminPlayers.Page(List.of(), 0, false);
     private AdminPlayers.Player selectedPlayer;
+    private String accountCurrency;
+    private double accountDefault;
+    private long historyRequestGeneration;
+    private final java.time.ZoneId localZone = java.time.ZoneId.systemDefault();
+    private TransactionJournal.Entry hoveredRecord;
+    private boolean hoveredDate;
     private DetectedContent.Page detectedData = new DetectedContent.Page(List.of(), List.of(), 0, false, false, "", 0);
     private String detectedSource = "", importSource;
     private int sourcePage, detectedOffset, detectionRetry, importOffset, importAdded;
@@ -71,6 +77,7 @@ public final class AdminScreen extends WorkbenchScreen {
     @Override protected int canvasWidth() { return W + 48; }
     public void load(AdminDocument document, String revision, boolean saved) {
         draft = document.copy(); baseline = AdminDocument.JSON.toJson(draft); this.revision = revision;
+        accountCurrency = document.config.currencySymbol; accountDefault = document.config.startingBalance;
         cancelDrag(); importSource = null; detectionRetry = 0; busy = false; errors.clear(); invalidInputs.clear();
         if (!categoryId.isEmpty() && draft.config.category(categoryId) == null) categoryId = "";
         selectedItem = null;
@@ -102,18 +109,38 @@ public final class AdminScreen extends WorkbenchScreen {
             && java.util.Objects.equals(request.filter(), query);
     }
     public void logs(TransactionJournal.Page page, AdminNetworking.Query request) {
-        if (!matches(request)) return;
+        if (!matches(request) || request.generation() != historyRequestGeneration) return;
         logData = page; logOffset = page.offset(); logPage = 0;
-        status = page.warning().isBlank() ? "Recent server records loaded. Times are UTC." : page.warning(); rebuildWidgets();
+        status = page.warning().isBlank() ? "Dates shown in " + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + ". Search local or UTC dates." : page.warning(); rebuildWidgets();
     }
     public void players(AdminPlayers.Page page, String filter) {
         if (tab != Tab.TRANSACTIONS || selectedPlayer != null || !query.equals(filter)) return;
         playerData = page; logOffset = page.offset(); logPage = 0;
+        accountCurrency = page.currencySymbol(); accountDefault = page.defaultBalance();
         status = "Select a player to view their transactions. Balances are current at refresh."; rebuildWidgets();
     }
     public void playerHistory(AdminPlayers.History history, AdminNetworking.Query request) {
         if (!matches(request) || !history.player().uuid().equals(request.playerUuid())) return;
+        if (request.generation() != historyRequestGeneration) return;
+        accountCurrency = history.currencySymbol(); accountDefault = history.defaultBalance();
         selectedPlayer = history.player(); logs(history.history(), request);
+    }
+    String accountMoney(double amount) {
+        var format = java.text.NumberFormat.getNumberInstance(Locale.US); format.setMinimumFractionDigits(2); format.setMaximumFractionDigits(2);
+        return (accountCurrency == null ? "$" : accountCurrency) + format.format(amount);
+    }
+    boolean submitAccount(AdminPlayers.Player player, double balance, boolean reset, double expectedDefault) {
+        if (busy) return false;
+        var change = new com.zycu.guishop.admin.AccountOperations.Change(player.uuid(), player.balance(), balance, expectedDefault, reset);
+        if (!AdminShopClient.request("account", "", AdminDocument.JSON.toJson(change))) return false;
+        historyRequestGeneration++; busy = true; status = "Updating player account on the server..."; rebuildWidgets(); return true;
+    }
+    public void accountResult(com.zycu.guishop.admin.AccountOperations.Result result) {
+        busy = false; status = result.message();
+        if (selectedPlayer != null && selectedPlayer.uuid().equals(result.player().uuid())) {
+            selectedPlayer = result.player(); query = ""; logOffset = 0; logPage = 0; requestRecords(0);
+        }
+        rebuildWidgets();
     }
     public void detected(DetectedContent.Page page, DetectedContent.Query request) {
         if (tab != Tab.DETECTED || request == null || request.generation() != detectionGeneration) return;
@@ -429,10 +456,14 @@ public final class AdminScreen extends WorkbenchScreen {
         boolean roster = tab == Tab.TRANSACTIONS && selectedPlayer == null;
         search = field(roster ? "Search players" : "Filter transactions", 32, 110, 450, query, value -> query = value);
         search.setMaxLength(128);
-        search.setHint(Component.literal(roster ? "Search player name or UUID..." : "Search item, action, or UTC date..."));
-        if (selectedPlayer != null) button("Players", 494, 76, 130, () -> {
+        search.setHint(Component.literal(roster ? "Search player name or UUID..." : "Search item, source, action, or local / UTC date..."));
+        if (selectedPlayer != null) {
+            button("Set balance", 320, 76, 100, () -> minecraft.gui.setScreen(new AccountDialog(this, selectedPlayer, false, accountDefault, accountCurrency)));
+            button("Reset", 428, 76, 84, () -> minecraft.gui.setScreen(new AccountDialog(this, selectedPlayer, true, accountDefault, accountCurrency)));
+            button("Players", 540, 76, 84, () -> {
             selectedPlayer = null; query = ""; logPage = 0; requestRecords(0); rebuildWidgets();
-        });
+            });
+        }
         button("Search", 494, 110, 130, () -> requestRecords(0));
         button("Previous", 32, 313, 100, () -> { if (logPage > 0) logPage--; else if (logOffset > 0) requestRecords(Math.max(0, logOffset - 100)); });
         button("Next", 140, 313, 100, () -> {
@@ -444,6 +475,7 @@ public final class AdminScreen extends WorkbenchScreen {
         button("Refresh", 494, 313, 130, () -> requestRecords(logOffset));
     }
     private void requestRecords(int offset) {
+        historyRequestGeneration++;
         retryOffset = offset; logPage = 0;
         String action, body;
         if (tab == Tab.TRANSACTIONS && selectedPlayer == null) {
@@ -451,7 +483,7 @@ public final class AdminScreen extends WorkbenchScreen {
             action = "players"; body = AdminDocument.JSON.toJson(new AdminNetworking.PlayersQuery(query, offset));
         } else {
             logData = new TransactionJournal.Page(List.of(), offset, false, "");
-            action = "logs"; body = AdminDocument.JSON.toJson(new AdminNetworking.Query(query, offset, tab == Tab.HISTORY, selectedPlayer == null ? null : selectedPlayer.uuid()));
+            action = "logs"; body = AdminDocument.JSON.toJson(new AdminNetworking.Query(query, offset, tab == Tab.HISTORY, selectedPlayer == null ? null : selectedPlayer.uuid(), localZone.getId(), historyRequestGeneration));
         }
         if (AdminShopClient.request(action, "", body)) { status = "Loading server records..."; logRetryTicks = 0; }
         else logRetryTicks = 6;
@@ -505,6 +537,7 @@ public final class AdminScreen extends WorkbenchScreen {
     }
 
     @Override protected void paint(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        hoveredRecord = null;
         hits.clear(); panel(graphics, -48, 0, W + 48, H, WorkbenchTheme.SURFACE);
         graphics.text(font, Component.literal("ClassicGUIShop").withStyle(style -> style.withBold(true)), -28, 12, WorkbenchTheme.TEXT, false);
         text(graphics, "Admin Workbench", -28, 25, WorkbenchTheme.MUTED);
@@ -524,6 +557,11 @@ public final class AdminScreen extends WorkbenchScreen {
         text(graphics, dirty() ? "Unapplied changes" : "Matches server snapshot", 193, 358, dirty() ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);
     }
     @Override protected void afterWidgets(GuiGraphicsExtractor graphics, int x, int y, float delta) {
+        if (hoveredRecord != null) {
+            String text = hoveredDate ? com.zycu.guishop.admin.JournalDates.full(hoveredRecord.time(), localZone) + " (" + localZone.getId() + ")\nUTC: " + com.zycu.guishop.admin.JournalDates.full(hoveredRecord.time(), java.time.ZoneId.of("UTC"))
+                : hoveredRecord.listing() + "\nQuantity: " + hoveredRecord.quantity() + " | Total: " + accountMoney(hoveredRecord.total()) + "\n" + hoveredRecord.details();
+            graphics.setTooltipForNextFrame(font, font.split(Component.literal(text), 280), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
+        }
         for (Hit hit : hits) if (hit.item != null && hit.contains(x, y) && hit.kind.equals("tile:item")) {
             var item = hit.item;
             var icon = com.zycu.guishop.ShopIcons.listing(item.createStack(minecraft.level.registryAccess()), item.name, item.description,
@@ -733,25 +771,27 @@ public final class AdminScreen extends WorkbenchScreen {
         for (int index = 0; index < 7 && accessPage * 7 + index < entries.size(); index++) text(graphics, entries.get(accessPage * 7 + index).getKey(), 32, 133 + index * 26, WorkbenchTheme.MUTED);
     }
     private void paintHistory(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        hoveredRecord = null;
         panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);
         if (tab == Tab.TRANSACTIONS && selectedPlayer == null) { paintPlayers(graphics); return; }
-        String heading = tab == Tab.HISTORY ? "Server configuration changes" : selectedPlayer.name() + " | Balance: " + draft.config.money(selectedPlayer.balance());
-        text(graphics, font.plainSubstrByWidth(heading, selectedPlayer == null ? 590 : 450), 32, 82, WorkbenchTheme.MUTED);
+        String heading = tab == Tab.HISTORY ? "Server configuration changes" : selectedPlayer.name() + " | Balance: " + accountMoney(selectedPlayer.balance());
+        text(graphics, font.plainSubstrByWidth(heading, selectedPlayer == null ? 590 : 278), 32, 82, WorkbenchTheme.MUTED);
         graphics.fill(30, 139, 629, 155, 0xFF304850);
-        text(graphics, "UTC time", 36, 143, WorkbenchTheme.TEXT); text(graphics, "Player", 172, 143, WorkbenchTheme.TEXT);
-        text(graphics, "Action", 272, 143, WorkbenchTheme.TEXT); text(graphics, "Listing / change", 373, 143, WorkbenchTheme.TEXT); text(graphics, "Total", 570, 143, WorkbenchTheme.TEXT);
+        text(graphics, "Time (" + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + ")", 36, 143, WorkbenchTheme.TEXT); text(graphics, "Player", 172, 143, WorkbenchTheme.TEXT);
+        text(graphics, "Action", 260, 143, WorkbenchTheme.TEXT); text(graphics, "Item / source", 340, 143, WorkbenchTheme.TEXT); text(graphics, "Total", 540, 143, WorkbenchTheme.TEXT);
         for (int row = 0; row < 10 && logPage * 10 + row < logData.entries().size(); row++) {
             var entry = logData.entries().get(logPage * 10 + row); int y = 158 + row * 14;
             graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0x30283D45 : WorkbenchTheme.ROW);
-            text(graphics, entry.time().substring(0, Math.min(19, entry.time().length())).replace('T', ' '), 36, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(entry.player(), 92), 172, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, entry.action(), 272, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(entry.action().equals("CONFIG_APPLY") ? entry.details() : entry.listing(), 184), 373, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(number(entry.total()), 53), 570, y + 3, WorkbenchTheme.TEXT);
-            hits.add(new Hit(30, y, 599, 14, "log", Integer.toString(logPage * 10 + row), "", null));
+            text(graphics, com.zycu.guishop.admin.JournalDates.display(entry.time(), localZone), 36, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(entry.player(), 80), 172, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(entry.action(), 72), 260, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(entry.action().equals("CONFIG_APPLY") ? entry.details() : entry.listing(), 190), 340, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(accountMoney(entry.total()), 82), 540, y + 3, WorkbenchTheme.TEXT);
+            if (tab == Tab.HISTORY) hits.add(new Hit(30, y, 599, 14, "log", Integer.toString(logPage * 10 + row), "", null));
+            if (mouseX >= 30 && mouseX < 629 && mouseY >= y && mouseY < y + 14) { hoveredRecord = entry; hoveredDate = mouseX < 164; }
         }
         if (logData.entries().isEmpty()) text(graphics, "No matching records in the recent history window.", 32, 181, WorkbenchTheme.MUTED);
-        text(graphics, "Recent view: 30 daily files, last 2 MB each. Full journals stay on the server.", 32, 299, WorkbenchTheme.MUTED);
+        text(graphics, font.plainSubstrByWidth("Local: " + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + " (" + localZone.getId() + "). Search local or UTC dates.", 590), 32, 299, WorkbenchTheme.MUTED);
     }
     private void paintPlayers(GuiGraphicsExtractor graphics) {
         text(graphics, "Select a player to view their transactions", 32, 82, WorkbenchTheme.MUTED);
@@ -761,7 +801,7 @@ public final class AdminScreen extends WorkbenchScreen {
             var player = playerData.players().get(logPage * 10 + row); int y = 158 + row * 14;
             graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0x30283D45 : WorkbenchTheme.ROW);
             text(graphics, font.plainSubstrByWidth(player.name(), 330), 36, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(draft.config.money(player.balance()), 150), 390, y + 3, WorkbenchTheme.TEXT);
+            text(graphics, font.plainSubstrByWidth(accountMoney(player.balance()), 150), 390, y + 3, WorkbenchTheme.TEXT);
             text(graphics, player.online() ? "Online" : "Offline", 550, y + 3, WorkbenchTheme.TEXT);
             hits.add(new Hit(30, y, 599, 14, "player", Integer.toString(logPage * 10 + row), "", null));
         }

@@ -20,6 +20,8 @@ public final class ShopService {
     }
 
     public static boolean canTransact(ServerPlayer player, ShopGui.Mode mode) {
+        try { com.zycu.guishop.admin.AccountOperations.ensureReady(); }
+        catch (IllegalStateException pending) { ShopMessages.warning(player, "An account operation needs server recovery. Ask an administrator to check disk space and file permissions."); return false; }
         if (!canUseMode(player, mode)) {
             ShopMessages.error(player, "You do not have permission to " + mode.name().toLowerCase() + " items.");
             return false;
