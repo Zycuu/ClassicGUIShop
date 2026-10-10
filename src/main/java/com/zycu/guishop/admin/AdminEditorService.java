@@ -144,6 +144,8 @@ public final class AdminEditorService {
     public static void validate(AdminDocument draft, ServerPlayer player) {
         if (draft == null || draft.config == null) fail("Incomplete editor draft");
         ShopConfig config = draft.config;
+        if (config.modes == null) fail("Missing Shop Modes settings");
+        config.modes.validate();
         text(config.currencySymbol, 32, "Currency symbol");
         text(config.shopTitle, 64, "Shop title");
         if (config.shopTitle.isBlank()) fail("Shop title cannot be empty");

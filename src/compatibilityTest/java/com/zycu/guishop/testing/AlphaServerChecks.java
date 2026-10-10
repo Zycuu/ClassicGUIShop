@@ -152,6 +152,7 @@ public final class AlphaServerChecks {
             AdminEditorService.apply(player, zeroSaved.revision(), original.document());
             CombinedShopChecks.run(player);
             AccountChecks.run(player);
+            ModesPresetChecks.run(player);
             check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
             server.getPlayerList().getOps().remove(player.nameAndId());
             try { AdminEditorService.apply(player, "", changed); throw new AssertionError("Revoked OP applied a draft"); }

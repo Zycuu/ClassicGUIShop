@@ -4,7 +4,10 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "CommandsMixin",
-    "MinecraftServerMixin"
+    "MinecraftServerMixin",
+    "LivingEntityMixin",
+    "ServerPlayerMixin",
+    "PlayerAdvancementsMixin"
   ],
   "injectors": {
     "defaultRequire": 1

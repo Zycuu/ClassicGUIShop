@@ -29,7 +29,7 @@ import java.util.function.DoubleConsumer;
 
 /** All edits affect a detached draft until the server acknowledges Apply. */
 public final class AdminScreen extends WorkbenchScreen {
-    private enum Tab { BUILDER, SETTINGS, ACCESS, DETECTED, TRANSACTIONS, HISTORY }
+    private enum Tab { BUILDER, SETTINGS, ACCESS, DETECTED, TRANSACTIONS, HISTORY, PRESETS, MODES }
     private record Hit(int x, int y, int w, int h, String kind, String id, String category, ShopConfig.ShopItem item) {
         boolean contains(double px, double py) { return px >= x && px < x + w && py >= y && py < y + h; }
     }
@@ -38,6 +38,9 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private AdminDocument draft;
     private String baseline, revision, status = "Draft ready. Changes stay local until Apply.";
+    private com.zycu.guishop.ShopModes.Catalog modeCatalog;
+    private String modeSection = "Passive Income", presetChoice = "normal";
+    private com.zycu.guishop.admin.ShopPresets.Plan presetPlan;
     private Tab tab = Tab.BUILDER;
     private String categoryId = "", query = "", selectedItem, settingsSection = "Economy";
     private int browserPage, previewPage, accessPage, logPage, logOffset;
@@ -205,8 +208,8 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     @Override protected void init() {
         fields.clear(); hits.clear();
-        String[] names = {"Shop Builder", "Settings", "Access", "Detected Content", "Transactions", "Changes"};
-        net.minecraft.world.item.Item[] icons = {Items.CRAFTING_TABLE, Items.COMPARATOR, Items.IRON_DOOR, Items.SPYGLASS, Items.GOLD_INGOT, Items.WRITABLE_BOOK};
+        String[] names = {"Shop Builder", "Settings", "Access", "Detected Content", "Transactions", "Changes", "Presets", "Shop Modes"};
+        net.minecraft.world.item.Item[] icons = {Items.CRAFTING_TABLE, Items.COMPARATOR, Items.IRON_DOOR, Items.SPYGLASS, Items.GOLD_INGOT, Items.WRITABLE_BOOK, Items.CHEST, Items.EXPERIENCE_BOTTLE};
         for (int index = 0; index < names.length; index++) {
             Tab target = Tab.values()[index];
             var button = addRenderableWidget(new WorkbenchTab(names[index], index, icons[index], target == tab, () -> {
@@ -216,6 +219,7 @@ public final class AdminScreen extends WorkbenchScreen {
                 rebuildWidgets();
                 if (target == Tab.TRANSACTIONS || target == Tab.HISTORY) requestRecords(0);
                 if (target == Tab.DETECTED) requestDetected(0, false);
+                if (target == Tab.MODES && modeCatalog == null) { if (AdminShopClient.request("mode_catalog", "", "")) { busy = true; rebuildWidgets(); } }
             })); button.active = !busy;
         }
         button("Apply", 464, 352, 88, this::apply).active = !busy && importSource == null;
@@ -236,8 +240,95 @@ public final class AdminScreen extends WorkbenchScreen {
         else if (tab == Tab.SETTINGS) settings();
         else if (tab == Tab.ACCESS) access();
         else if (tab == Tab.DETECTED) detection();
+        else if (tab == Tab.PRESETS) presets();
+        else if (tab == Tab.MODES) modes();
         else history();
         if (busy) for (var field : fields) field.setEditable(false);
+    }
+
+    public void modeCatalog(com.zycu.guishop.ShopModes.Catalog catalog) {
+        modeCatalog = catalog; busy = false; status = "Detected server entities and advancements. Mode edits require Apply."; rebuildWidgets();
+    }
+    public void presetResult(com.zycu.guishop.admin.ShopPresets.Plan plan) {
+        busy = false; presetPlan = plan; status = "Preset ready for review. The live shop is unchanged."; rebuildWidgets();
+    }
+    private void presets() {
+        String[] ids = {"normal", "hard", "easy", "basics"};
+        String[] names = {"Full Vanilla Normal", "Full Vanilla Hard", "Full Vanilla Easy", "The Basics"};
+        for (int i = 0; i < ids.length; i++) { String id = ids[i]; button((presetChoice.equals(id) ? "> " : "") + names[i], 28, 82 + i * 39, 190, () -> { presetChoice = id; presetPlan = null; rebuildWidgets(); }); }
+        button("Generate preview", 242, 269, 174, () -> {
+            if (AdminShopClient.request("preset", "", AdminDocument.JSON.toJson(new com.zycu.guishop.admin.ShopPresets.Request(presetChoice, .30)))) { busy = true; status = "Building and auditing the preset on the server..."; rebuildWidgets(); }
+        }).active = !busy;
+        button("Use preset draft", 426, 269, 194, () -> {
+            if (presetPlan == null) return;
+            confirm("Replace draft shop?", "This replaces ALL draft categories, listings and enchantment offers, including modded content. The live shop stays unchanged until Apply. Player balances and modes are preserved.", () -> {
+                draft.config.categories = new ArrayList<>(presetPlan.categories()); draft.config.catalogSellRatio = presetPlan.ratio();
+                draft.config.enchantments = new LinkedHashMap<>(presetPlan.enchantments()); draft.config.enchantmentsEnabled = !presetPlan.enchantments().isEmpty();
+                categoryId = ""; selectedItem = null; browserPage = 0; previewPage = 0; tab = Tab.BUILDER; status = "Preset loaded into the draft. Review categories and prices, then Apply.";
+            });
+        }).active = !busy && presetPlan != null;
+    }
+    private void paintPresets(GuiGraphicsExtractor graphics) {
+        panel(graphics, 16, 69, 214, 270, WorkbenchTheme.PANEL); panel(graphics, 236, 69, 408, 270, WorkbenchTheme.PANEL);
+        String description = switch (presetChoice) { case "hard" -> "Full Vanilla Hard: 3x base buy prices, 10% sell return."; case "easy" -> "Full Vanilla Easy: 75% of base buy prices, 95% sell return."; case "basics" -> "The Basics: raw ingredients, ores, logs and collectible resources. 30% sell return."; default -> "Full Vanilla Normal: base prices, exactly 30% target sell return."; };
+        multiline(graphics, description, 250, 84, 370, WorkbenchTheme.TEXT);
+        multiline(graphics, "Every preset is a draft. Recipe safety caps may lower individual sell prices. Modded listings are not generated.", 250, 126, 370, WorkbenchTheme.MUTED);
+        if (presetPlan != null) {
+            text(graphics, presetPlan.items() + " listings | " + presetPlan.categories().size() + " categories | " + presetPlan.enchantments().size() + " book offers", 250, 178, WorkbenchTheme.TEXT);
+            text(graphics, presetPlan.locked() + " locked | " + presetPlan.capped() + " sell caps | " + presetPlan.recipes() + " recipes checked", 250, 193, WorkbenchTheme.TEAL);
+            multiline(graphics, presetPlan.warning(), 250, 209, 370, WorkbenchTheme.MUTED);
+        }
+        multiline(graphics, "Use preset replaces the draft's categories. Apply saves a backup before changing the live shop.", 250, 303, 370, WorkbenchTheme.MUTED);
+    }
+    private void modes() {
+        var m = draft.config.modes;
+        String[] names = {"Passive Income", "Cash Mobs", "Advancement Hunter", "Warrior Mode"};
+        for (int i = 0; i < names.length; i++) { String name = names[i]; button((modeSection.equals(name) ? "> " : "") + name, 26, 80 + i * 40, 170, () -> { modeSection = name; rebuildWidgets(); }); }
+        button("Refresh detected IDs", 26, 281, 170, () -> { if (AdminShopClient.request("mode_catalog", "", "")) { busy = true; rebuildWidgets(); } });
+        if (modeSection.equals("Passive Income")) {
+            toggle("Passive Income", 218, 81, 182, m.passiveEnabled, value -> m.passiveEnabled = value);
+            number("Income amount", 218, 138, 174, m.passiveAmount, value -> m.passiveAmount = value);
+            number("Interval seconds", 418, 138, 194, m.passiveSeconds, value -> m.passiveSeconds = (int)value);
+            modeColor("Prefix color", 218, 201, m.passiveColor, value -> m.passiveColor = value);
+        } else if (modeSection.equals("Cash Mobs")) {
+            toggle("Cash Mobs", 218, 81, 182, m.mobsEnabled, value -> m.mobsEnabled = value);
+            toggle("Quick farming", 418, 81, 194, m.allowSpawnerFarming, value -> m.allowSpawnerFarming = value);
+            number("Default entity payout", 218, 138, 174, m.mobDefault, value -> m.mobDefault = value);
+            number("Kill cooldown seconds", 418, 138, 194, m.mobCooldownSeconds, value -> m.mobCooldownSeconds = (int)value);
+            modeColor("Prefix color", 218, 201, m.mobsColor, value -> m.mobsColor = value);
+            button("Edit entity payouts", 418, 201, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, false))).active = modeCatalog != null;
+        } else if (modeSection.equals("Advancement Hunter")) {
+            toggle("Advancement Hunter", 218, 81, 200, m.advancementsEnabled, value -> m.advancementsEnabled = value);
+            number("Default mod advancement payout", 218, 138, 394, m.advancementDefault, value -> m.advancementDefault = value);
+            modeColor("Prefix color", 218, 201, m.advancementsColor, value -> m.advancementsColor = value);
+            button("Edit advancement payouts", 418, 201, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, true))).active = modeCatalog != null;
+        } else {
+            toggle("Warrior Mode", 218, 81, 182, m.warriorEnabled, value -> m.warriorEnabled = value);
+            toggle("Allow debt", 418, 81, 194, m.allowNegativeBalance, value -> m.allowNegativeBalance = value);
+            number("Kill reward", 218, 128, 174, m.warriorReward, value -> m.warriorReward = value);
+            number("Victim deduction", 418, 128, 194, m.warriorDeduction, value -> m.warriorDeduction = value);
+            number("Pair cooldown seconds", 218, 181, 174, m.warriorCooldownSeconds, value -> m.warriorCooldownSeconds = (int)value);
+            number("Minimum online seconds", 418, 181, 194, m.warriorMinimumOnlineSeconds, value -> m.warriorMinimumOnlineSeconds = (int)value);
+            toggle("Block same address", 218, 227, 182, m.blockSameAddress, value -> m.blockSameAddress = value);
+            modeColor("Prefix color", 418, 227, m.warriorColor, value -> m.warriorColor = value);
+        }
+    }
+    private void modeColor(String label, int x, int y, String color, Consumer<String> changed) { field(label, x, y, 174, color, changed); }
+    private void paintModes(GuiGraphicsExtractor graphics) {
+        panel(graphics, 16, 69, 188, 270, WorkbenchTheme.PANEL); panel(graphics, 208, 69, 436, 270, WorkbenchTheme.PANEL);
+        String[] labels = switch (modeSection) { case "Passive Income" -> new String[]{"Income amount", "Interval seconds"}; case "Cash Mobs" -> new String[]{"Default entity payout", "Kill cooldown seconds"}; case "Advancement Hunter" -> new String[]{"Default visible mod advancement payout", ""}; default -> new String[]{"Kill reward", "Victim deduction"}; };
+        int y = modeSection.equals("Warrior Mode") ? 113 : 123;
+        text(graphics, labels[0], 218, y, WorkbenchTheme.MUTED); text(graphics, labels[1], 418, y, WorkbenchTheme.MUTED);
+        if (modeSection.equals("Warrior Mode")) { text(graphics, "Pair cooldown seconds", 218, 166, WorkbenchTheme.MUTED); text(graphics, "Minimum online seconds", 418, 166, WorkbenchTheme.MUTED); text(graphics, "Prefix color", 418, 212, WorkbenchTheme.MUTED); }
+        else text(graphics, "Prefix color", 218, 186, WorkbenchTheme.MUTED);
+        String help = switch (modeSection) {
+            case "Passive Income" -> "Earn while online in survival or adventure. Time pauses offline and while disabled. AFK time counts. No offline catch-up or restart bonus.";
+            case "Cash Mobs" -> "Only player-attributed kills pay. Unknown entities default to 0. Cooldown applies per player and entity type. Quick farming removes it for all kills, including spawner farms.";
+            case "Advancement Hunter" -> "One reward per player and advancement, even after revoking/regranting or resetting history. Vanilla Task 25, Goal 100, Challenge 500. Invisible/recipe entries default to 0.";
+            default -> "Credit and victim deduction persist together. Repeat pairs are blocked in both directions. Creative, spectator and self kills do not pay. Same-address blocking can affect families sharing a connection.";
+        };
+        multiline(graphics, help, 218, 273, 406, WorkbenchTheme.MUTED);
+        text(graphics, "All four modes can run together. Changes require Apply.", 218, 320, WorkbenchTheme.TEAL);
     }
 
     private void builder() {
@@ -494,14 +585,14 @@ public final class AdminScreen extends WorkbenchScreen {
         field.setResponder(changed); fields.add(field); addRenderableWidget(field); return field;
     }
     private void number(String label, int x, int y, int width, double value, DoubleConsumer changed) {
-        String context = tab == Tab.BUILDER ? selectedItem : tab == Tab.SETTINGS && settingsSection.equals("Enchantments") ? "offer:" + accessPage + ":" + y : tab.name();
+        String context = tab == Tab.MODES ? modeSection : tab == Tab.BUILDER ? selectedItem : tab == Tab.SETTINGS && settingsSection.equals("Enchantments") ? "offer:" + accessPage + ":" + y : tab.name();
         String key = context + ":" + label;
         var field = field(label, x, y, width, invalidInputs.getOrDefault(key, number(value)), ignored -> {});
         field.setResponder(input -> {
             try {
                 double parsed = Double.parseDouble(input);
                 if (!Double.isFinite(parsed) || parsed < 0) throw new NumberFormatException();
-                if ((label.equals("Max level") || label.startsWith("guishop.")) && parsed != Math.rint(parsed)) throw new NumberFormatException();
+                if ((label.endsWith("seconds") || label.equals("Max level") || label.startsWith("guishop.")) && parsed != Math.rint(parsed)) throw new NumberFormatException();
                 if (label.startsWith("guishop.") && parsed > 4 || label.equals("Max level") && parsed > 255) throw new NumberFormatException();
                 errors.remove(key); invalidInputs.remove(key); changed.accept(parsed);
             } catch (NumberFormatException exception) {
@@ -544,12 +635,14 @@ public final class AdminScreen extends WorkbenchScreen {
         text(graphics, "1.4.0 ALPHA", 556, 17, WorkbenchTheme.MUTED);
         graphics.fill(-32, 41, W - 16, 42, 0x553C515A);
         panel(graphics, -36, 69, 34, 270, 0xAA142027);
-        String heading = switch (tab) { case BUILDER -> "Shop Builder"; case SETTINGS -> "Settings"; case ACCESS -> "Access"; case DETECTED -> "Detected Content"; case TRANSACTIONS -> "Transactions"; case HISTORY -> "Changes"; };
+        String heading = switch (tab) { case BUILDER -> "Shop Builder"; case SETTINGS -> "Settings"; case ACCESS -> "Access"; case DETECTED -> "Detected Content"; case TRANSACTIONS -> "Transactions"; case HISTORY -> "Changes"; case PRESETS -> "Presets"; case MODES -> "Shop Modes"; };
         text(graphics, heading, 20, 52, WorkbenchTheme.MUTED);
         if (tab == Tab.BUILDER) paintBuilder(graphics, mouseX, mouseY);
         else if (tab == Tab.SETTINGS) paintSettings(graphics);
         else if (tab == Tab.ACCESS) paintAccess(graphics);
         else if (tab == Tab.DETECTED) paintDetected(graphics, mouseX, mouseY);
+        else if (tab == Tab.PRESETS) paintPresets(graphics);
+        else if (tab == Tab.MODES) paintModes(graphics);
         else paintHistory(graphics, mouseX, mouseY);
         graphics.fill(-32, 343, W - 16, 344, 0x553C515A);
         text(graphics, font.plainSubstrByWidth(status, 620), 20, 375, busy ? WorkbenchTheme.GOLD : WorkbenchTheme.MUTED);

@@ -53,7 +53,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                 case 2 -> {
                     if (!(screen instanceof AdminNoticeScreen)) return;
                     check(get(screen, "message").equals(AdminEditorService.DENIED), "Exact permission popup message");
-                    capture(client, "alpha9-permission-denied.png");
+                    capture(client, "alpha10-permission-denied.png");
                     System.out.println("[Alpha UI test] DENIED_READY"); next(); delay = 60;
                 }
                 case 3 -> {
@@ -93,7 +93,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         at((WorkbenchScreen) screen, 210, 152, false); click(screen, "Import item");
                         var vanilla = ((AdminDocument) get(screen, "draft")).config.categories.stream().filter(value -> "minecraft".equals(value.detectedSource)).findFirst().orElseThrow();
                         check(vanilla.items.size() == 1 && vanilla.items.getFirst().buy == 0 && vanilla.items.getFirst().sell == 0, "Vanilla detected item imports disabled");
-                        capture(client, "alpha9-detected-vanilla.png");
+                        capture(client, "alpha10-detected-vanilla.png");
                         fixturePack = page.sources().stream().filter(source -> source.name().contains("guishop-detection-fixture.zip")).findFirst().orElseThrow().id();
                         subphase = 84; delay = 4; return;
                     }
@@ -108,7 +108,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                     }
                     if (subphase == 10) {
                         var page = (com.zycu.guishop.admin.DetectedContent.Page) get(screen, "detectedData"); if (page.entries().size() != 1) return;
-                        capture(client, "alpha9-import-pack.png"); click(screen, "Import pack"); subphase = 11; delay = 4; return;
+                        capture(client, "alpha10-import-pack.png"); click(screen, "Import pack"); subphase = 11; delay = 4; return;
                     }
                     if (subphase == 11) { click(screen, "Confirm"); subphase = 12; delay = 10; return; }
                     if (subphase == 12) {
@@ -138,7 +138,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         check(draft.config.categories.size() == 3 && all.items.stream().allMatch(item -> item.buy == 0 && item.sell == 0), "Import all uses one additional category with zero prices");
                         check(all.items.stream().anyMatch(item -> item.item.equals("minecraft:diamond")) && all.items.stream().anyMatch(item -> item.listingId.contains("#")), "Import all includes vanilla and exact pack variants across all pages");
                         check(all.items.stream().map(item -> item.stack.toString()).distinct().count() == all.items.size(), "Import all has no duplicate exact stacks");
-                        capture(client, "alpha9-import-all.png"); click(screen, "Discard"); subphase = 18; delay = 4; return;
+                        capture(client, "alpha10-import-all.png"); click(screen, "Discard"); subphase = 18; delay = 4; return;
                     }
                     if (subphase == 18) { click(screen, "Confirm"); subphase = 19; delay = 12; return; }
                     if (subphase == 19) {
@@ -166,7 +166,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         pickerTab(screen, food); check(get(screen, "query").equals(""), "New tab starts with its own search state");
                         set(screen, "Search items", "minecraft:apple"); at((WorkbenchScreen) screen, 184, 180, false);
                         check(((java.util.Map<?, ?>) get(screen, "selection")).size() == 2, "Selection survives creative groups");
-                        capture(client, "alpha9-creative-vanilla-picker.png"); click(screen, "Add selected (2)"); subphase = 33; delay = 4; return;
+                        capture(client, "alpha10-creative-vanilla-picker.png"); click(screen, "Add selected (2)"); subphase = 33; delay = 4; return;
                     }
                     if (subphase == 33) {
                         var category = ((AdminDocument) get(screen, "draft")).config.category("picker_test");
@@ -180,7 +180,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                     if (subphase == 35) {
                         var values = (java.util.List<?>) get(screen, "values"); if (values.isEmpty()) return;
                         var item = (com.zycu.guishop.ShopConfig.ShopItem) get(values.getFirst(), "listing"); pickerModItem = item.item;
-                        at((WorkbenchScreen) screen, 184, 180, false); capture(client, "alpha9-creative-mod-picker.png");
+                        at((WorkbenchScreen) screen, 184, 180, false); capture(client, "alpha10-creative-mod-picker.png");
                         String pack = null;
                         for (Object source : (java.util.List<?>) get(screen, "sources")) if (((String) get(source, "name")).contains("Zymods_Vanilla_Plus")) pack = (String) get(source, "id");
                         check(pack != null, "Actual datapack receives a picker tab"); pickerSource(screen, pack); subphase = 36; delay = 10; return;
@@ -194,7 +194,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         check(!((java.util.List<?>) get(screen, "values")).isEmpty(), "Detected picker searches client-localized names");
                         at((WorkbenchScreen) screen, 184, 180, false);
                         check(((java.util.Map<?, ?>) get(screen, "selection")).size() == 2, "Selection survives mod and pack tabs");
-                        capture(client, "alpha9-creative-pack-picker.png"); click(screen, "Add selected (2)"); subphase = 37; delay = 4; return;
+                        capture(client, "alpha10-creative-pack-picker.png"); click(screen, "Add selected (2)"); subphase = 37; delay = 4; return;
                     }
                     if (subphase == 37) {
                         var category = ((AdminDocument) get(screen, "draft")).config.category("picker_test");
@@ -218,7 +218,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         subphase = 382; delay = 4; return;
                     }
                     if (subphase == 382) {
-                        capture(client, "alpha9-creative-scrollbar.png");
+                        capture(client, "alpha10-creative-scrollbar.png");
                         set(screen, "Search items", "minecraft:stone"); check((int) get(screen, "topRow") == 0, "Search resets scroll and clamps short results");
                         click(screen, "Cancel"); subphase = 39; delay = 4; return;
                     }
@@ -250,7 +250,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                     check(originalTooltip.size() > 1, "Actual Traveler backpack injects default tooltip information");
                     var clean = com.zycu.guishop.ShopIcons.display(source, "Backpacks", "Shop category help");
                     check(clean.getTooltipLines(context, client.player, net.minecraft.world.item.TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList().equals(java.util.List.of("Backpacks", "Shop category help")), "Actual Traveler category carrier excludes tier and Shift help");
-                    capture(client, "alpha9-travelers-icon-picker.png"); at((WorkbenchScreen) screen, 184, 180, false);
+                    capture(client, "alpha10-travelers-icon-picker.png"); at((WorkbenchScreen) screen, 184, 180, false);
                     subphase = 0; next();
                 }
                 case 9 -> { set(screen, "Tooltip description", "Shop category help"); click(screen, "+ Add held item"); next(); }
@@ -279,11 +279,11 @@ public final class AlphaUiTest implements ClientModInitializer {
                         subphase = 3; delay = 4; return;
                     }
                     if (subphase == 3) {
-                        capture(client, "alpha9-editor-scale-" + themeScale + ".png");
+                        capture(client, "alpha10-editor-scale-" + themeScale + ".png");
                         if (themeScale < 4) { client.options.guiScale().set(++themeScale); client.resizeGui(); subphase = 2; delay = 4; return; }
                         client.options.guiScale().set(originalGuiScale); client.resizeGui(); subphase = 4; delay = 4; return;
                     }
-                    subphase = 0; capture(client, "alpha9-shop-builder.png"); click(screen, "+ Category"); next();
+                    subphase = 0; capture(client, "alpha10-shop-builder.png"); click(screen, "+ Category"); next();
                 }
                 case 11 -> { set(screen, "Name", "Building"); click(screen, "Create"); next(); }
                 case 12 -> { click(screen, "+ Select item"); next(); }
@@ -322,7 +322,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         var duplicate = draft.config.category("building").items.stream().filter(item -> item.item.equals("minecraft:stone")).findFirst().orElseThrow();
                         check(!duplicate.listingId.equals("minecraft:stone") && duplicate.buy == 0 && duplicate.sell == 0, "Separate duplicate listing starts disabled");
                         check(draft.config.findItem("minecraft:stone").category().id.equals("materials"), "Original listing remains in place");
-                        capture(client, "alpha9-duplicate-listing.png"); click(screen, "Detected Content"); subphase = 12; delay = 15; return;
+                        capture(client, "alpha10-duplicate-listing.png"); click(screen, "Detected Content"); subphase = 12; delay = 15; return;
                     }
                     if (subphase == 12) {
                         var page = (com.zycu.guishop.admin.DetectedContent.Page) get(screen, "detectedData"); if (!page.ready()) return;
@@ -333,7 +333,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                     if (subphase == 13) {
                         var page = (com.zycu.guishop.admin.DetectedContent.Page) get(screen, "detectedData");
                         if (page.entries().isEmpty() || !page.entries().getFirst().source().equals("moldomre")) return;
-                        capture(client, "alpha9-detected-content.png");
+                        capture(client, "alpha10-detected-content.png");
                         at((WorkbenchScreen) screen, 210, 152, false); click(screen, "Import item"); subphase = 14; delay = 4; return;
                     }
                     if (subphase == 14) {
@@ -360,7 +360,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                     }
                     if (subphase == 18) {
                         check(hitCount(screen, "tile:item") > 0, "Disabled imported variants are visible in arrange mode");
-                        capture(client, "alpha9-imported-pack-variants.png");
+                        capture(client, "alpha10-imported-pack-variants.png");
                         if (net.minecraft.core.registries.BuiltInRegistries.ITEM.keySet().stream().anyMatch(id -> id.getNamespace().equals("usefulfood"))) {
                             click(screen, "Detected Content"); subphase = 19; delay = 10; return;
                         }
@@ -375,7 +375,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                     if (subphase == 20) {
                         var page = (com.zycu.guishop.admin.DetectedContent.Page) get(screen, "detectedData");
                         if (page.entries().isEmpty() || !page.entries().getFirst().source().equals("usefulfood")) return;
-                        capture(client, "alpha9-detected-usefulfood.png"); click(screen, "Import source"); subphase = 21; delay = 4; return;
+                        capture(client, "alpha10-detected-usefulfood.png"); click(screen, "Import source"); subphase = 21; delay = 4; return;
                     }
                     if (subphase == 21) { click(screen, "Confirm"); subphase = 22; delay = 15; return; }
                     if (subphase == 22) {
@@ -393,7 +393,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         subphase = 24; delay = 4; return;
                     }
                     if (subphase == 24) {
-                        capture(client, "alpha9-imported-usefulfood.png"); startSettings(screen); return;
+                        capture(client, "alpha10-imported-usefulfood.png"); startSettings(screen); return;
                     }
                     if (subphase == 1) { set(screen, "Name", "minecraft:unbreaking"); click(screen, "Create"); subphase = 2; delay = 4; return; }
                     AdminDocument draft = (AdminDocument) get(screen, "draft");
@@ -425,7 +425,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         check(((AdminDocument) get(screen, "draft")).config.categories.getFirst().id.equals("materials"), "Category order restored by drag");
                         click(screen, "Exit arrange mode"); subphase = 6; delay = 4; return;
                     }
-                    capture(client, "alpha9-shop-simulator.png"); subphase = 0; next();
+                    capture(client, "alpha10-shop-simulator.png"); subphase = 0; next();
                 }
                 case 22 -> {
                     if (subphase == 0) { nativeHit(client, (WorkbenchScreen) screen, "tile:enchant", ""); nativeButton(client, true); nativeButton(client, false); subphase = 1; delay = 4; return; }
@@ -441,9 +441,45 @@ public final class AlphaUiTest implements ClientModInitializer {
                         check(hitCount(screen, "preview:mode") == 0, "Simulator has no buy/sell mode switch");
                         click(screen, "Settings"); click(screen, "Economy"); subphase = 7; delay = 4; return;
                     }
-                    capture(client, "alpha9-server-settings.png"); subphase = 0; next();
+                    capture(client, "alpha10-server-settings.png"); subphase = 0; next();
                 }
-                case 23 -> { click(screen, "Transactions"); click(screen, "Changes"); click(screen, "Transactions"); next(); }
+                case 23 -> {
+                    if (subphase == 0) { click(screen, "Presets"); click(screen, "Generate preview"); subphase = 1; delay = 20; return; }
+                    if (subphase == 1) {
+                        if ((boolean)get(screen, "busy") || get(screen, "presetPlan") == null) return;
+                        var plan = (com.zycu.guishop.admin.ShopPresets.Plan)get(screen, "presetPlan"); check(plan.ratio() == .30 && plan.items() > 1000, "Normal preset uses confirmed 30% target");
+                        capture(client, "alpha10-presets.png"); click(screen, "Use preset draft"); click(client.gui.screen(), "Confirm"); subphase = 2; delay = 4; return;
+                    }
+                    if (subphase == 2) {
+                        check(((AdminDocument)get(screen, "draft")).config.categories.stream().mapToInt(c -> c.items.size()).sum() > 1000, "Preset replaces only the local draft");
+                        click(screen, "Discard"); click(client.gui.screen(), "Confirm"); click(client.gui.screen(), "Shop Modes"); subphase = 3; delay = 20; return;
+                    }
+                    if (subphase == 3) {
+                        if ((boolean)get(screen, "busy") || get(screen, "modeCatalog") == null) return;
+                        click(screen, "Passive Income: Off"); set(screen, "Income amount", "17"); set(screen, "Interval seconds", "300");
+                        capture(client, "alpha10-passive-income.png"); click(screen, "Passive Income: On"); click(screen, "Cash Mobs"); click(screen, "Edit entity payouts"); subphase = 4; delay = 4; return;
+                    }
+                    if (subphase == 4) {
+                        check(screen instanceof ModeOffersScreen, "Detected entity payout editor opens"); set(screen, "Search detected IDs", "minecraft:zombie"); click(screen, "Search"); subphase = 5; delay = 4; return;
+                    }
+                    if (subphase == 5) {
+                        set(screen, "Payout minecraft:zombie", "7"); capture(client, "alpha10-entity-payouts.png"); click(screen, "Done"); click(client.gui.screen(), "Advancement Hunter"); click(client.gui.screen(), "Edit advancement payouts"); subphase = 6; delay = 4; return;
+                    }
+                    if (subphase == 6) { set(screen, "Search detected IDs", "minecraft:story/mine_stone"); click(screen, "Search"); subphase = 7; delay = 4; return; }
+                    if (subphase == 7) {
+                        set(screen, "Payout minecraft:story/mine_stone", "11"); capture(client, "alpha10-advancement-payouts.png"); click(screen, "Done"); click(client.gui.screen(), "Warrior Mode"); subphase = 8; delay = 4; return;
+                    }
+                    if (subphase == 8) {
+                        capture(client, "alpha10-warrior-mode.png"); click(screen, "Apply"); subphase = 9; delay = 20; return;
+                    }
+                    if (subphase == 9) {
+                        if ((boolean)get(screen, "busy")) return;
+                        var modes = ((AdminDocument)get(screen, "draft")).config.modes;
+                        check(modes.passiveAmount == 17 && modes.passiveSeconds == 300 && modes.mobPrices.get("minecraft:zombie") == 7 && modes.advancementPrices.get("minecraft:story/mine_stone") == 11, "Mode payout edits persist through server Apply");
+                        check(!modes.passiveEnabled && !modes.mobsEnabled && !modes.advancementsEnabled && !modes.warriorEnabled, "All earning switches remain off until deliberately enabled");
+                        click(screen, "Transactions"); click(screen, "Changes"); click(screen, "Transactions"); subphase = 0; next();
+                    }
+                }
                 case 24 -> {
                     if (subphase == 0) {
                         if (!get(screen, "query").equals("ShopTest")) {
@@ -457,14 +493,14 @@ public final class AlphaUiTest implements ClientModInitializer {
                         if (row < 0) { delay = 5; return; }
                         selectedHistoryUuid = roster.players().get(row).uuid();
                         check(roster.players().get(row).balance() >= 0, "Current balance provided by server");
-                        capture(client, "alpha9-player-balances.png"); at((WorkbenchScreen) screen, 100, 164 + row * 14, false); subphase = 10; delay = 20; return;
+                        capture(client, "alpha10-player-balances.png"); at((WorkbenchScreen) screen, 100, 164 + row * 14, false); subphase = 10; delay = 20; return;
                     }
                     if (subphase == 10) {
                         var page = (com.zycu.guishop.admin.TransactionJournal.Page) get(screen, "logData");
                         if (page.entries().isEmpty()) return;
                         check(page.entries().stream().allMatch(entry -> entry.uuid().equals(selectedHistoryUuid) && !entry.action().equals("CONFIG_APPLY")), "Only selected player's transactions shown");
                         check(((com.zycu.guishop.admin.AdminPlayers.Player) get(screen, "selectedPlayer")).uuid().equals(selectedHistoryUuid), "Selected player's balance stays attached to history");
-                        capture(client, "alpha9-transaction-journal.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 1; delay = 4; return;
+                        capture(client, "alpha10-transaction-journal.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 1; delay = 4; return;
                     }
                     if (subphase == 1) {
                         check(screen instanceof AdminScreen && hitCount(screen, "log") == 0, "Transaction rows are read-only with no detail window");
@@ -472,7 +508,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         var popup = client.gui.screen(); check(((com.zycu.guishop.admin.AdminPlayers.Player) get(popup, "player")).uuid().equals(selectedHistoryUuid), "Popup targets selected UUID");
                         set(popup, "New balance", "777.25"); subphase = 35; delay = 4; return;
                     }
-                    if (subphase == 35) { check(screen instanceof AccountDialog, "Set balance popup persists until confirmed"); capture(client, "alpha9-set-balance.png"); click(screen, "Set balance"); subphase = 30; delay = 20; return; }
+                    if (subphase == 35) { check(screen instanceof AccountDialog, "Set balance popup persists until confirmed"); capture(client, "alpha10-set-balance.png"); click(screen, "Set balance"); subphase = 30; delay = 20; return; }
                     if (subphase == 30) {
                         var selected = (com.zycu.guishop.admin.AdminPlayers.Player) get(screen, "selectedPlayer");
                         var page = (com.zycu.guishop.admin.TransactionJournal.Page) get(screen, "logData");
@@ -482,7 +518,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         subphase = 36; delay = 4; return;
                     }
                     if (subphase == 36) {
-                        check(screen instanceof AccountDialog, "Reset popup persists until confirmed"); capture(client, "alpha9-reset-confirmation.png"); click(screen, "Cancel");
+                        check(screen instanceof AccountDialog, "Reset popup persists until confirmed"); capture(client, "alpha10-reset-confirmation.png"); click(screen, "Cancel");
                         check(((com.zycu.guishop.admin.AdminPlayers.Player) get(client.gui.screen(), "selectedPlayer")).balance() == 777.25, "Cancel reset preserves balance");
                         click(client.gui.screen(), "Reset"); click(client.gui.screen(), "Reset"); subphase = 31; delay = 20; return;
                     }
@@ -500,7 +536,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                         if (page.entries().stream().noneMatch(entry -> entry.action().equals("REWARD") && entry.listing().contains(rewardReference))) { click(screen, "Refresh"); delay = 20; return; }
                         var entry = page.entries().getFirst();
                         check(((com.zycu.guishop.admin.AdminPlayers.Player) get(screen, "selectedPlayer")).balance() == 2025, "Console-style reward appears in current player balance");
-                        capture(client, "alpha9-external-reward.png");
+                        capture(client, "alpha10-external-reward.png");
                         set(screen, "Filter transactions", com.zycu.guishop.admin.JournalDates.date(entry.time(), java.time.ZoneId.systemDefault())); click(screen, "Search"); subphase = 33; delay = 20; return;
                     }
                     if (subphase == 33) {
@@ -511,11 +547,11 @@ public final class AlphaUiTest implements ClientModInitializer {
                     if (subphase == 34) {
                         var page = (com.zycu.guishop.admin.TransactionJournal.Page) get(screen, "logData"); if (page.entries().isEmpty()) return;
                         check(page.entries().getFirst().action().equals("REWARD"), "Client UTC-date search also finds reward");
-                        capture(client, "alpha9-transaction-journal.png"); click(screen, "Changes"); subphase = 2; delay = 20; return;
+                        capture(client, "alpha10-transaction-journal.png"); click(screen, "Changes"); subphase = 2; delay = 20; return;
                     }
                     if (subphase == 2) {
                         var page = (com.zycu.guishop.admin.TransactionJournal.Page) get(screen, "logData"); if (page.entries().isEmpty()) return;
-                        capture(client, "alpha9-configuration-history.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 3; delay = 4; return;
+                        capture(client, "alpha10-configuration-history.png"); at((WorkbenchScreen) screen, 100, 164, false); subphase = 3; delay = 4; return;
                     }
                     if (subphase == 3) { click(screen, "Restore draft..."); subphase = 4; delay = 4; return; }
                     if (subphase == 4) { click(screen, "Confirm"); subphase = 5; delay = 20; return; }
@@ -531,7 +567,7 @@ public final class AlphaUiTest implements ClientModInitializer {
                 case 25 -> {
                     if (!(screen instanceof ContainerScreen)) return;
                     check(screen.getFont() == client.font, "Player shop retains the vanilla font even on an admin client");
-                    capture(client, "alpha9-vanilla-player-shop.png"); client.gui.setScreen(null);
+                    capture(client, "alpha10-vanilla-player-shop.png"); client.gui.setScreen(null);
                     System.out.println("[Alpha UI test] REVOKE_READY"); next(); delay = 60;
                 }
                 case 26 -> { client.gui.setScreen(null); client.getConnection().sendCommand("adminshop"); next(); }

@@ -17,12 +17,14 @@ balances.json
 players.json
 account-operations.json
 account-audit.jsonl
+mode-progress.json
 ```
 
 ## `settings.json`
 
 Stores global settings such as:
 
+- Shop Modes switches, payout overrides, timing, chat colors and PvP safeguards (`modes`)
 - Starting balance
 - Currency symbol
 - Price multiplier
@@ -97,6 +99,10 @@ The operation ledger stores external reward receipts, active transaction-history
 Reset advances one player's active history generation and writes a separate account audit record. Previous daily journal files remain available as recovery archives, but their older records no longer appear in that player's transaction view. Other players' histories remain visible. Set balance and rewards appear in the player's active history.
 
 Preserve the ledger, audit and daily journals with the balances backup. Restoring only part of this account data can lose replay protection or produce inconsistent balances and history. Older releases do not understand these safeguards; stop external reward delivery before rolling back and review a consistent backup.
+
+## `mode-progress.json`
+
+Stores passive online progress, interval sequences and captured pending payouts. It never awards offline catch-up. Back it up with the account ledger and balances. Alpha 10 writes ledger v2; prior v1 receipts and history generations are preserved. Older server builds reject v2, so use the matching full account backup when rolling back.
 
 ## `players.json`
 

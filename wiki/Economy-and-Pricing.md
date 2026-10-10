@@ -4,7 +4,7 @@ Balances persist through server restarts. `/bal` shows a balance and `/shop pay 
 
 Listing buy and sell prices are edited in Shop Builder. Zero disables a side. The multiplier affects both sides. New or repriced listings are marked manual so the existing startup recipe audit does not overwrite those prices. The editor rejects non-finite or negative values and rejects sell prices above the same listing's enabled buy price. Zero-value trades are rejected before inventory changes.
 
-The retained startup recipe audit may reduce unsafe sell prices on older generated listings while preserving manual prices. Balanced presets and a broader exploit review remain future work. The price checks are not a guarantee against every recipe, mod, or economy exploit.
+The retained startup recipe audit may reduce unsafe sell prices on older generated listings while preserving manual prices. Preset generation adds a recipe audit; broader world, villager and mod exploit review remains necessary. The price checks are not a guarantee against every recipe, mod, or economy exploit.
 
 Detected content imports start at buy 0 and sell 0 with manual pricing enabled, so startup auditing does not assign or alter their prices. Repeated imports preserve configured prices. Multiple categories may contain identical stacks, but the editor rejects selling above their cheapest positive buy price anywhere in the shop. Different component variants have independent identities. Held sales choose the highest enabled sell price among exact matches in categories the player can access.
 
@@ -16,21 +16,28 @@ Successful buys, sales, enchanted-book trades, and payments are logged on the se
 
 Alpha 9 transaction rows are read-only, with local hh:mm:ss AM/PM (DD/MMM/YY) dates and currency-prefixed totals. Set balance and Reset are immediate server operations with confirmation and stale-value protection. Reset restores the current starting balance and clears active history for one UUID, preserving journal archives and external reward receipts. Trusted external events use `/shopreward`, with a unique source/reference pair to prevent duplicate payouts. Account intent, balance and audit writes are completed before success is acknowledged; pending operations recover before further mutations.
 
-## Planned presets and earning modes
+## Presets in Alpha 10
 
-These are the next feature stage and are not implemented in Alpha 9. Presets should create reviewable shop drafts and pass a recipe/variant exploit audit before Apply. The current legacy sell-ratio default remains 32%, meaning a 100 buy price gives a 32 sell price. Zycu referred to the default returns when clarifying Normal; review that baseline and the initial approximate 30% description before implementing the preset.
+Presets are explicit server-generated plans. Generate preview shows the listing/category/book-offer counts, locked entries, recipe sell caps and recipe count. Use preset draft requires confirmation and replaces all draft categories and enchantment offers, including modded content. The live shop changes only on Apply, which backs up the previous configuration. Player balances and mode settings are preserved. Full presets add all registered vanilla enchantments at their natural maximum, with 100 per level for Normal, 300 for Hard and 75 for Easy; Basics has no book offers. The book sell ratio follows the chosen preset. The existing global multiplier is preserved and still applies. Discard restores the current snapshot. No preset runs on startup.
 
-- Full Vanilla Normal: vanilla catalog and deliberate buy prices, with the normal selling return confirmed during preset review.
-- Full Vanilla Hard: expensive buying and low returns; exact multipliers will be reviewed with Zycu.
-- Full Vanilla Easy: affordable buying and approximately 95% return, subject to recipe and duplicate-price safeguards.
-- The Basics: raw crafting resources, ores/minerals, logs, and rare collectible ingredients. Membership and unobtainable-item policy need review.
-- Additional themes and kits remain discussion items.
+- Full Vanilla Normal: historical base buy values, with the confirmed 30% target sell return.
+- Full Vanilla Hard: triple the base buy values and 10% return.
+- Full Vanilla Easy: 75% of base buy values and 95% return.
+- The Basics: ingredients, ores, unstripped logs/stems and selected raw resources, with 30% return.
 
-Shop Modes will have a dedicated Adminshop tab, with independent switches so several can run together. Each payout must be logged and use its mode name as the chat prefix with its own configured color.
+Full presets include vanilla creative variants and otherwise missing vanilla registered items, excluding air. Administrative/spawn items and entries outside survival creative tabs have both prices zero. Component variants are buy-only. Modded namespaces are not generated. Base price values are retained from the earlier pricing model, not a claim of market value. Recipe-derived acquisition costs cap unsafe sell prices at 95% of the cheapest checked acquisition path; map clone caps apply too. Thus individual returns can be below the target percentage. Current recipe audit failures refuse a plan without touching the shop. This does not certify villager trades, block/world conversions, loot farms or arbitrary mod mechanics. Review the draft before Apply.
 
-- Passive income: configurable payout and online interval; no offline accrual. Session persistence and optional AFK handling need explicit rules.
-- Cash Mobs: detect installed entity types and configure payouts, with a choice of quick spawner farming or kill cooldowns. Repeated-kill and ownership rules need review.
-- Advancement Hunter: detect server advancements, one-time payouts with replay protection, vanilla rarity tiers, and an initial proposed 100 for detected non-vanilla advancements. Revocation/regrant must not multiply payouts.
-- Warrior Mode: player-kill rewards, repeat-victim and alt-farming safeguards, optional victim deduction, and a separately configurable negative-balance policy. Negative balances are not enabled by Alpha 9.
+The retained general sell-ratio default remains 32% until a preset is used. Normal explicitly sets its draft ratio to 30%, as requested. Additional presets and kits remain future discussion.
 
-The account operation/reward ledger is groundwork for these modes. It does not enable them or make a preset safe automatically. A future 2.0.0 milestone still requires Zycu's explicit release approval.
+## Shop Modes in Alpha 10
+
+All four switches start off and can run together. Changes, including detected payout overrides, remain in the editor draft until Apply. Survival and adventure players can earn; creative and spectator players are excluded. Chat uses each mode's own name and configured color. Transactions use MODE_INCOME and MODE_DEDUCTION with source and event notes.
+
+- Passive Income: default 10 per 600 seconds online. Amount and interval are editable. AFK time counts. Disabled/offline time does not accrue; there is no catch-up or restart bonus. Accrual counts server ticks, so lag slows it. Partial progress checkpoints once per minute; an abrupt stop can lose less than a minute of uncheckpointed progress. Pending interval amounts are captured before credit; replay receipts prevent paying an interval twice. An already owed interval can finish after the switch is disabled.
+- Cash Mobs: every detected entity ID can have a price; unknown IDs default to zero. Only player-attributed living-entity deaths pay. Default cooldown is 5 seconds per player and entity type. Quick farming explicitly bypasses that cooldown for all kills, including spawner farms. Nonliving registry IDs have no living death event. Automated kills without vanilla player kill credit do not pay.
+- Advancement Hunter: one payout per player and advancement ID. Revoking/regranting, changing prices, resetting history or restarting cannot make it pay again. Visible vanilla Task/Goal/Challenge entries default to 25/100/500 as effort tiers. Visible non-vanilla entries default to 100, editable globally or individually. Invisible roots and recipe unlocks default to zero, including modded recipes; explicit overrides can opt in. Existing completed advancements are not paid retroactively.
+- Warrior Mode: default reward 100, victim deduction 50. Both balances persist together in the account operation. The default unordered-pair cooldown is 3600 seconds, so swapping killer/victim cannot bypass it; it survives restart and history reset. Both players must spend 600 seconds online in their current sessions by default. Same-address blocking defaults on; disable it deliberately for players sharing a household connection. Self, creative and spectator kills do not pay. These rules deter simple farming, not every coordinated alt/VPN scheme.
+
+Warrior deductions clamp at zero unless Allow debt is explicitly enabled. Existing debt remains after disabling the mode and future credits reduce it; external `/shopreward` credits also repay it. A player in debt cannot buy or transfer money they do not have. Set balance and Reset can restore the account. Disable a reward by setting its amount to zero. Amounts must be finite, nonnegative and at most 1,000,000. Invalid intervals, payout maps and colors are rejected before Apply.
+
+Mode and external reward receipts, cooldowns, account recovery state and history generations live in `account-operations.json` v2. Alpha 10 accepts v1 input, preserving its receipts and reset history. Alpha 9 intentionally refuses v2 rather than discarding paired recovery data. Back up balances, the ledger, mode-progress, audit and journals together while stopped. These files are not automatically pruned. Large quick-farming deployments need throughput review as the receipt ledger grows. A future 2.0.0 milestone still requires Zycu's explicit release approval.

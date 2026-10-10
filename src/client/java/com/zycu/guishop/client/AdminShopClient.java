@@ -148,6 +148,8 @@ public final class AdminShopClient implements ClientModInitializer {
                 case "players" -> { if (editor != null) editor.players(AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminPlayers.Page.class), pending.filter); }
                 case "player_logs" -> { if (editor != null) editor.playerHistory(AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AdminPlayers.History.class), pending.query); }
                 case "account_saved" -> { if (editor != null) editor.accountResult(AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.AccountOperations.Result.class)); }
+                case "mode_catalog" -> { if (editor != null) editor.modeCatalog(AdminDocument.JSON.fromJson(body, com.zycu.guishop.ShopModes.Catalog.class)); }
+                case "preset" -> { if (editor != null) editor.presetResult(AdminDocument.JSON.fromJson(body, com.zycu.guishop.admin.ShopPresets.Plan.class)); }
                 default -> throw new IllegalArgumentException("Unsupported editor response");
             }
         } catch (Exception exception) {

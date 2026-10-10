@@ -20,15 +20,20 @@ public final class AccountOperations {
     private static boolean completing;
     private static final double MAX = 1_000_000_000_000.0;
     private static final class State {
-        int version = 1;
+        int version = 2;
         Map<String, Receipt> rewards = new LinkedHashMap<>();
         Map<String, Long> historyGenerations = new HashMap<>();
+        Map<String, Long> modeCooldowns = new HashMap<>();
         Pending pending;
     }
     private record Receipt(String uuid, double amount, String operationId) {}
     private record Pending(String operationId, String kind, String uuid, String name, double before,
                            double after, String actor, String source, String reference, String reason,
-                           String time, long generation) {}
+                           String time, long generation, String debitUuid, String debitName, double debitAfter, long debitGeneration, double debitAmount, String cooldownKey, long cooldownUntil) {
+        Pending(String operationId, String kind, String uuid, String name, double before, double after, String actor, String source, String reference, String reason, String time, long generation) {
+            this(operationId, kind, uuid, name, before, after, actor, source, reference, reason, time, generation, null, null, 0, 0, 0, null, 0);
+        }
+    }
     public record Change(String uuid, double expectedBalance, double balance, double expectedDefault, boolean reset) {}
     public record Result(AdminPlayers.Player player, boolean reset, String message) {}
     public record RewardResult(boolean credited, double balance, String name) {}
@@ -40,7 +45,8 @@ public final class AccountOperations {
         if (state != null) return state;
         try {
             State value = Files.exists(FILE) ? AdminDocument.JSON.fromJson(Files.readString(FILE), State.class) : new State();
-            if (value == null || value.version != 1 || value.rewards == null || value.historyGenerations == null) throw new IllegalStateException("Invalid account operation ledger");
+            if (value == null || (value.version != 1 && value.version != 2) || value.rewards == null || value.historyGenerations == null || value.modeCooldowns == null) throw new IllegalStateException("Invalid account operation ledger");
+            value.version = 2;
             for (long generation : value.historyGenerations.values()) if (generation < 0) throw new IllegalStateException("Invalid history generation");
             state = value; return value;
         } catch (Exception error) { throw new IllegalStateException("Could not load account operations. Restore the ledger or fix server file permissions before changing balances.", error); }
@@ -58,7 +64,7 @@ public final class AccountOperations {
     public static synchronized <T> T mutate(java.util.function.Supplier<T> action) { ensureReady(); return action.get(); }
     private static State copy() {
         var current = load(); var next = new State();
-        next.rewards.putAll(current.rewards); next.historyGenerations.putAll(current.historyGenerations); next.pending = current.pending;
+        next.modeCooldowns.putAll(current.modeCooldowns); next.rewards.putAll(current.rewards); next.historyGenerations.putAll(current.historyGenerations); next.pending = current.pending;
         return next;
     }
     private static void save(State value) {
@@ -116,10 +122,36 @@ public final class AccountOperations {
             if (!prior.uuid().equals(uuid.toString()) || Double.compare(prior.amount(), amount) != 0) throw new IllegalArgumentException("This reward reference was already used for a different player or amount.");
             return new RewardResult(false, GuiShop.ECONOMY.readBalance(uuid), resolved.name());
         }
-        double before = GuiShop.ECONOMY.readBalance(uuid), after = money(before + amount, false);
+        double before = GuiShop.ECONOMY.readBalance(uuid), after = signedMoney(before + amount);
         begin(new Pending(UUID.randomUUID().toString(), "REWARD", uuid.toString(), resolved.name(), before, after, actor.getTextName(), source, reference, reason, java.time.Instant.now().toString(), historyGeneration(uuid.toString())));
         if (resolved.onlinePlayer() != null) resolved.onlinePlayer().sendSystemMessage(Component.literal("[Reward] Received " + GuiShop.CONFIG.money(amount) + " from " + source + ".").withStyle(net.minecraft.ChatFormatting.GREEN));
         return new RewardResult(true, after, resolved.name());
+    }
+    private static double signedMoney(double value) {
+        if (!Double.isFinite(value) || Math.abs(value) > MAX) throw new IllegalArgumentException("Balance exceeds supported range");
+        return Math.round(value * 100) / 100.0;
+    }
+    /** Internal server earning events share the same durable account intent and replay receipts. */
+    public static synchronized boolean mode(ServerPlayer player, String source, String reference, double amount, String reason, ServerPlayer victim, double deduction, boolean negative, String cooldownKey, int cooldownSeconds) {
+        ensureReady(); amount = money(amount, true); deduction = money(deduction, false);
+        String key = "mode." + source + "/" + reference;
+        var prior = load().rewards.get(key);
+        if (prior != null) {
+            if (!prior.uuid().equals(player.getUUID().toString())) throw new IllegalStateException("Conflicting mode reward reference");
+            return false;
+        }
+        if (cooldownKey != null && load().modeCooldowns.getOrDefault(cooldownKey, 0L) > java.time.Instant.now().getEpochSecond()) return false;
+        double before = GuiShop.ECONOMY.readBalance(player.getUUID());
+        double after = signedMoney(before + amount), victimAfter = 0, actualDeduction = 0;
+        if (victim != null) {
+            if (victim.getUUID().equals(player.getUUID())) throw new IllegalArgumentException("Cannot reward a self kill");
+            double current = GuiShop.ECONOMY.readBalance(victim.getUUID());
+            victimAfter = signedMoney(negative ? current - deduction : Math.min(current, Math.max(0, current - deduction)));
+            actualDeduction = signedMoney(current - victimAfter);
+        }
+        begin(new Pending(UUID.randomUUID().toString(), "MODE", player.getUUID().toString(), player.getName().getString(), before, after, "Server Shop Modes", "mode." + source, reference, reason, java.time.Instant.now().toString(), historyGeneration(player.getUUID().toString()),
+            victim == null ? null : victim.getUUID().toString(), victim == null ? null : victim.getName().getString(), victimAfter, victim == null ? 0 : historyGeneration(victim.getUUID().toString()), actualDeduction, cooldownKey, java.time.Instant.now().getEpochSecond() + cooldownSeconds));
+        return true;
     }
     private static void begin(Pending pending) {
         State next = copy(); next.pending = pending; save(next); complete();
@@ -128,16 +160,20 @@ public final class AccountOperations {
         Pending pending = load().pending; if (pending == null) return;
         completing = true;
         try {
-            GuiShop.ECONOMY.setBalanceChecked(UUID.fromString(pending.uuid()), money(pending.after(), false));
+            var balances = new HashMap<UUID, Double>(); balances.put(UUID.fromString(pending.uuid()), signedMoney(pending.after()));
+            if (pending.debitUuid() != null) balances.put(UUID.fromString(pending.debitUuid()), signedMoney(pending.debitAfter()));
+            GuiShop.ECONOMY.setBalancesChecked(balances);
             String details = "By " + pending.actor() + " | Previous " + pending.before() + " | " + pending.source() + " | " + pending.reference() + " | " + pending.reason();
-            var record = new TransactionJournal.Entry(pending.time(), pending.name(), pending.uuid(), pending.kind().equals("REWARD") ? "REWARD" : "BALANCE_" + pending.kind(),
-                pending.kind().equals("REWARD") ? pending.source() + ":" + pending.reference() : "Admin balance adjustment", "", 0, 0,
-                pending.kind().equals("REWARD") ? money(pending.after() - pending.before(), true) : pending.after(), pending.after(), details, pending.operationId(), pending.generation());
+            var record = new TransactionJournal.Entry(pending.time(), pending.name(), pending.uuid(), pending.kind().equals("MODE") ? "MODE_INCOME" : pending.kind().equals("REWARD") ? "REWARD" : "BALANCE_" + pending.kind(),
+                (pending.kind().equals("REWARD") || pending.kind().equals("MODE")) ? pending.source() + ":" + pending.reference() : "Admin balance adjustment", "", 0, 0,
+                (pending.kind().equals("REWARD") || pending.kind().equals("MODE")) ? money(pending.after() - pending.before(), true) : pending.after(), pending.after(), details, pending.operationId(), pending.generation());
             if (pending.kind().equals("RESET")) TransactionJournal.appendAccountAudit(record);
             else TransactionJournal.appendOperation(record);
+            if (pending.debitUuid() != null) TransactionJournal.appendOperation(new TransactionJournal.Entry(pending.time(), pending.debitName(), pending.debitUuid(), "MODE_DEDUCTION", pending.source(), "", 0, 0, -pending.debitAmount(), pending.debitAfter(), "Defeated by " + pending.name() + " (" + pending.uuid() + ") | Victim previous " + (pending.debitAfter() + pending.debitAmount()) + " | " + details, pending.operationId() + ":debit", pending.debitGeneration()));
             State next = copy();
+            if (pending.cooldownKey() != null) next.modeCooldowns.put(pending.cooldownKey(), pending.cooldownUntil());
             if (pending.kind().equals("RESET")) next.historyGenerations.put(pending.uuid(), Math.incrementExact(pending.generation()));
-            if (pending.kind().equals("REWARD")) next.rewards.put(pending.source() + "/" + pending.reference(), new Receipt(pending.uuid(), money(pending.after() - pending.before(), true), pending.operationId()));
+            if (pending.kind().equals("REWARD") || pending.kind().equals("MODE")) next.rewards.put(pending.source() + "/" + pending.reference(), new Receipt(pending.uuid(), money(pending.after() - pending.before(), true), pending.operationId()));
             next.pending = null; save(next);
         } catch (RuntimeException error) { throw error; }
         catch (Exception error) { throw new IllegalStateException("Account operation is pending. Fix the server's disk space or file permissions before retrying.", error); }

@@ -82,7 +82,15 @@ public final class EconomyStore {
     /** Account-operation recovery bypasses its own gate and commits disk before exposing the new value. */
     public synchronized void setBalanceChecked(UUID player, double amount) throws Exception {
         if (!Double.isFinite(amount) || amount < 0) throw new IllegalArgumentException("Invalid balance");
-        var next = new HashMap<>(balances); next.put(player.toString(), round(amount));
+        setBalancesChecked(Map.of(player, amount));
+    }
+    /** Persist paired mode credit/debit together, including explicitly configured debt. */
+    public synchronized void setBalancesChecked(Map<UUID, Double> values) throws Exception {
+        var next = new HashMap<>(balances);
+        for (var entry : values.entrySet()) {
+            if (!Double.isFinite(entry.getValue()) || Math.abs(entry.getValue()) > 1_000_000_000_000.0) throw new IllegalArgumentException("Invalid balance");
+            next.put(entry.getKey().toString(), round(entry.getValue()));
+        }
         com.zycu.guishop.admin.AccountOperations.writeAtomic(file, GSON.toJson(next));
         balances.clear(); balances.putAll(next);
     }
@@ -114,7 +122,7 @@ public final class EconomyStore {
             Map<String, Double> loaded = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), MAP_TYPE);
             if (loaded != null) {
                 loaded.forEach((key, value) -> {
-                    if (value != null && Double.isFinite(value) && value >= 0) balances.put(key, round(value));
+                    if (value != null && Double.isFinite(value)) balances.put(key, round(value));
                 });
             }
         } catch (Exception exception) {

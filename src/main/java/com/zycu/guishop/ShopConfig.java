@@ -27,6 +27,7 @@ public final class ShopConfig {
     private static final Path SHOPS_FILE = DIRECTORY.resolve("shops.json");
     private static final Path ENCHANTMENTS_FILE = DIRECTORY.resolve("enchantments.json");
 
+    public ShopModesConfig modes = new ShopModesConfig();
     public String currencySymbol = "$";
     public String shopTitle = "ClassicGUIShop";
     public double startingBalance = 500.0;
@@ -170,6 +171,7 @@ public final class ShopConfig {
     }
 
     private void normalize() {
+        if (modes == null) modes = new ShopModesConfig();
         if (currencySymbol == null) currencySymbol = "$";
         if (shopTitle == null || shopTitle.isBlank()) shopTitle = "ClassicGUIShop";
         if (categories == null) categories = new ArrayList<>();
@@ -292,6 +294,7 @@ public final class ShopConfig {
 
     private void applySettings(SettingsFile file) {
         if (file == null) return;
+        if (file.modes != null) modes = file.modes;
         if (file.general != null) {
             shopTitle = file.general.shopTitle;
             priceMultiplier = file.general.priceMultiplier;
@@ -337,6 +340,7 @@ public final class ShopConfig {
     private SettingsFile toSettingsFile() {
         SettingsFile file = new SettingsFile();
         file._about = about();
+        file.modes = modes;
         file._notes = settingsNotes();
         file.general.priceMultiplier = priceMultiplier;
         file.general.shopTitle = shopTitle;
@@ -488,6 +492,7 @@ public final class ShopConfig {
     }
 
     private static final class SettingsFile {
+        ShopModesConfig modes = new ShopModesConfig();
         List<String> _about = new ArrayList<>();
         Object _notes = new LinkedHashMap<String, String>();
         GeneralSection general = new GeneralSection();

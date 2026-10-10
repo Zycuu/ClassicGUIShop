@@ -41,6 +41,7 @@ public final class AdminNetworking {
         ServerPlayNetworking.registerGlobalReceiver(AdminPayloads.Request.TYPE,
             (payload, context) -> receive(context.player(), payload.message()));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            com.zycu.guishop.ShopModes.disconnected(handler.player);
             PENDING.remove(handler.player.getUUID()); LAST_REQUEST.remove(handler.player.getUUID());
         });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> GuiShop.PLAYERS.remember(handler.player));
@@ -113,6 +114,8 @@ public final class AdminNetworking {
                     var change = AdminDocument.JSON.fromJson(assembly.body(), AccountOperations.Change.class);
                     reply(player, message.id(), "account_saved", "", AdminDocument.JSON.toJson(AccountOperations.change(player, change)));
                 }
+                case "mode_catalog" -> reply(player, message.id(), "mode_catalog", "", AdminDocument.JSON.toJson(com.zycu.guishop.ShopModes.catalog(player)));
+                case "preset" -> reply(player, message.id(), "preset", "", AdminDocument.JSON.toJson(ShopPresets.generate(player, AdminDocument.JSON.fromJson(assembly.body(), ShopPresets.Request.class))));
                 default -> throw new IllegalArgumentException("Unknown editor request");
             }
         } catch (SecurityException denied) {

@@ -63,3 +63,11 @@ Search server transaction records by player, UUID, item/listing, action, or date
 Changes lists successful configuration applies. Open an entry and load its previous configuration into a draft. Review the draft and Apply to restore it. This restores configuration, not player balances or transaction history. Every restore Apply creates another backup.
 
 Backups are under `config/guishop/backups/`; daily journals are under `config/guishop/transactions/`. No automatic deletion is enabled.
+
+## Presets and Shop Modes
+
+Alpha 10 adds two navigation tabs. Presets generates a server-audited preview, then Use preset draft confirms replacing all draft categories and enchantment offers, including modded content. The live shop remains unchanged until Apply. Normal targets 30%, Hard 10% with triple buying costs, Easy 95% with 75% buying costs, and Basics targets 30% for raw resources. Full presets offer registered vanilla enchantments at natural levels; Basics has no book offers. Locked entries and recipe caps appear in the review. Keep the old shop backup and review every enabled price.
+
+Shop Modes has four independent switches, all off initially. Choose a mode to edit its amount, timing, message color and safeguards. Cash Mobs and Advancement Hunter open searchable payout editors using the server's detected IDs. Zero disables a payout. Use defaults clears only the draft payout overrides after confirmation. Refresh detected IDs reloads current server definitions; saved unavailable overrides are preserved and shown. All mode edits require Apply. Each active mode can run alongside the others.
+
+Warrior's same-address check can block legitimate players sharing a connection. Allow debt is an explicit opt-in; switching it off prevents additional debt but preserves existing debt for repayment. Passive income counts AFK online time. Full behavior and preset limitations are described in [Economy and Pricing](Economy-and-Pricing.md).

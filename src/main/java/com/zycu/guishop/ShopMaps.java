@@ -35,7 +35,7 @@ public final class ShopMaps {
     private record Key(net.minecraft.server.level.ServerLevel world, String identity, int regionX, int regionZ) {}
     private static final LinkedHashMap<Key, ItemStack> CACHE = new LinkedHashMap<>();
     public static void clear() { CACHE.clear(); }
-    private static boolean nativeMap(ItemStack stack) {
+    public static boolean nativeMap(ItemStack stack) {
         return stack.is(Items.FILLED_MAP) || TARGETS.containsKey(ShopService.itemId(stack));
     }
     public static boolean dynamic(ItemStack stack) { return nativeMap(stack) && !stack.has(DataComponents.MAP_ID); }

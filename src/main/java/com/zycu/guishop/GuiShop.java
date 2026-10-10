@@ -20,8 +20,10 @@ public final class GuiShop implements ModInitializer {
             initializedServer = null;
             initializeStores();
             com.zycu.guishop.admin.AccountOperations.initialize();
+            ShopModes.initialize();
         });
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            ShopModes.checkpoint();
             com.zycu.guishop.admin.AdminNetworking.clear(); ShopMaps.clear();
         });
         // Client installation is an editor, not a second local copy of a remote server's economy.
@@ -47,6 +49,7 @@ public final class GuiShop implements ModInitializer {
             initializedServer = server;
             runStartupWork(server);
         }
+        ShopModes.tick(server);
     }
 
     private static void runStartupWork(MinecraftServer server) {

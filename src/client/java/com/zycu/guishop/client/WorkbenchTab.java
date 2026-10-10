@@ -12,7 +12,7 @@ final class WorkbenchTab extends Button {
     private final boolean selected;
     private final Item icon;
     WorkbenchTab(String label, int index, Item icon, boolean selected, Runnable action) {
-        super(-34, 76 + index * 38, 30, 30, Component.literal(label), ignored -> action.run(), DEFAULT_NARRATION);
+        super(-34, 76 + index * 31, 30, 30, Component.literal(label), ignored -> action.run(), DEFAULT_NARRATION);
         this.icon = icon; this.selected = selected;
     }
     @Override protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
