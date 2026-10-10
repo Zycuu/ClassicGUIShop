@@ -20,5 +20,6 @@
     "minecraft": "${minecraft_range}",
     "java": ">=25"
   },
-  "suggests": { "fabric-api": "*" }
+  "suggests": { "fabric-api": "*", "fabric-permissions-api-v0": ">=0.7.0" },
+  "breaks": { "fabric-permissions-api-v0": "<0.7.0" }
 }

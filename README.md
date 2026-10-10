@@ -2,9 +2,9 @@
 
 A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.2 Beta 1** puts ease of use first: labeled navigation, category-only Bulk Adjust, explicit Update/Cancel popups, clear Save changes/Discard changes controls, live search and creative-style scrollbars. New preset price defaults live together under Presets. Player commands, balances and existing listing prices retain their behavior.
+**1.4.3 Beta 1** puts ease of use first: labeled navigation, category-only Bulk Adjust, explicit Update/Cancel popups, clear Save changes/Discard changes controls, live search and creative-style scrollbars. New preset price defaults live together under Presets. Player commands, balances and existing listing prices retain their behavior.
 
-Ordinary players use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`**. Every editor request requires OP level 2 or higher.
+Ordinary players use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`**. Every editor request checks `guishop.admin` through an installed Fabric Permissions API provider, falling back to OP level 2 when unassigned. Ordinary clients need no permission library.
 
 ## Adminshop
 
@@ -12,7 +12,7 @@ Ordinary players use `/shop` without installing ClassicGUIShop. Administrators i
 - Bulk Adjust: select a category, enter one buy price and one sell price, then Update category. Every listing in that category receives those amounts; zero disables that side. Cancel/escape leaves prices unchanged. Save changes commits the editor. Individual prices are edited by clicking items in the builder.
 - Simulator: navigate a chest-style preview of the unified shop, including both prices, category pages and exact book levels. Preview clicks do not transact. Disabled listings stay visible for editing; the live player shop still hides them. Each enchantment has its own automatic folder containing its exact listed levels.
 - Settings: General, Economy, Messages, and Enchantments/Potions. Economy controls currency, starting balance, damaged/enchanted command sales and public operator balance visibility. Messages use color pickers. Registered book/potion lists are read-only, searchable catalogs with name, ID and native item icons. All new Normal/Basics price defaults are together in Presets. Hard and Easy retain fixed 10% and 95% returns.
-- Permissions: choose friendly roles from Everyone through Owner for player actions and categories. Update changes the editor draft; Save changes writes to the server. Adminshop remains fixed at OP level 2 or higher.
+- Permissions: optional generic Fabric Permissions API compatibility, with explicit provider grants and denies overriding friendly OP defaults. Nodes are shown beside actions; Adminshop uses `guishop.admin` with a fixed OP 2 fallback. Choose friendly roles from Everyone through Owner for player actions and categories. Update changes the editor draft; Save changes writes to the server. Adminshop remains fixed at OP level 2 or higher.
 - Detected Content: browse vanilla, registered mod and static datapack content. Select a source, then Import entire source or Import entire pack. Each source gets its own category and every new item starts hidden at Buy 0 / Sell 0. Search only narrows the preview; imports include the full source across every page. Enable and price items one at a time in Shop Builder. Repeat imports preserve existing listings and prices. Cancel during an import restores the previous editor state. Individual selection remains in Add items, not Detected Content.
 - Transactions: select a known online or offline player by name and current balance, then view only their transactions. Dates use hh:mm:ss AM/PM (DD/MMM/YY) in the client's timezone, with its abbreviation and zone ID shown. Search local or UTC dates; hover dates for both full timestamps. Totals use the live server currency and debit signs. Mode actions use the saved prefix name and readable activities. Trending is available from both the player list and player history. Rows wrap, with normal hover tooltips for long records, and remain read-only. Trending has separate top-20 Purchased/Sold lists by unit quantity, 24-hour/7-day/30-day periods, and item to player to archived transaction drilldowns. Set balance and Reset use confirmation popups over the workbench and apply immediately, independently of the shop draft.
 - Presets: Preview preset, review its item counts and safety caps, Load into editor, then Save changes. Normal defaults to a 30% sell return; Hard uses 3x buy/10% return; Easy uses 75% buy/95% return; The Basics contains resources. Blank shop starts with no categories or listings for a custom build. Loading it is a draft change, and saving it is backed up. Restarting does not refill it. Defaults apply only to generated prices. Import/export uses data-only JSON with exact components and dependency checks; missing content is disabled. Imported presets also require review and Load into editor before saving.
@@ -34,7 +34,7 @@ Custom folder controls remain removed; enchanted books have automatic folders pe
 Use Minecraft **26.3**, Java **25+**, and Fabric Loader **0.19.5+**. This Beta targets 26.3 specifically; the previous compatibility JARs remain separate builds.
 
 1. Stop the server and back up `config/guishop/` before updating.
-2. Replace the old server JAR with `ClassicGUIShop-v1.4.2-beta.1.jar`, then start the server.
+2. Replace the old server JAR with `ClassicGUIShop-v1.4.3-beta.1.jar`, then start the server.
 3. For administrators, install that same JAR on a matching Fabric client and press F8 in-game. Rebind it under Controls if needed.
 
 The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching Minecraft 26.3.
@@ -58,7 +58,7 @@ Item mods still need their usual client dependencies. Datapack custom models req
 /worth <item-or-listing-id> [amount]
 ```
 
-Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells matching items across the player inventory. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. 1.4.2 Beta uses editor protocol v7. Install the matching administrator JAR for this UI; older protocol versions are rejected.
+Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells matching items across the player inventory. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. 1.4.3 Beta uses editor protocol v7. Install the matching administrator JAR for this UI; older protocol versions are rejected.
 
 Trusted integrations can run this only through the server console or authenticated RCON:
 
@@ -123,4 +123,12 @@ Preset JSON is saved to `config/guishop/presets` on the server; exports also cre
 
 A disposable first-install fixture can be verified with `.github/scripts/verify_starter_shop.py <server-dir> --java-home <jdk-dir> --output-dir <new-output-dir> --disposable`. It checks the ready-to-play Normal catalog, 30% target returns, restart bytes, preserved customized prices and an intentionally empty shop. It preserves every edited fixture file in a backup and rejects an existing shop at entry.
 
-This is **1.4.2-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
+This is **1.4.3-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
+
+### Optional permission compatibility and variant folders
+
+ClassicGUIShop bundles and requires no permission manager. An independently installed provider using Fabric Permissions API 0.7.0 or later can answer `guishop.*` checks through the same optional hook; the API alone supplies no permission manager. Vanilla Permissions manages Minecraft's own nodes and can coexist with this bridge. Bukkit-only permission plugins cannot run directly on Fabric. The linked Permission Levels project has no Fabric 26.3 release; the vanilla fallback respects exact OP levels independently. Explicit provider denial applies even to operators. Provider exceptions fail closed. The console-only `/shopreward` restriction is unchanged.
+
+Full Vanilla presets and fresh installations now include a dedicated Potions category. Each potion family contains its regular, extended, strong, splash and lingering variants as applicable, each with its own existing final buy/sell values and original components. Extended and strong preset names are labeled for clarity. Modded registered families retain their namespace; custom unregistered potions appear under Custom Potions. Existing saved shops keep their categories and prices, with the same automatic potion folders wherever their potions are listed. Loading a full preset creates the dedicated category after review and Save changes.
+
+Combat uses Tipped Arrows > arrow type > available levels, including extended and strong variants. Existing shops receive the same automatic folders without modifying stored item components or prices. Fresh/full presets keep every tipped-arrow listing in Combat.

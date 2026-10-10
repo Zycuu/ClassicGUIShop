@@ -53,7 +53,7 @@ public final class AdminScreen extends WorkbenchScreen {
     private int searchDebounce;
     private AdminDocument importBefore;
     private final WorkbenchScroll detectedScroll=new WorkbenchScroll(628,141,138,6,()->{});
-    private final WorkbenchScroll permissionScroll=new WorkbenchScroll(614,121,182,7,this::rebuildKeepingFocus);
+    private final WorkbenchScroll permissionScroll=new WorkbenchScroll(614,149,156,6,this::rebuildKeepingFocus);
     private boolean enchantPreview;
     private String enchantId;
     private TransactionJournal.Page logData = new TransactionJournal.Page(List.of(), 0, false, "");
@@ -101,7 +101,7 @@ public final class AdminScreen extends WorkbenchScreen {
     void bulkUpdated(ShopConfig.Category category){for(var item:category.items){String prefix=item.listingId+":";errors.keySet().removeIf(v->v.startsWith(prefix));invalidInputs.keySet().removeIf(v->v.startsWith(prefix));}status="Updated "+category.items.size()+" items in "+category.name+". Save changes when ready.";}
     private String statusText(){return errors.isEmpty()?status:errors.values().iterator().next();}
     public void restore(com.zycu.guishop.admin.AdminEditorService.RestoreDraft restored) {
-        baseline = AdminDocument.JSON.toJson(restored.live()); draft = restored.previous().copy(); revision = restored.revision();
+        baseline = AdminDocument.JSON.toJson(restored.live()); draft = restored.previous().copy(); draft.permissions=restored.live().permissions; revision = restored.revision();
         cancelDrag(); importSource = null; detectionRetry = 0; categoryId = ""; selectedItem = null; enchantPreview = false; enchantId = null;
         previewPage = 0; browserPage = 0; busy = false; errors.clear(); invalidInputs.clear(); tab = Tab.BUILDER;
         status = "Previous configuration loaded into a draft. Review it, then Save changes to restore."; rebuildWidgets();
@@ -375,7 +375,7 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private void up() {
         if (enchantPreview) { if (enchantId != null) enchantId = null; else enchantPreview = false; }
-        else if(enchantId!=null)enchantId=null;else categoryId = "";
+        else if(enchantId!=null)enchantId=com.zycu.guishop.ListingGroups.parent(enchantId);else categoryId = "";
         selectedItem = null; previewPage = 0; rebuildWidgets();
     }
     private void inspector() {
@@ -484,7 +484,13 @@ public final class AdminScreen extends WorkbenchScreen {
     private List<Map.Entry<String,Integer>> permissionEntries(){return draft.config.permissionDefaults.entrySet().stream().filter(e->!e.getKey().contains("admin")&&!e.getKey().contains("ident")).sorted(Comparator.comparing(e->permissionName(e.getKey()))).toList();}
     private String permissionName(String key){if(key.startsWith("guishop.category.")){String id=key.substring(17);var cat=draft.config.category(id);return "Category: "+(cat==null?ChoiceDialog.label(id):cat.name);}return switch(key){case "guishop.buy"->"Buy items";case "guishop.sell"->"Sell items";case "guishop.enchant"->"Trade enchanted books";case "guishop.creative.bypass"->"Trade while in creative mode";case "guishop.command.shop"->"Open the shop";case "guishop.command.balance"->"View balances";case "guishop.command.pay"->"Send money";case "guishop.command.sellhand"->"Sell held items";case "guishop.command.worth"->"Check item value";default->ChoiceDialog.label(key.replace("guishop.","").replace('.',' '));};}
     @Override protected WorkbenchScroll scroller(){return tab==Tab.ACCESS?permissionScroll:tab==Tab.DETECTED?detectedScroll:null;}
-    private void access(){var entries=permissionEntries();permissionScroll.count(entries.size());for(int row=0;row<7&&permissionScroll.row+row<entries.size();row++){var e=entries.get(permissionScroll.row+row);String role=ChoiceDialog.roles().get(e.getValue()).label();button(role,430,122+row*26,174,()->minecraft.gui.setScreen(new ChoiceDialog(this,permissionName(e.getKey()),Integer.toString(e.getValue()),ChoiceDialog.roles(),v->{draft.config.permissionDefaults.put(e.getKey(),Integer.parseInt(v));rebuildWidgets();})));}}
+    private void access(){
+        var entries=permissionEntries();permissionScroll.count(entries.size());
+        for(int row=0;row<6&&permissionScroll.row+row<entries.size();row++){
+            var e=entries.get(permissionScroll.row+row);String role=ChoiceDialog.roles().get(e.getValue()).label();
+            button(role,430,150+row*26,174,()->minecraft.gui.setScreen(new ChoiceDialog(this,permissionName(e.getKey())+" default",Integer.toString(e.getValue()),ChoiceDialog.roles(),v->{draft.config.permissionDefaults.put(e.getKey(),Integer.parseInt(v));rebuildWidgets();})));
+        }
+    }
     private int importCount(){return detectedData.sourceCount();}
     private String destinationName(){String key=detectedSource.isBlank()?"all_detected":detectedSource;var cat=draft.config.categories.stream().filter(v->key.equals(v.detectedSource)).findFirst().orElse(null);return cat==null?sourceName(detectedData,detectedSource):cat.name;}
     private void detection() {
@@ -664,10 +670,11 @@ public final class AdminScreen extends WorkbenchScreen {
                 : tab==Tab.HISTORY ? hoveredRecord.player()+"\n"+TransactionJournal.activity(hoveredRecord)+"\nClick to view the backup" : com.zycu.guishop.admin.TransactionJournal.action(hoveredRecord) + "\n" + com.zycu.guishop.admin.TransactionJournal.activity(hoveredRecord) + "\n" + hoveredRecord.listing() + "\nQuantity: " + hoveredRecord.quantity() + " | Total: " + accountMoney(hoveredRecord.total()) + "\n" + hoveredRecord.details();
             graphics.setTooltipForNextFrame(font, font.split(Component.literal(text), 280), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
+        for(Hit hit:hits)if(hit.kind.equals("permission")&&hit.contains(x,y))graphics.setTooltipForNextFrame(font,font.split(Component.literal(hit.id+"\n"+(hit.id.equals(com.zycu.guishop.ShopPermissions.ADMIN)?"Full Adminshop access. Unassigned: OP 2+. Grant only to trusted administrators.":"An explicit provider grant or deny overrides the default role.")),320),(int)(originX+(x+contentOffsetX())*scale),(int)(originY+y*scale));
         for(Hit hit:hits)if(hit.kind.equals("detected:source")&&hit.contains(x,y))graphics.setTooltipForNextFrame(font,font.split(Component.literal(sourceName(detectedData,hit.id)+"\n"+detectedData.sources().stream().filter(v->v.id().equals(hit.id)).map(v->v.count()+" detected items").findFirst().orElse("All detected items")),360),(int)(originX+(x+contentOffsetX())*scale),(int)(originY+y*scale));
         for (Hit hit : hits) if (hit.item != null && hit.contains(x, y) && hit.kind.equals("tile:item")) {
             var item = hit.item;
-            var icon = com.zycu.guishop.ShopIcons.editor(item.createStack(minecraft.level.registryAccess()),item.name,item.description,item.buy,item.sell,draft.config);
+            var icon = com.zycu.guishop.ShopIcons.editor(item.createStack(minecraft.level.registryAccess()),com.zycu.guishop.ListingGroups.displayName(item,minecraft.level.registryAccess()),item.description,item.buy,item.sell,draft.config);
             graphics.setTooltipForNextFrame(font, icon, (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
         for (Hit hit : hits) if (hit.contains(x, y) && (hit.kind.equals("tile:level") || hit.kind.equals("tile:offer"))) {
@@ -743,23 +750,21 @@ public final class AdminScreen extends WorkbenchScreen {
 
             return tiles;
         }
-        var groups=com.zycu.guishop.BookGroups.groups(category.items,minecraft.level.registryAccess());
-        if(enchantId==null)for(var entry:groups.entrySet()){
-            String name=com.zycu.guishop.BookGroups.name(entry.getKey(),minecraft.level.registryAccess());
+        var groups=com.zycu.guishop.ListingGroups.groups(category.items,minecraft.level.registryAccess(),enchantId);
+        for(var entry:groups.entrySet()){
+            String name=com.zycu.guishop.ListingGroups.name(entry.getKey(),minecraft.level.registryAccess());
             if(!search.isBlank()&&!name.toLowerCase(Locale.ROOT).contains(search)&&entry.getValue().stream().noneMatch(item->(item.name+" "+item.item+" "+item.listingId).toLowerCase(Locale.ROOT).contains(search)))continue;
-            var icon=com.zycu.guishop.ShopIcons.display(entry.getValue().getFirst().createStack(minecraft.level.registryAccess()),name,entry.getValue().size()+" book variants");
-            tiles.add(new Tile("bookgroup",entry.getKey(),name,"minecraft:enchanted_book",null,icon,entry.getValue().size()+" book variants"));
+            var icon=com.zycu.guishop.ShopIcons.display(entry.getValue().getFirst().createStack(minecraft.level.registryAccess()),name,com.zycu.guishop.ListingGroups.description(entry.getKey(),entry.getValue().size()));
+            tiles.add(new Tile("bookgroup",entry.getKey(),name,entry.getValue().getFirst().item,null,icon,com.zycu.guishop.ListingGroups.description(entry.getKey(),entry.getValue().size())));
         }
-        for(var item:category.items){
-            String group=com.zycu.guishop.BookGroups.key(item,minecraft.level.registryAccess());
-            if(enchantId==null&&group!=null||enchantId!=null&&!enchantId.equals(group))continue;
+        for(var item:com.zycu.guishop.ListingGroups.leaves(category.items,minecraft.level.registryAccess(),enchantId)){
             if(!search.isBlank()&&!(item.name+" "+item.item+" "+item.listingId).toLowerCase(Locale.ROOT).contains(search))continue;
-            tiles.add(new Tile("item",item.listingId,item.name,item.item,item));
+            tiles.add(new Tile("item",item.listingId,com.zycu.guishop.ListingGroups.displayName(item,minecraft.level.registryAccess()),item.item,item));
         }
         return tiles;
     }
     private void paintPreview(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        String breadcrumb="Shop"+(category()==null?"":" > "+category().name)+(enchantId==null?"":" > "+com.zycu.guishop.BookGroups.name(enchantId,minecraft.level.registryAccess()));
+        String breadcrumb="Shop"+(category()==null?"":" > "+category().name)+(enchantId==null?"":" > "+(enchantId.startsWith("arrow:")?"Tipped Arrows > ":"")+com.zycu.guishop.ListingGroups.name(enchantId,minecraft.level.registryAccess()));
         text(graphics,font.plainSubstrByWidth(breadcrumb,278),166,132,WorkbenchTheme.MUTED);
         if(draft.config.categories.isEmpty()){panel(graphics,160,145,298,160,WorkbenchTheme.PANEL);text(graphics,"Build your first shop",176,166,WorkbenchTheme.TEXT);text(graphics,"Start with a category or a vanilla preset.",176,183,WorkbenchTheme.MUTED);return;}
         List<Tile> tiles = tiles(); boolean root = category() == null && !enchantPreview;
@@ -770,7 +775,7 @@ public final class AdminScreen extends WorkbenchScreen {
         int left = 222, top = 160;
         panel(graphics, left - 8, top - 17, 178, rows * 18 + 40, WorkbenchTheme.PREVIEW);
         var previewOffer = draft.config.enchantments.get(enchantId);
-        String title=enchantId!=null&&!enchantPreview?com.zycu.guishop.BookGroups.name(enchantId,minecraft.level.registryAccess()):root?draft.config.shopTitle:category().name;
+        String title=enchantId!=null&&!enchantPreview?com.zycu.guishop.ListingGroups.name(enchantId,minecraft.level.registryAccess()):root?draft.config.shopTitle:category().name;
         text(graphics, font.plainSubstrByWidth(title, 156), left, top - 11, WorkbenchTheme.TEXT);
         List<Integer> slots = root ? CategoryLayout.slots(shown) : java.util.stream.IntStream.range(0, shown).boxed().toList();
         for (int slot = 0; slot < rows * 9; slot++) {
@@ -839,7 +844,24 @@ public final class AdminScreen extends WorkbenchScreen {
             multiline(graphics,"Browse registered enchantments and potions here. Set new preset defaults in Presets; edit listing prices in Shop Builder.",32,294,584,WorkbenchTheme.MUTED);
         }
     }
-    private void paintAccess(GuiGraphicsExtractor g){panel(g,16,69,628,270,WorkbenchTheme.PANEL);text(g,"Choose who can use each action. Adminshop requires OP level 2 or higher.",32,82,WorkbenchTheme.MUTED);text(g,"Installing the client grants no server permissions.",32,98,WorkbenchTheme.MUTED);var entries=permissionEntries();permissionScroll.count(entries.size());for(int row=0;row<7&&permissionScroll.row+row<entries.size();row++){var e=entries.get(permissionScroll.row+row);int y=122+row*26;g.fill(30,y,420,y+22,WorkbenchTheme.ROW);text(g,font.plainSubstrByWidth(permissionName(e.getKey()),375),36,y+7,WorkbenchTheme.TEXT);}permissionScroll.paint(g);text(g,"Update a role, then Save changes to apply it on the server.",32,316,WorkbenchTheme.MUTED);}
+    private void paintAccess(GuiGraphicsExtractor g){
+        panel(g,16,69,628,270,WorkbenchTheme.PANEL);
+        var info=draft.permissions;
+        text(g,"Permissions: "+(info==null?"Vanilla OP levels":info.name()),32,82,WorkbenchTheme.TEAL);
+        text(g,"Adminshop: guishop.admin | Default: OP 2+",32,98,WorkbenchTheme.TEXT);
+        text(g,info!=null&&info.api()?"Provider rules override defaults. Configure nodes in your permission manager.":"Choose who can use each action. Installing the client grants no permissions.",32,114,WorkbenchTheme.MUTED);
+        text(g,"ACTION / PERMISSION NODE",36,135,WorkbenchTheme.MUTED);text(g,"DEFAULT ROLE",430,135,WorkbenchTheme.MUTED);
+        var entries=permissionEntries();permissionScroll.count(entries.size());
+        for(int row=0;row<6&&permissionScroll.row+row<entries.size();row++){
+            var e=entries.get(permissionScroll.row+row);int y=150+row*26;
+            g.fill(30,y,420,y+24,WorkbenchTheme.ROW);
+            text(g,font.plainSubstrByWidth(permissionName(e.getKey()),375),36,y+2,WorkbenchTheme.TEXT);
+            text(g,font.plainSubstrByWidth(e.getKey(),375),36,y+13,WorkbenchTheme.MUTED);
+            hits.add(new Hit(30,y,390,24,"permission",e.getKey(),"",null));
+        }
+        hits.add(new Hit(30,96,574,14,"permission",com.zycu.guishop.ShopPermissions.ADMIN,"",null));
+        permissionScroll.paint(g);text(g,"Save changes applies defaults. Hover a row to see its full node.",32,316,WorkbenchTheme.MUTED);
+    }
     private void paintHistory(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         hoveredRecord = null;
         panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);

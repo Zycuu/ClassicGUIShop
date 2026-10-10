@@ -99,7 +99,7 @@ public final class ShopCommands {
         if(viewer!=null)remember(viewer);
         var target=GuiShop.PLAYERS.resolve(source.getServer(),StringArgumentType.getString(context,"player"));
         if(target==null){source.sendFailure(net.minecraft.network.chat.Component.literal("Unknown player. They must have joined this server at least once."));return 0;}
-        boolean owner=source.permissions().hasPermission(new net.minecraft.server.permissions.Permission.HasCommandLevel(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS));
+        boolean owner=ShopPermissions.admin(source);
         if(!owner&&(viewer==null||!target.uuid().equals(viewer.getUUID()))&&!PublicBalances.visible(source.getServer(),target.uuid())){
             source.sendFailure(net.minecraft.network.chat.Component.literal("This player's balance is hidden by the server's operator privacy setting."));return 0;
         }

@@ -17,6 +17,7 @@ parser.add_argument('--usefulfood-jar', type=pathlib.Path, help='Optional 26.3 F
 parser.add_argument('--travelersbackpack-jar', type=pathlib.Path, help='Optional Traveler backpack fixture; requires --forge-config-jar')
 parser.add_argument('--forge-config-jar', type=pathlib.Path, help='Optional Forge Config API Port fixture')
 parser.add_argument('--additional-mod-jar', type=pathlib.Path, action='append', default=[], help='Additional optional client/server fixtures, never bundled')
+parser.add_argument('--permission-provider-test', action='store_true', help='Verify a server-side LuckPerms grant and revocation with a non-OP client')
 parser.add_argument('--disposable', action='store_true', help='Confirm this server and its contents are test fixtures')
 args = parser.parse_args()
 if not args.disposable:
@@ -63,7 +64,7 @@ with server_log.open('w', encoding='utf8') as server_output, client_log.open('w'
                               cwd=server_dir, stdin=subprocess.PIPE, stdout=server_output, stderr=subprocess.STDOUT, text=True)
     success = False
     try:
-        for _ in range(90):
+        for _ in range(180):
             time.sleep(1)
             content = server_log.read_text(encoding='utf8', errors='replace')
             if '[ClassicGUIShop compatibility test] PASS:' in content:
@@ -85,10 +86,12 @@ with server_log.open('w', encoding='utf8') as server_output, client_log.open('w'
                 if marker in line and line not in seen:
                     print(line, flush=True); seen.add(line)
             player = re.search(r'\[Alpha UI test\] PLAYER: ([A-Za-z0-9_]+)', text)
-            if player and '[Alpha UI test] DENIED_READY' in text and not granted:
-                server.stdin.write(f'op {player[1]}\ngive {player[1]} minecraft:diamond 1\n'); server.stdin.flush(); granted = True
+            if player and '[Alpha UI test] DENIED_READY' in text and not granted and (not args.permission_provider_test or '[LuckPerms integration test] PASS:' in server_log.read_text(encoding='utf8', errors='replace')):
+                grant=f'lp user {player[1]} permission set guishop.admin true' if args.permission_provider_test else f'op {player[1]}'
+                server.stdin.write(grant+f'\ngive {player[1]} minecraft:diamond 1\n'); server.stdin.flush(); granted = True
             if player and '[Alpha UI test] REVOKE_READY' in text and not revoked:
-                server.stdin.write(f'deop {player[1]}\n'); server.stdin.flush(); revoked = True
+                revoke=f'lp user {player[1]} permission unset guishop.admin' if args.permission_provider_test else f'deop {player[1]}'
+                server.stdin.write(revoke+'\n'); server.stdin.flush(); revoked = True
             for uuid, reference in re.findall(r'\[Alpha UI test\] CONSOLE_REWARD: ([a-f0-9-]{36}) (gui-[a-f0-9-]{36})', text):
                 if reference not in console_rewards:
                     server.stdin.write(f'shopreward {uuid} 25 vote {reference} GUI vote reward\n'); server.stdin.flush(); console_rewards.add(reference)

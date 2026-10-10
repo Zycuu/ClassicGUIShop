@@ -45,6 +45,8 @@ public final class ShopPresets {
             if (holder.isEmpty()) continue;
             holder.get().value().buildContents(parameters);
             for (var stack : holder.get().value().getDisplayItems()) {
+                var potion = stack.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
+                if (potion != null && potion.potion().flatMap(h -> h.unwrapKey()).map(k -> !k.identifier().getNamespace().equals("minecraft")).orElse(false)) continue;
                 String id = ShopService.itemId(stack), identity = ItemStackData.listingId(stack, access);
                 if (!id.startsWith("minecraft:") || !identities.add(identity)) continue;
                 if (request.preset().equals("basics") && !basic(id.substring(10), group.id())) continue;
@@ -72,19 +74,30 @@ public final class ShopPresets {
         }
         double mapCap = config.categories.stream().flatMap(category -> category.items.stream()).filter(item -> item.item.equals("minecraft:map") && item.buy > 0).mapToDouble(item -> item.buy).min().orElse(0);
         for (var category : config.categories) for (var item : category.items) if (ShopMaps.nativeMap(item.createStack(access)) && item.sell > floor(mapCap * ratio)) { item.sell = floor(mapCap * ratio); capped++; }
-        if (!EconomyExploitScanner.audit(server, config).exploits().isEmpty()) throw new IllegalStateException("Preset failed the current recipe audit; live shop is unchanged");
+        var remaining = EconomyExploitScanner.audit(server, config).exploits();
+        if (!remaining.isEmpty()) throw new IllegalStateException("Preset " + request.preset() + " failed the current recipe audit; live shop is unchanged. " + remaining.stream().limit(3).map(EconomyExploitScanner::describe).toList());
         int count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
         if (!request.preset().equals("basics")) for (var holder : access.lookupOrThrow(Registries.ENCHANTMENT).listElements().toList()) {
             String id = holder.key().identifier().toString(); if (!id.startsWith("minecraft:")) continue;
             var offer = new ShopConfig.EnchantmentOffer(); offer.name = holder.value().description().getString(); offer.pricePerLevel = 100 * buyFactor; offer.maxLevel = holder.value().getMaxLevel(); config.enchantments.put(id, offer);
         }
         PriceMigration.flattenBooks(config, access, 1, bookRatio);
+        ListingGroups.separatePotions(config);
+        ListingGroups.separateTippedArrows(config);
         count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
         return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, audit.recipesChecked(), "Recipe caps can reduce the target return. Admin-only items are locked; other component variants are buy-only. Villager trades, world drops and arbitrary mod mechanics need separate review.");
     }
     private static ShopConfig.ShopItem listing(ItemStack stack, String category, double ratio, double factor, Set<String> used, net.minecraft.core.RegistryAccess access) {
         var item = new ShopConfig.ShopItem(); item.item = ShopService.itemId(stack); item.stack = ItemStackData.encode(stack, access); item.name = stack.getHoverName().getString();
         item.listingId = ItemStackData.unusedListingId(ItemStackData.listingId(stack, access), used); used.add(item.listingId.toLowerCase(Locale.ROOT)); item.manualPrice = true;
+        if (ListingGroups.potion(item.item) || item.item.equals("minecraft:tipped_arrow")) {
+            var contents = stack.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
+            if (contents != null) contents.potion().flatMap(h -> h.unwrapKey()).ifPresent(key -> {
+                String potion = key.identifier().getPath();
+                if (potion.startsWith("long_")) item.name += " (Extended)";
+                else if (potion.startsWith("strong_")) item.name += " (Strong)";
+            });
+        }
         String path = item.item.substring(10);
         if (!LOCKED.contains(path) && !path.endsWith("_spawn_egg")) { item.buy = Math.round(PresetPricing.buy(stack, category) * factor * 100) / 100.0; item.sell = stack.getComponentsPatch().isEmpty() ? floor(item.buy * ratio) : 0; }
         return item;

@@ -31,6 +31,10 @@ try:
  data=json.loads((server/'config/guishop/shops.json').read_text());items=[i for c in data['categories'] for i in c['items']]
  assert len(data['categories'])>=10 and len(items)>1600
  assert all(i['item'].startswith('minecraft:') for i in items)
+ potions=next(c for c in data['categories'] if c['id']=='potions')
+ assert potions['items'] and all(i['item'] in ('minecraft:potion','minecraft:splash_potion','minecraft:lingering_potion') for i in potions['items'])
+ assert all(c['id']=='potions' for c in data['categories'] if any(i['item'] in ('minecraft:potion','minecraft:splash_potion','minecraft:lingering_potion') for i in c['items']))
+ assert all(c['id']=='combat' for c in data['categories'] if any(i['item']=='minecraft:tipped_arrow' for i in c['items']))
  assert any(i['item']=='minecraft:diamond' and i['buy']>0 for i in items)
  assert any(i['item']=='minecraft:enchanted_book' and i['buy']>0 for i in items)
  assert all(i['sell']<=i['buy']*.30+.000001 for i in items)

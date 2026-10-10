@@ -7,8 +7,6 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permission;
-import net.minecraft.server.permissions.PermissionLevel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -46,8 +44,7 @@ public final class AdminEditorService {
     }
 
     public static boolean allowed(ServerPlayer player) {
-        // Use Minecraft's actual permission set, never the old broad operator reflection fallback.
-        return player.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
+        return com.zycu.guishop.ShopPermissions.admin(player.createCommandSourceStack());
     }
     private static void authorize(ServerPlayer player) {
         if (!allowed(player)) throw new SecurityException(DENIED);
@@ -60,6 +57,7 @@ public final class AdminEditorService {
         if (expectedDisk != null && !expectedDisk.equals(disk)) throw new IllegalStateException("Configuration files changed outside the editor. Restart the server to load those changes before editing.");
         AdminDocument document = new AdminDocument();
         document.config = GuiShop.CONFIG;
+        document.permissions = com.zycu.guishop.ShopPermissions.info();
         document = document.copy();
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         digest.update(AdminDocument.JSON.toJson(document).getBytes(java.nio.charset.StandardCharsets.UTF_8));

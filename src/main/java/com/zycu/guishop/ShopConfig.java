@@ -437,7 +437,7 @@ public final class ShopConfig {
         notes.put("chat.warningColor", "Color used for non-fatal warnings, unavailable listings, and disabled features.");
         notes.put("chat.errorColor", "Color used when an action fails or the player lacks permission or money.");
         notes.put("chat.adminColor", "Legacy administrator chat color retained for compatibility; Adminshop is a client GUI.");
-        notes.put("permissionDefaults", "Each entry is an exact vanilla command level from 0 to 4. 0 allows everyone, 2 is gamemaster, and 4 is owner. External permission plugins are not integrated in this Beta.");
+        notes.put("permissionDefaults", "Fallback vanilla level 0 to 4 for unassigned permission nodes. Explicit Fabric Permissions API provider grants and denies override these defaults. guishop.admin always falls back to OP 2, ignoring legacy admin defaults.");
         return notes;
     }
 

@@ -43,7 +43,7 @@ Passive progress pauses offline/disabled and checkpoints once per minute; abrupt
 
 Transactions wrap and display local 12-hour time, timezone, currency and debit signs. Trending separately ranks the top 20 purchased and sold exact variants by unit quantity over 24 hours, 7 days or 30 days. Click an item for players, then a player for matching archived transactions. It reads full daily files on a worker; player-history resets do not erase this evidence. Malformed journal lines produce a visible incomplete-data warning.
 
-Public `/econ bal <name>` and `/econ leaderboard` respect one Show operator balances publicly setting, default off. Offline OP UUIDs are covered, and hidden operators are removed before the top-five limit. `/bal` is self-only. OP level 2 or higher can inspect hidden balances through `/econ bal`; an empty leaderboard has a clear message.
+Public `/econ bal <name>` and `/econ leaderboard` respect one Show operator balances publicly setting, default off. Offline OP UUIDs are covered, and hidden operators are removed before the top-five limit. `/bal` is self-only. Administrators with `guishop.admin` (default OP 2) can inspect hidden balances through `/econ bal`; an empty leaderboard has a clear message.
 
 ## Migration
 

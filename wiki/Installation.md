@@ -5,7 +5,7 @@ This Beta requires Minecraft Java **26.3**, Java **25+**, and Fabric Loader **0.
 1. Stop the server and preserve a backup of `config/guishop/`.
 2. Install `ClassicGUIShop-v1.4.1-beta.1.jar` in the Fabric server's mods directory, replacing the previous active ClassicGUIShop JAR.
 3. Start the server and open `/shop`.
-4. Administrators install the same JAR in their matching Fabric client, then press F8 or run `/adminshop` in-game with OP level 2 or higher. 1.4.1 Beta requires both sides to use editor protocol v7.
+4. Administrators install the same JAR in their matching Fabric client, then press F8 or run `/adminshop` in-game with `guishop.admin` permission (default OP level 2 or higher). 1.4.3 Beta requires both sides to use editor protocol v7.
 
 Ordinary players do not need the mod or Fabric on their client. The required Fabric API modules are bundled. If another mod requires the full Fabric API, use its matching Minecraft 26.3 build.
 

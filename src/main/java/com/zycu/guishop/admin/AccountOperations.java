@@ -88,7 +88,7 @@ public final class AccountOperations {
         return rounded;
     }
     private static void authorize(CommandSourceStack actor) {
-        if (!actor.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS))) throw new SecurityException(AdminEditorService.DENIED);
+        if (!com.zycu.guishop.ShopPermissions.admin(actor)) throw new SecurityException(AdminEditorService.DENIED);
     }
     private static UUID known(CommandSourceStack actor, String id) {
         UUID uuid = UUID.fromString(id);

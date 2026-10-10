@@ -6,7 +6,7 @@ Install the Alpha JAR on both the Minecraft 26.3 server and your matching Fabric
 
 ## Permission popup
 
-The server requires OP level 2 or higher. Ask the server owner to grant permission. Client installation alone does not grant access.
+The server checks `guishop.admin` through an installed Fabric Permissions API provider, defaulting to OP level 2 when unassigned. Ask the server owner to grant permission; explicit denies also apply to operators. Client installation alone does not grant access.
 
 ## A fresh shop is empty
 

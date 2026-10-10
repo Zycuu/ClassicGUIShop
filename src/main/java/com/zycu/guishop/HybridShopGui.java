@@ -81,24 +81,24 @@ public final class HybridShopGui {
     private static void openCategoryPage(ServerPlayer player,ShopConfig.Category category,int requestedPage,String group,int parentPage){
         if(!allowed(player)||!ShopPermissions.category(player,category.id))return;
         if(GuiShop.CONFIG.category(category.id)!=category){ShopMessages.warning(player,"The shop was updated. Reopen /shop before trading.");return;}
-        var available=availableItems(player,category);var groups=BookGroups.groups(available,player.registryAccess());
-        List<ShopConfig.ShopItem> items=group==null?available.stream().filter(item->BookGroups.key(item,player.registryAccess())==null).toList():groups.getOrDefault(group,List.of());
-        var folders=group==null?new ArrayList<>(groups.entrySet()):new ArrayList<Map.Entry<String,List<ShopConfig.ShopItem>>>();
-        String title=group==null?category.name:BookGroups.name(group,player.registryAccess());
+        var available=availableItems(player,category);var groups=ListingGroups.groups(available,player.registryAccess(),group);
+        List<ShopConfig.ShopItem> items=ListingGroups.leaves(available,player.registryAccess(),group);
+        var folders=new ArrayList<>(groups.entrySet());
+        String title=group==null?category.name:ListingGroups.name(group,player.registryAccess());
         var session=new PageSession(player,Component.literal(title),(screen,requested)->{
             int total=folders.size()+items.size(),pages=pageCount(total),page=clampPage(requested,pages),start=(page-1)*PAGE_SIZE;screen.begin();
             for(int slot=0;slot<PAGE_SIZE&&start+slot<total;slot++){
                 int index=start+slot;
                 if(index<folders.size()){
-                    var folder=folders.get(index);String name=BookGroups.name(folder.getKey(),player.registryAccess());
-                    var icon=ShopIcons.display(folder.getValue().getFirst().createStack(player.registryAccess()),name,folder.getValue().size()+" book variants | Choose a level");
+                    var folder=folders.get(index);String name=ListingGroups.name(folder.getKey(),player.registryAccess());
+                    var icon=ShopIcons.display(folder.getValue().getFirst().createStack(player.registryAccess()),name,ListingGroups.description(folder.getKey(),folder.getValue().size()));
                     screen.bind(slot,icon,false,ignored->openCategoryPage(player,category,1,folder.getKey(),page));
                 }else{
-                    var entry=items.get(index-folders.size());var icon=ShopIcons.listing(entry.createStack(player.registryAccess()),entry.name,entry.description,entry.buy,entry.sell,GuiShop.CONFIG,true);
+                    var entry=items.get(index-folders.size());var icon=ShopIcons.listing(entry.createStack(player.registryAccess()),ListingGroups.displayName(entry,player.registryAccess()),entry.description,entry.buy,entry.sell,GuiShop.CONFIG,true);
                     screen.trade(slot,icon,(side,quantity)->{if(ShopService.trade(player,entry,side,quantity))screen.show(page);});
                 }
             }
-            screen.bind(BACK_SLOT,displayStack("minecraft:barrier","Back"),false,ignored->{if(group==null)openCategories(player,1);else openCategoryPage(player,category,parentPage,null,1);});
+            screen.bind(BACK_SLOT,displayStack("minecraft:barrier","Back"),false,ignored->{if(group==null)openCategories(player,1);else openCategoryPage(player,category,parentPage,ListingGroups.parent(group),1);});
             screen.pageControls(page,pages,"Page "+page+"/"+pages+" | Balance "+money(player),screen::show);screen.finish();
         });session.open(requestedPage);
     }

@@ -8,5 +8,7 @@ import com.zycu.guishop.ShopConfig;
 public final class AdminDocument {
     public static final Gson JSON = new GsonBuilder().disableHtmlEscaping().create();
     public ShopConfig config;
+    /** Server-provided UI metadata, ignored when applying a draft. */
+    public com.zycu.guishop.ShopPermissions.Info permissions;
     public AdminDocument copy() { return JSON.fromJson(JSON.toJson(this), AdminDocument.class); }
 }

@@ -35,6 +35,8 @@ dependencies {
     implementation include('net.fabricmc.fabric-api:fabric-networking-api-v1:6.3.8+fcdff87f5d')
     implementation include('net.fabricmc.fabric-api:fabric-lifecycle-events-v1:4.1.9+ffef5f675d')
     implementation include('net.fabricmc.fabric-api:fabric-key-mapping-api-v1:2.0.8+3434d6d95d')
+    // Optional server integration. Providers bundle/install this API; ordinary clients do not need it.
+    compileOnly 'me.lucko:fabric-permissions-api:0.7.0'
     // Optional integration fixtures are runtime-only and never bundled or published.
     if (project.hasProperty('usefulFoodTestJar')) runtimeOnly files(project.property('usefulFoodTestJar'))
     if (project.hasProperty('fullFabricApiTestJar')) runtimeOnly files(project.property('fullFabricApiTestJar'))
@@ -70,6 +72,8 @@ sourceSets {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
     }
 }
+
+dependencies { compatibilityTestCompileOnly 'net.luckperms:api:5.5' }
 
 tasks.register('compatibilityTestJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
