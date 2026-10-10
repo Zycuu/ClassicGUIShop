@@ -58,7 +58,11 @@ public final class ShopCommands {
 
         dispatcher.register(Commands.literal("bal")
             .requires(source -> ShopPermissions.user(source, "guishop.command.balance"))
-            .executes(ShopCommands::balance));
+            .executes(ShopCommands::balance)
+            .then(Commands.argument("player", StringArgumentType.word()).suggests(ShopSuggestions.PLAYERS).executes(ShopCommands::otherBalance)));
+        dispatcher.register(Commands.literal("baltop").requires(source -> ShopPermissions.user(source, "guishop.command.balance")).executes(context -> {
+            int rank = 0; for (var entry : PublicBalances.top(context.getSource().getServer())) { String message = (++rank) + ". " + entry.name() + " | " + GuiShop.CONFIG.money(entry.amount()); context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(message), false); } return 1;
+        }));
 
     }
 
@@ -83,6 +87,12 @@ public final class ShopCommands {
         return 1;
     }
 
+    private static int otherBalance(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        var viewer = context.getSource().getPlayerOrException();
+        var target = GuiShop.PLAYERS.resolve(context.getSource().getServer(), StringArgumentType.getString(context,"player"));
+        if (target == null || !target.uuid().equals(viewer.getUUID()) && !PublicBalances.visible(context.getSource().getServer(),target.uuid())) { ShopMessages.warning(viewer,"That player's balance is unavailable."); return 0; }
+        ShopMessages.info(viewer,target.name() + " | Balance: " + GuiShop.CONFIG.money(GuiShop.ECONOMY.readBalance(target.uuid()))); return 1;
+    }
     private static int pay(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer sender = context.getSource().getPlayerOrException();
         remember(sender);

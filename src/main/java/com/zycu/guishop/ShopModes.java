@@ -22,7 +22,7 @@ public final class ShopModes {
     private static int ticks;
     private static long lastError;
     private static final Map<UUID, Integer> sessionSeconds = new HashMap<>();
-    private static final class Progress { int seconds; long sequence; double pendingAmount; }
+    private static final class Progress { int seconds, pendingSeconds; String pendingPrefix; long sequence; double pendingAmount; }
     private static final class State { int version = 1; Map<String, Progress> passive = new HashMap<>(); }
     public record Offer(String id, String name, double suggested) {}
     public record Catalog(List<Offer> entities, List<Offer> advancements) {}
@@ -56,13 +56,14 @@ public final class ShopModes {
                 if (progress == null) { progress = new Progress(); state.passive.put(player.getUUID().toString(), progress); }
                 if (progress.pendingAmount == 0 && config.passiveEnabled && config.passiveAmount >= .01) {
                     progress.seconds = Math.min(86400, progress.seconds + 1);
-                    if (progress.seconds >= config.passiveSeconds) { progress.pendingAmount = Math.round(config.passiveAmount * 100) / 100.0; save(); }
+                    if (progress.seconds >= config.passiveInterval()) { progress.pendingAmount = Math.round(config.passiveAmount * 100) / 100.0; progress.pendingSeconds = config.passiveInterval(); progress.pendingPrefix = config.passivePrefix; save(); }
                 }
                 if (progress.pendingAmount > 0) {
                     double amount = progress.pendingAmount;
-                    boolean paid = AccountOperations.mode(player, "passive", player.getUUID() + ":" + progress.sequence, amount, "Online interval", null, 0, false, null, 0);
-                    progress.seconds = 0; progress.sequence++; progress.pendingAmount = 0; save();
-                    if (paid) message(player, "Passive Income", config.passiveColor, "Received " + GuiShop.CONFIG.money(amount) + ".");
+                    String paidPrefix = progress.pendingPrefix == null ? config.passivePrefix : progress.pendingPrefix;
+                    boolean paid = AccountOperations.mode(player, "passive", player.getUUID() + ":" + progress.sequence, amount, progress.pendingSeconds > 0 ? "Played for " + minutes(progress.pendingSeconds) : "Online interval (duration not recorded)", null, 0, false, null, 0, progress.pendingPrefix);
+                    progress.seconds = 0; progress.sequence++; progress.pendingAmount = 0; progress.pendingSeconds = 0; progress.pendingPrefix = null; save();
+                    if (paid) message(player, paidPrefix, config.passiveColor, "Received " + GuiShop.CONFIG.money(amount) + ".");
                 }
             } catch (Exception error) { report(error); }
         }
@@ -78,25 +79,25 @@ public final class ShopModes {
         try {
             if (victim instanceof ServerPlayer player) {
                 if (!config.warriorEnabled || !eligible(player) || player.getUUID().equals(killer.getUUID())) return;
-                if (sessionSeconds.getOrDefault(killer.getUUID(), 0) < config.warriorMinimumOnlineSeconds || sessionSeconds.getOrDefault(player.getUUID(), 0) < config.warriorMinimumOnlineSeconds) return;
+                if (sessionSeconds.getOrDefault(killer.getUUID(), 0) < config.warriorMinimumOnline() || sessionSeconds.getOrDefault(player.getUUID(), 0) < config.warriorMinimumOnline()) return;
                 if (config.blockSameAddress && player.getIpAddress().equals(killer.getIpAddress())) return;
                 if (config.warriorReward < .01) return;
                 // Unordered pair prevents bypass by taking turns as killer and victim.
                 String pair = java.util.stream.Stream.of(killer.getUUID().toString(), player.getUUID().toString()).sorted().reduce((a, b) -> a + ":" + b).orElseThrow();
                 double before = GuiShop.ECONOMY.readBalance(player.getUUID());
-                boolean paid = AccountOperations.mode(killer, "warrior", player.getUUID() + ":" + player.level().getGameTime(), config.warriorReward, "Player kill: " + player.getUUID(), player, config.warriorDeduction, config.allowNegativeBalance, "warrior:" + pair, config.warriorCooldownSeconds);
+                boolean paid = AccountOperations.mode(killer, "warrior", player.getUUID() + ":" + player.level().getGameTime(), config.warriorReward, "Killed " + player.getName().getString(), player, config.warriorDeduction, config.allowNegativeBalance, "warrior:" + pair, config.warriorCooldown());
                 if (paid) {
-                    message(killer, "Warrior Mode", config.warriorColor, "Received " + GuiShop.CONFIG.money(config.warriorReward) + " for defeating " + player.getName().getString() + ".");
+                    message(killer, config.warriorPrefix, config.warriorColor, "Received " + GuiShop.CONFIG.money(config.warriorReward) + " for defeating " + player.getName().getString() + ".");
                     double deduction = before - GuiShop.ECONOMY.readBalance(player.getUUID());
-                    if (deduction > 0) message(player, "Warrior Mode", config.warriorColor, "Lost " + GuiShop.CONFIG.money(deduction) + ".");
+                    if (deduction > 0) message(player, config.warriorPrefix, config.warriorColor, "Lost " + GuiShop.CONFIG.money(deduction) + ".");
                 }
             } else if (config.mobsEnabled) {
                 String id = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType()).toString();
                 double amount = config.mobPrices.getOrDefault(id, config.mobDefault);
                 if (amount < .01) return;
                 // Quick farming is an explicit global bypass, including spawner farms.
-                int cooldown = config.allowSpawnerFarming ? 0 : config.mobCooldownSeconds;
-                if (AccountOperations.mode(killer, "mobs", victim.getUUID().toString(), amount, "Entity: " + id, null, 0, false, cooldown == 0 ? null : "mobs:" + killer.getUUID() + ":" + id, cooldown)) message(killer, "Cash Mobs", config.mobsColor, "Received " + GuiShop.CONFIG.money(amount) + " for " + victim.getType().getDescription().getString() + ".");
+                int cooldown = config.allowSpawnerFarming ? 0 : config.mobCooldown();
+                if (AccountOperations.mode(killer, "mobs", victim.getUUID().toString(), amount, "Killed " + victim.getType().getDescription().getString() + " [" + id + "]", null, 0, false, cooldown == 0 ? null : "mobs:" + killer.getUUID() + ":" + id, cooldown)) message(killer, config.mobsPrefix, config.mobsColor, "Received " + GuiShop.CONFIG.money(amount) + " for " + victim.getType().getDescription().getString() + ".");
             }
         } catch (Exception error) { report(error); }
     }
@@ -109,7 +110,7 @@ public final class ShopModes {
         if (amount < .01) return;
         try {
             String reference = player.getUUID() + ":" + ItemStackData.shortHash(id);
-            if (AccountOperations.mode(player, "advancement", reference, amount, "Advancement: " + id, null, 0, false, null, 0)) message(player, "Advancement Hunter", config.advancementsColor, "Received " + GuiShop.CONFIG.money(amount) + " for " + advancement.value().name().map(Component::getString).orElse(id) + ".");
+            if (AccountOperations.mode(player, "advancement", reference, amount, "Completed " + advancement.value().name().map(Component::getString).orElse(id) + " [" + id + "]", null, 0, false, null, 0)) message(player, config.advancementsPrefix, config.advancementsColor, "Received " + GuiShop.CONFIG.money(amount) + " for " + advancement.value().name().map(Component::getString).orElse(id) + ".");
         } catch (Exception error) { report(error); }
     }
     private static double suggested(AdvancementHolder value) {
@@ -126,6 +127,7 @@ public final class ShopModes {
             .map(value -> new Offer(value.id().toString(), value.value().name().map(Component::getString).orElse(value.id().toString()), suggested(value))).toList();
         return new Catalog(entities, advancements);
     }
+    private static String minutes(int seconds) { double value = seconds / 60.0; return (value == Math.rint(value) ? Long.toString((long)value) : String.format(Locale.ROOT, "%.3f", value)) + (seconds == 60 ? " minute" : " minutes"); }
     private static void message(ServerPlayer player, String mode, String color, String text) {
         player.sendSystemMessage(Component.literal("[" + mode + "] ").withStyle(ChatFormatting.valueOf(color.toUpperCase(Locale.ROOT))).append(Component.literal(text).withStyle(ChatFormatting.WHITE)));
     }

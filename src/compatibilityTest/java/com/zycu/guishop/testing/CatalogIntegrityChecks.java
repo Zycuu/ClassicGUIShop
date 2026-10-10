@@ -29,6 +29,7 @@ public final class CatalogIntegrityChecks {
                 var source = listing.createStack(player.registryAccess());
                 check(!source.isEmpty(), "Detected source decodes: " + listing.listingId);
                 auditedTypes.add(source.getItem());
+                check(com.zycu.guishop.SaleValuation.quote(player,source).unit()==2,"Exact command valuation preserves catalog variant: "+listing.listingId);
                 var before = ItemStackData.encode(source, player.registryAccess());
                 var identity = ItemStackData.listingId(source, player.registryAccess());
                 var icon = ShopIcons.listing(source, listing.name, "Audit shop description", 10, 2, config, true);

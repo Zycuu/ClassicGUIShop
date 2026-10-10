@@ -150,7 +150,7 @@ public final class AdminEditorService {
         text(config.shopTitle, 64, "Shop title");
         if (config.shopTitle.isBlank()) fail("Shop title cannot be empty");
         amount(config.startingBalance, "Starting balance"); amount(config.priceMultiplier, "Price multiplier");
-        if (config.priceMultiplier > 1000) fail("Price multiplier must be at most 1000");
+        if (config.pricingSchema != 1 || config.priceMultiplier != 1) fail("Use stored listing prices and Adjust prices; legacy multipliers are migration-only");
         if (config.catalogSellRatio < 0 || config.catalogSellRatio > 1 || !Double.isFinite(config.catalogSellRatio)) fail("Enchantment sell ratio must be between 0 and 1");
         amount(config.defaultEnchantmentPricePerLevel, "Default enchantment price");
         text(config.chatPrefix, 64, "Chat prefix");
@@ -176,7 +176,7 @@ public final class AdminEditorService {
                 var oldCategory = GuiShop.CONFIG.category(category.id);
                 boolean preserved = oldCategory != null && category.icon.equals(oldCategory.icon)
                     && category.iconStack.equals(oldCategory.iconStack);
-                if (!preserved) {
+                if (!preserved && com.zycu.guishop.VersionedListingStore.isItemRegistered(category.icon)) {
                     var template = net.minecraft.world.item.ItemStack.CODEC.parse(player.registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE), category.iconStack).getOrThrow();
                     if (template.isEmpty() || !BuiltInRegistries.ITEM.getKey(template.getItem()).toString().equals(category.icon)) fail("Category icon does not match its exact item identity");
                 }
@@ -196,7 +196,7 @@ public final class AdminEditorService {
                 for (var existingCategory : GuiShop.CONFIG.categories) for (var existing : existingCategory.items) {
                     if (existing.listingId.equalsIgnoreCase(item.listingId)) old = existing;
                 }
-                if (old == null) {
+                if (old == null && !(item.unavailableImport && item.buy == 0 && item.sell == 0 && item.item.matches("[a-z0-9_.-]+:[a-z0-9_./-]+"))) {
                     var stack = item.createStack(player.registryAccess());
                     if (item.stack != null) {
                         stack = net.minecraft.world.item.ItemStack.CODEC.parse(player.registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE), item.stack).getOrThrow();
@@ -282,7 +282,7 @@ public final class AdminEditorService {
         catch (RuntimeException exception) { fail("Unknown icon: " + value); }
     }
     private static void amount(double value, String label) {
-        if (!Double.isFinite(value) || value < 0 || value > 1_000_000_000) fail(label + " must be finite and between 0 and 1,000,000,000");
+        if (!Double.isFinite(value) || value < 0 || value > 1_000_000_000_000.0) fail(label + " must be finite and between 0 and 1,000,000,000,000");
     }
     private static void fail(String message) { throw new IllegalArgumentException(message); }
 }

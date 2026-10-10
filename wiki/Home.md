@@ -4,7 +4,7 @@ Documentation for **1.4.0 Alpha 1**, targeting Minecraft **26.3** with Java **25
 
 Player shops use vanilla chest menus and require no client mod. Administrators optionally install ClassicGUIShop on their matching Fabric client and press F8 for the new workbench. All editor access requires OP level 2 or higher on the server.
 
-The workbench includes a shop builder and simulator, server settings, exact permission levels, transaction records, configuration history, and backup restoration through drafts. Automatic item discovery and old administrator commands remain removed. Fresh shops are configured explicitly.
+The workbench includes a shop builder and simulator, server settings, exact permission levels, transaction records, configuration history, and backup restoration through drafts. Automatic shop population and old administrator editing commands remain removed; explicit detected-content import is available. Fresh shops are configured explicitly.
 
 - [Installation](Installation.md)
 - [Quick Start](Quick-Start.md)
@@ -18,3 +18,6 @@ The workbench includes a shop builder and simulator, server settings, exact perm
 - [Items, Mods, and Data Packs](Imports-Mods-and-Data-Packs.md)
 - [Troubleshooting](Troubleshooting.md)
 - [Release Checklist](Public-Release-Checklist.md)
+
+
+Beta 1 adds unified stored prices, book/potion variants, portable preset import/export, damage/enchantment command valuation, public balance privacy and full-journal Trending. Modes use minutes and editable prefixes. See [Economy and Pricing](Economy-and-Pricing.md) for migration and safeguards.

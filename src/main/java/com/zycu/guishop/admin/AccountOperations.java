@@ -29,9 +29,9 @@ public final class AccountOperations {
     private record Receipt(String uuid, double amount, String operationId) {}
     private record Pending(String operationId, String kind, String uuid, String name, double before,
                            double after, String actor, String source, String reference, String reason,
-                           String time, long generation, String debitUuid, String debitName, double debitAfter, long debitGeneration, double debitAmount, String cooldownKey, long cooldownUntil) {
+                           String time, long generation, String debitUuid, String debitName, double debitAfter, long debitGeneration, double debitAmount, String cooldownKey, long cooldownUntil, String modeName) {
         Pending(String operationId, String kind, String uuid, String name, double before, double after, String actor, String source, String reference, String reason, String time, long generation) {
-            this(operationId, kind, uuid, name, before, after, actor, source, reference, reason, time, generation, null, null, 0, 0, 0, null, 0);
+            this(operationId, kind, uuid, name, before, after, actor, source, reference, reason, time, generation, null, null, 0, 0, 0, null, 0, null);
         }
     }
     public record Change(String uuid, double expectedBalance, double balance, double expectedDefault, boolean reset) {}
@@ -133,6 +133,9 @@ public final class AccountOperations {
     }
     /** Internal server earning events share the same durable account intent and replay receipts. */
     public static synchronized boolean mode(ServerPlayer player, String source, String reference, double amount, String reason, ServerPlayer victim, double deduction, boolean negative, String cooldownKey, int cooldownSeconds) {
+        return mode(player,source,reference,amount,reason,victim,deduction,negative,cooldownKey,cooldownSeconds,null);
+    }
+    public static synchronized boolean mode(ServerPlayer player, String source, String reference, double amount, String reason, ServerPlayer victim, double deduction, boolean negative, String cooldownKey, int cooldownSeconds, String prefix) {
         ensureReady(); amount = money(amount, true); deduction = money(deduction, false);
         String key = "mode." + source + "/" + reference;
         var prior = load().rewards.get(key);
@@ -150,7 +153,7 @@ public final class AccountOperations {
             actualDeduction = signedMoney(current - victimAfter);
         }
         begin(new Pending(UUID.randomUUID().toString(), "MODE", player.getUUID().toString(), player.getName().getString(), before, after, "Server Shop Modes", "mode." + source, reference, reason, java.time.Instant.now().toString(), historyGeneration(player.getUUID().toString()),
-            victim == null ? null : victim.getUUID().toString(), victim == null ? null : victim.getName().getString(), victimAfter, victim == null ? 0 : historyGeneration(victim.getUUID().toString()), actualDeduction, cooldownKey, java.time.Instant.now().getEpochSecond() + cooldownSeconds));
+            victim == null ? null : victim.getUUID().toString(), victim == null ? null : victim.getName().getString(), victimAfter, victim == null ? 0 : historyGeneration(victim.getUUID().toString()), actualDeduction, cooldownKey, java.time.Instant.now().getEpochSecond() + cooldownSeconds, prefix == null ? GuiShop.CONFIG.modes.prefix(source) : prefix));
         return true;
     }
     private static void begin(Pending pending) {
@@ -166,10 +169,10 @@ public final class AccountOperations {
             String details = "By " + pending.actor() + " | Previous " + pending.before() + " | " + pending.source() + " | " + pending.reference() + " | " + pending.reason();
             var record = new TransactionJournal.Entry(pending.time(), pending.name(), pending.uuid(), pending.kind().equals("MODE") ? "MODE_INCOME" : pending.kind().equals("REWARD") ? "REWARD" : "BALANCE_" + pending.kind(),
                 (pending.kind().equals("REWARD") || pending.kind().equals("MODE")) ? pending.source() + ":" + pending.reference() : "Admin balance adjustment", "", 0, 0,
-                (pending.kind().equals("REWARD") || pending.kind().equals("MODE")) ? money(pending.after() - pending.before(), true) : pending.after(), pending.after(), details, pending.operationId(), pending.generation());
+                (pending.kind().equals("REWARD") || pending.kind().equals("MODE")) ? money(pending.after() - pending.before(), true) : pending.after(), pending.after(), details, pending.operationId(), pending.generation(), pending.modeName(), pending.kind().equals("MODE") ? pending.reason() : null, null, null);
             if (pending.kind().equals("RESET")) TransactionJournal.appendAccountAudit(record);
             else TransactionJournal.appendOperation(record);
-            if (pending.debitUuid() != null) TransactionJournal.appendOperation(new TransactionJournal.Entry(pending.time(), pending.debitName(), pending.debitUuid(), "MODE_DEDUCTION", pending.source(), "", 0, 0, -pending.debitAmount(), pending.debitAfter(), "Defeated by " + pending.name() + " (" + pending.uuid() + ") | Victim previous " + (pending.debitAfter() + pending.debitAmount()) + " | " + details, pending.operationId() + ":debit", pending.debitGeneration()));
+            if (pending.debitUuid() != null) TransactionJournal.appendOperation(new TransactionJournal.Entry(pending.time(), pending.debitName(), pending.debitUuid(), "MODE_DEDUCTION", pending.source(), "", 0, 0, -pending.debitAmount(), pending.debitAfter(), "Defeated by " + pending.name() + " (" + pending.uuid() + ") | Victim previous " + (pending.debitAfter() + pending.debitAmount()) + " | " + details, pending.operationId() + ":debit", pending.debitGeneration(), pending.modeName(), "Killed by " + pending.name(), null, null));
             State next = copy();
             if (pending.cooldownKey() != null) next.modeCooldowns.put(pending.cooldownKey(), pending.cooldownUntil());
             if (pending.kind().equals("RESET")) next.historyGenerations.put(pending.uuid(), Math.incrementExact(pending.generation()));

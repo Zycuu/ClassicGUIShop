@@ -39,10 +39,14 @@ public final class AdminScreen extends WorkbenchScreen {
     private AdminDocument draft;
     private String baseline, revision, status = "Draft ready. Changes stay local until Apply.";
     private com.zycu.guishop.ShopModes.Catalog modeCatalog;
+    private com.zycu.guishop.admin.VariantSources.Catalog variantSources;
+    public void variantSources(com.zycu.guishop.admin.VariantSources.Catalog value){variantSources=value;}
     private String modeSection = "Passive Income", presetChoice = "normal";
     private com.zycu.guishop.admin.ShopPresets.Plan presetPlan;
     private Tab tab = Tab.BUILDER;
-    private String categoryId = "", query = "", selectedItem, settingsSection = "Economy";
+    private String categoryId = "", query = "", selectedItem, settingsSection = "General";
+    private final java.util.ArrayDeque<Integer> logPrevious = new java.util.ArrayDeque<>();
+    private int logNext;
     private int browserPage, previewPage, accessPage, logPage, logOffset;
     private boolean arranging, busy;
     private boolean enchantPreview;
@@ -113,7 +117,7 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     public void logs(TransactionJournal.Page page, AdminNetworking.Query request) {
         if (!matches(request) || request.generation() != historyRequestGeneration) return;
-        logData = page; logOffset = page.offset(); logPage = 0;
+        logData = page; logOffset = page.offset(); logPage = 0; logNext=0; logPrevious.clear();
         status = page.warning().isBlank() ? "Dates shown in " + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + ". Search local or UTC dates." : page.warning(); rebuildWidgets();
     }
     public void players(AdminPlayers.Page page, String filter) {
@@ -253,6 +257,7 @@ public final class AdminScreen extends WorkbenchScreen {
         busy = false; presetPlan = plan; status = "Preset ready for review. The live shop is unchanged."; rebuildWidgets();
     }
     private void presets() {
+        button("Import / export presets",28,244,190,()->minecraft.gui.setScreen(new PresetLibraryScreen(this,draft)));
         String[] ids = {"normal", "hard", "easy", "basics"};
         String[] names = {"Full Vanilla Normal", "Full Vanilla Hard", "Full Vanilla Easy", "The Basics"};
         for (int i = 0; i < ids.length; i++) { String id = ids[i]; button((presetChoice.equals(id) ? "> " : "") + names[i], 28, 82 + i * 39, 190, () -> { presetChoice = id; presetPlan = null; rebuildWidgets(); }); }
@@ -261,9 +266,9 @@ public final class AdminScreen extends WorkbenchScreen {
         }).active = !busy;
         button("Use preset draft", 426, 269, 194, () -> {
             if (presetPlan == null) return;
-            confirm("Replace draft shop?", "This replaces ALL draft categories, listings and enchantment offers, including modded content. The live shop stays unchanged until Apply. Player balances and modes are preserved.", () -> {
-                draft.config.categories = new ArrayList<>(presetPlan.categories()); draft.config.catalogSellRatio = presetPlan.ratio();
-                draft.config.enchantments = new LinkedHashMap<>(presetPlan.enchantments()); draft.config.enchantmentsEnabled = !presetPlan.enchantments().isEmpty();
+            confirm("Replace draft shop?", "This replaces ALL draft categories and listings, including modded content. The live shop stays unchanged until Apply. Player balances and modes are preserved.", () -> {
+                draft.config.categories = new ArrayList<>(presetPlan.categories());
+
                 categoryId = ""; selectedItem = null; browserPage = 0; previewPage = 0; tab = Tab.BUILDER; status = "Preset loaded into the draft. Review categories and prices, then Apply.";
             });
         }).active = !busy && presetPlan != null;
@@ -274,7 +279,7 @@ public final class AdminScreen extends WorkbenchScreen {
         multiline(graphics, description, 250, 84, 370, WorkbenchTheme.TEXT);
         multiline(graphics, "Every preset is a draft. Recipe safety caps may lower individual sell prices. Modded listings are not generated.", 250, 126, 370, WorkbenchTheme.MUTED);
         if (presetPlan != null) {
-            text(graphics, presetPlan.items() + " listings | " + presetPlan.categories().size() + " categories | " + presetPlan.enchantments().size() + " book offers", 250, 178, WorkbenchTheme.TEXT);
+            text(graphics, presetPlan.items() + " listings | " + presetPlan.categories().size() + " categories | " + presetPlan.categories().stream().flatMap(c->c.items.stream()).filter(i->i.item.equals("minecraft:enchanted_book")&&i.buy>0).count() + " book variants", 250, 178, WorkbenchTheme.TEXT);
             text(graphics, presetPlan.locked() + " locked | " + presetPlan.capped() + " sell caps | " + presetPlan.recipes() + " recipes checked", 250, 193, WorkbenchTheme.TEAL);
             multiline(graphics, presetPlan.warning(), 250, 209, 370, WorkbenchTheme.MUTED);
         }
@@ -288,13 +293,13 @@ public final class AdminScreen extends WorkbenchScreen {
         if (modeSection.equals("Passive Income")) {
             toggle("Passive Income", 218, 81, 182, m.passiveEnabled, value -> m.passiveEnabled = value);
             number("Income amount", 218, 138, 174, m.passiveAmount, value -> m.passiveAmount = value);
-            number("Interval seconds", 418, 138, 194, m.passiveSeconds, value -> m.passiveSeconds = (int)value);
+            number("Interval minutes", 418, 138, 194, m.passiveMinutes, value -> m.passiveMinutes = value);
             modeColor("Prefix color", 218, 201, m.passiveColor, value -> m.passiveColor = value);
         } else if (modeSection.equals("Cash Mobs")) {
             toggle("Cash Mobs", 218, 81, 182, m.mobsEnabled, value -> m.mobsEnabled = value);
             toggle("Quick farming", 418, 81, 194, m.allowSpawnerFarming, value -> m.allowSpawnerFarming = value);
             number("Default entity payout", 218, 138, 174, m.mobDefault, value -> m.mobDefault = value);
-            number("Kill cooldown seconds", 418, 138, 194, m.mobCooldownSeconds, value -> m.mobCooldownSeconds = (int)value);
+            number("Kill cooldown minutes", 418, 138, 194, m.mobCooldownMinutes, value -> m.mobCooldownMinutes = value);
             modeColor("Prefix color", 218, 201, m.mobsColor, value -> m.mobsColor = value);
             button("Edit entity payouts", 418, 201, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, false))).active = modeCatalog != null;
         } else if (modeSection.equals("Advancement Hunter")) {
@@ -307,19 +312,21 @@ public final class AdminScreen extends WorkbenchScreen {
             toggle("Allow debt", 418, 81, 194, m.allowNegativeBalance, value -> m.allowNegativeBalance = value);
             number("Kill reward", 218, 128, 174, m.warriorReward, value -> m.warriorReward = value);
             number("Victim deduction", 418, 128, 194, m.warriorDeduction, value -> m.warriorDeduction = value);
-            number("Pair cooldown seconds", 218, 181, 174, m.warriorCooldownSeconds, value -> m.warriorCooldownSeconds = (int)value);
-            number("Minimum online seconds", 418, 181, 194, m.warriorMinimumOnlineSeconds, value -> m.warriorMinimumOnlineSeconds = (int)value);
+            number("Pair cooldown minutes", 218, 181, 174, m.warriorCooldownMinutes, value -> m.warriorCooldownMinutes = value);
+            number("Minimum online minutes", 418, 181, 194, m.warriorMinimumOnlineMinutes, value -> m.warriorMinimumOnlineMinutes = value);
             toggle("Block same address", 218, 227, 182, m.blockSameAddress, value -> m.blockSameAddress = value);
             modeColor("Prefix color", 418, 227, m.warriorColor, value -> m.warriorColor = value);
         }
+        String prefix = m.prefix(modeSection.equals("Passive Income")?"passive":modeSection.equals("Cash Mobs")?"mobs":modeSection.equals("Advancement Hunter")?"advancement":"warrior");
+        field("Prefix name",218,263,394,prefix,value->{switch(modeSection){case "Passive Income"->m.passivePrefix=value;case "Cash Mobs"->m.mobsPrefix=value;case "Advancement Hunter"->m.advancementsPrefix=value;default->m.warriorPrefix=value;}}).setMaxLength(32);
     }
     private void modeColor(String label, int x, int y, String color, Consumer<String> changed) { field(label, x, y, 174, color, changed); }
     private void paintModes(GuiGraphicsExtractor graphics) {
         panel(graphics, 16, 69, 188, 270, WorkbenchTheme.PANEL); panel(graphics, 208, 69, 436, 270, WorkbenchTheme.PANEL);
-        String[] labels = switch (modeSection) { case "Passive Income" -> new String[]{"Income amount", "Interval seconds"}; case "Cash Mobs" -> new String[]{"Default entity payout", "Kill cooldown seconds"}; case "Advancement Hunter" -> new String[]{"Default visible mod advancement payout", ""}; default -> new String[]{"Kill reward", "Victim deduction"}; };
+        String[] labels = switch (modeSection) { case "Passive Income" -> new String[]{"Income amount", "Interval minutes"}; case "Cash Mobs" -> new String[]{"Default entity payout", "Kill cooldown minutes"}; case "Advancement Hunter" -> new String[]{"Default visible mod advancement payout", ""}; default -> new String[]{"Kill reward", "Victim deduction"}; };
         int y = modeSection.equals("Warrior Mode") ? 113 : 123;
         text(graphics, labels[0], 218, y, WorkbenchTheme.MUTED); text(graphics, labels[1], 418, y, WorkbenchTheme.MUTED);
-        if (modeSection.equals("Warrior Mode")) { text(graphics, "Pair cooldown seconds", 218, 166, WorkbenchTheme.MUTED); text(graphics, "Minimum online seconds", 418, 166, WorkbenchTheme.MUTED); text(graphics, "Prefix color", 418, 212, WorkbenchTheme.MUTED); }
+        if (modeSection.equals("Warrior Mode")) { text(graphics, "Pair cooldown minutes", 218, 166, WorkbenchTheme.MUTED); text(graphics, "Minimum online minutes", 418, 166, WorkbenchTheme.MUTED); text(graphics, "Prefix color", 418, 212, WorkbenchTheme.MUTED); }
         else text(graphics, "Prefix color", 218, 186, WorkbenchTheme.MUTED);
         String help = switch (modeSection) {
             case "Passive Income" -> "Earn while online in survival or adventure. Time pauses offline and while disabled. AFK time counts. No offline catch-up or restart bonus.";
@@ -327,8 +334,9 @@ public final class AdminScreen extends WorkbenchScreen {
             case "Advancement Hunter" -> "One reward per player and advancement, even after revoking/regranting or resetting history. Vanilla Task 25, Goal 100, Challenge 500. Invisible/recipe entries default to 0.";
             default -> "Credit and victim deduction persist together. Repeat pairs are blocked in both directions. Creative, spectator and self kills do not pay. Same-address blocking can affect families sharing a connection.";
         };
-        multiline(graphics, help, 218, 273, 406, WorkbenchTheme.MUTED);
-        text(graphics, "All four modes can run together. Changes require Apply.", 218, 320, WorkbenchTheme.TEAL);
+        text(graphics,"Prefix name",218,251,WorkbenchTheme.MUTED);
+        multiline(graphics, help, 218, 289, 406, WorkbenchTheme.MUTED);
+        text(graphics, "All four modes can run together. Changes require Apply.", 218, 331, WorkbenchTheme.TEAL);
     }
 
     private void builder() {
@@ -342,7 +350,8 @@ public final class AdminScreen extends WorkbenchScreen {
             rebuildWidgets();
         });
         button("Up", 397, 76, 55, this::up);
-        search = field("Search listings", 166, 107, 286, query, value -> query = value);
+        button("Prices...",366,107,86,()->minecraft.gui.setScreen(new PriceAdjustScreen(this,draft.config,categoryId.isEmpty()?null:categoryId,selectedItem)));
+        search = field("Search listings", 166, 107, 194, query, value -> query = value);
         search.setHint(Component.literal("Search by name or item ID..."));
         search.setResponder(value -> { query = value; previewPage = 0; });
         search.setEditable(arranging);
@@ -433,19 +442,21 @@ public final class AdminScreen extends WorkbenchScreen {
 
     private void settings() {
         int x = 24;
-        for (String section : List.of("Economy", "Messages", "Enchantments")) {
-            String name = section; button((name.equals(settingsSection) ? "* " : "") + name, x, 78, 190, () -> { settingsSection = name; rebuildWidgets(); }); x += 208;
+        for (String section : List.of("General","Economy", "Messages", "Enchantments/Potions")) {
+            String name = section; button((name.equals(settingsSection) ? "* " : "") + name, x, 78, 148, () -> { settingsSection = name; rebuildWidgets(); }); x += 154;
         }
         var config = draft.config;
-        if (settingsSection.equals("Economy")) {
+        if (settingsSection.equals("General")) {
+            field("Shop title",32,142,594,config.shopTitle,value->config.shopTitle=value).setMaxLength(64);
+            toggle("Creative transactions",32,196,276,config.creativeTransactionsAllowed(),value->config.allowCreativeTransactions=value);
+            toggle("Offline payments",350,196,276,config.offlinePaymentsAllowed(),value->config.allowOfflinePayments=value);
+        } else if (settingsSection.equals("Economy")) {
             field("Currency prefix (display only)", 32, 142, 276, config.currencySymbol, value -> config.currencySymbol = value);
             number("Starting balance for new players", 350, 142, 276, config.startingBalance, value -> config.startingBalance = value);
-            number("Global buy and sell multiplier", 32, 196, 276, config.priceMultiplier, value -> config.priceMultiplier = value);
-            number("Enchanted book sell ratio (0 to 1)", 350, 196, 276, config.catalogSellRatio, value -> config.catalogSellRatio = value);
-            toggle("Creative transactions", 32, 240, 276, config.creativeTransactionsAllowed(), value -> config.allowCreativeTransactions = value);
-            toggle("Offline payments", 350, 240, 276, config.offlinePaymentsAllowed(), value -> config.allowOfflinePayments = value);
-            toggle("Enchanted book shop", 32, 274, 276, config.enchantmentsEnabled(), value -> config.enchantmentsEnabled = value);
-            field("Shop title", 350, 274, 276, config.shopTitle, value -> config.shopTitle = value).setMaxLength(64);
+            toggle("Damaged item selling",32,196,276,config.sellDamagedItems,value->config.sellDamagedItems=value);
+            toggle("Enchanted equipment selling",350,196,276,config.sellEnchantedEquipment,value->config.sellEnchantedEquipment=value);
+            toggle("Show operator balances publicly",32,235,594,config.showOperatorBalances,value->config.showOperatorBalances=value);
+            button("Adjust prices...",32,279,276,()->minecraft.gui.setScreen(new PriceAdjustScreen(this,config,null,null)));
         } else if (settingsSection.equals("Messages")) {
             field("Chat prefix", 32, 142, 276, config.chatPrefix, value -> config.chatPrefix = value);
             field("Prefix color", 350, 142, 276, config.chatPrefixColor, value -> config.chatPrefixColor = value);
@@ -454,21 +465,9 @@ public final class AdminScreen extends WorkbenchScreen {
             field("Warning color", 32, 250, 276, config.chatWarningColor, value -> config.chatWarningColor = value);
             field("Error color", 350, 250, 276, config.chatErrorColor, value -> config.chatErrorColor = value);
         } else {
-            List<Map.Entry<String, ShopConfig.EnchantmentOffer>> offers = new ArrayList<>(config.enchantments.entrySet());
-            int pages = Math.max(1, (offers.size() + 4) / 5); accessPage = Math.min(accessPage, pages - 1);
-            for (int row = 0; row < 5 && accessPage * 5 + row < offers.size(); row++) {
-                var entry = offers.get(accessPage * 5 + row); var offer = entry.getValue(); int y = 133 + row * 35;
-                field(entry.getKey(), 32, y, 245, offer.name, value -> offer.name = value);
-                number("Price / level", 291, y, 104, offer.pricePerLevel, value -> offer.pricePerLevel = value);
-                number("Max level", 409, y, 88, offer.maxLevel, value -> offer.maxLevel = (int) value);
-                toggle("Enabled", 511, y, 116, offer.enabled(), value -> offer.enabled = value);
-            }
-            button("Previous", 32, 313, 110, () -> { accessPage = Math.max(0, accessPage - 1); rebuildWidgets(); });
-            button("Next", 150, 313, 110, () -> { accessPage = Math.min(pages - 1, accessPage + 1); rebuildWidgets(); });
-            button("+ Offer", 506, 313, 120, () -> minecraft.gui.setScreen(new EditorDialog(this, "Add enchantment offer", "Enter a registered enchantment ID, for example minecraft:unbreaking.", "minecraft:unbreaking", id -> {
-                String key = ShopConfig.normalizeIdentifier(id);
-                if (!config.enchantments.containsKey(key)) { var offer = new ShopConfig.EnchantmentOffer(); offer.name = key; offer.pricePerLevel = 0; config.enchantments.put(key, offer); }
-            })));
+            if(variantSources==null)AdminShopClient.request("variant_sources","","");
+            button("Enchantments",32,123,276,()->minecraft.gui.setScreen(new VariantScreen(this,config,true)));
+            button("Potions",350,123,276,()->minecraft.gui.setScreen(new VariantScreen(this,config,false)));
         }
     }
     private void access() {
@@ -555,19 +554,21 @@ public final class AdminScreen extends WorkbenchScreen {
             selectedPlayer = null; query = ""; logPage = 0; requestRecords(0); rebuildWidgets();
             });
         }
+        if(tab==Tab.TRANSACTIONS && selectedPlayer==null)button("Trending",494,76,130,()->minecraft.gui.setScreen(new TrendingScreen(this,accountCurrency)));
         button("Search", 494, 110, 130, () -> requestRecords(0));
-        button("Previous", 32, 313, 100, () -> { if (logPage > 0) logPage--; else if (logOffset > 0) requestRecords(Math.max(0, logOffset - 100)); });
+        button("Previous", 32, 313, 100, () -> { if(!roster && !logPrevious.isEmpty())logPage=logPrevious.pop(); else if (roster && logPage > 0) logPage--; else if (logOffset > 0) requestRecords(Math.max(0, logOffset - 100)); });
         button("Next", 140, 313, 100, () -> {
             int count = roster ? playerData.players().size() : logData.entries().size();
             boolean more = roster ? playerData.more() : logData.more();
-            if ((logPage + 1) * 10 < count) logPage++;
+            if(!roster && logNext < count){logPrevious.push(logPage);logPage=logNext;}
+            else if (roster && (logPage + 1) * 10 < count) logPage++;
             else if (more) requestRecords(logOffset + 100);
         });
         button("Refresh", 494, 313, 130, () -> requestRecords(logOffset));
     }
     private void requestRecords(int offset) {
         historyRequestGeneration++;
-        retryOffset = offset; logPage = 0;
+        retryOffset = offset; logPage = 0; logNext=0; logPrevious.clear();
         String action, body;
         if (tab == Tab.TRANSACTIONS && selectedPlayer == null) {
             playerData = new AdminPlayers.Page(List.of(), offset, false);
@@ -592,7 +593,7 @@ public final class AdminScreen extends WorkbenchScreen {
             try {
                 double parsed = Double.parseDouble(input);
                 if (!Double.isFinite(parsed) || parsed < 0) throw new NumberFormatException();
-                if ((label.endsWith("seconds") || label.equals("Max level") || label.startsWith("guishop.")) && parsed != Math.rint(parsed)) throw new NumberFormatException();
+                if ((label.equals("Max level") || label.startsWith("guishop.")) && parsed != Math.rint(parsed)) throw new NumberFormatException();
                 if (label.startsWith("guishop.") && parsed > 4 || label.equals("Max level") && parsed > 255) throw new NumberFormatException();
                 errors.remove(key); invalidInputs.remove(key); changed.accept(parsed);
             } catch (NumberFormatException exception) {
@@ -632,7 +633,7 @@ public final class AdminScreen extends WorkbenchScreen {
         hits.clear(); panel(graphics, -48, 0, W + 48, H, WorkbenchTheme.SURFACE);
         graphics.text(font, Component.literal("ClassicGUIShop").withStyle(style -> style.withBold(true)), -28, 12, WorkbenchTheme.TEXT, false);
         text(graphics, "Admin Workbench", -28, 25, WorkbenchTheme.MUTED);
-        text(graphics, "1.4.0 ALPHA", 556, 17, WorkbenchTheme.MUTED);
+        text(graphics, "1.4.0 BETA 1", 556, 17, WorkbenchTheme.MUTED);
         graphics.fill(-32, 41, W - 16, 42, 0x553C515A);
         panel(graphics, -36, 69, 34, 270, 0xAA142027);
         String heading = switch (tab) { case BUILDER -> "Shop Builder"; case SETTINGS -> "Settings"; case ACCESS -> "Access"; case DETECTED -> "Detected Content"; case TRANSACTIONS -> "Transactions"; case HISTORY -> "Changes"; case PRESETS -> "Presets"; case MODES -> "Shop Modes"; };
@@ -652,13 +653,13 @@ public final class AdminScreen extends WorkbenchScreen {
     @Override protected void afterWidgets(GuiGraphicsExtractor graphics, int x, int y, float delta) {
         if (hoveredRecord != null) {
             String text = hoveredDate ? com.zycu.guishop.admin.JournalDates.full(hoveredRecord.time(), localZone) + " (" + localZone.getId() + ")\nUTC: " + com.zycu.guishop.admin.JournalDates.full(hoveredRecord.time(), java.time.ZoneId.of("UTC"))
-                : hoveredRecord.listing() + "\nQuantity: " + hoveredRecord.quantity() + " | Total: " + accountMoney(hoveredRecord.total()) + "\n" + hoveredRecord.details();
+                : com.zycu.guishop.admin.TransactionJournal.action(hoveredRecord) + "\n" + com.zycu.guishop.admin.TransactionJournal.activity(hoveredRecord) + "\n" + hoveredRecord.listing() + "\nQuantity: " + hoveredRecord.quantity() + " | Total: " + accountMoney(hoveredRecord.total()) + "\n" + hoveredRecord.details();
             graphics.setTooltipForNextFrame(font, font.split(Component.literal(text), 280), (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
         for (Hit hit : hits) if (hit.item != null && hit.contains(x, y) && hit.kind.equals("tile:item")) {
             var item = hit.item;
             var icon = com.zycu.guishop.ShopIcons.listing(item.createStack(minecraft.level.registryAccess()), item.name, item.description,
-                item.buy * draft.config.priceMultiplier, item.sell * draft.config.priceMultiplier, draft.config, true);
+                item.buy, item.sell, draft.config, true);
             graphics.setTooltipForNextFrame(font, icon, (int)(originX + (x + contentOffsetX()) * scale), (int)(originY + y * scale));
         }
         for (Hit hit : hits) if (hit.contains(x, y) && (hit.kind.equals("tile:level") || hit.kind.equals("tile:offer"))) {
@@ -727,11 +728,11 @@ public final class AdminScreen extends WorkbenchScreen {
     }
     private List<Tile> tiles() {
         var category = category(); List<Tile> tiles = new ArrayList<>();
-        if (enchantPreview) return enchantTiles();
+
         if (category == null) {
             for (var value : draft.config.categories) if (arranging || value.items.stream().anyMatch(this::visible)) tiles.add(new Tile("category", value.id, value.name, value.icon, null,
                 com.zycu.guishop.ShopIcons.category(value, minecraft.level.registryAccess(), value.name), value.description));
-            if (draft.config.enchantmentsEnabled()) tiles.add(new Tile("enchant", "", "Enchanted Books", "minecraft:enchanted_book", null));
+
             return tiles;
         }
         String search = query.toLowerCase(Locale.ROOT);
@@ -741,40 +742,6 @@ public final class AdminScreen extends WorkbenchScreen {
             tiles.add(new Tile("item", item.listingId, item.name, item.item, item));
         }
         return tiles;
-    }
-    private List<Tile> enchantTiles() {
-        List<Tile> tiles = new ArrayList<>();
-        if (!draft.config.enchantmentsEnabled() || minecraft.level == null) return tiles;
-        var registry = minecraft.level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT);
-        for (var entry : draft.config.enchantments.entrySet()) {
-            var offer = entry.getValue(); if (!offer.enabled() || enchantId != null && !entry.getKey().equals(enchantId)) continue;
-            try {
-                var holder = registry.getOrThrow(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ENCHANTMENT, Identifier.parse(entry.getKey())));
-                int max = EnchantmentShopService.maximumLevel(holder.value(), offer);
-                double first = enchantPrice(offer, 1), last = enchantPrice(offer, max);
-                if (enchantId == null && max > 0 && last > 0) {
-                    var icon = com.zycu.guishop.ShopIcons.display(EnchantmentShopService.createBook(holder, 1), offer.name, "");
-                    icon.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(
-                        Component.literal("Buy: " + draft.config.money(first) + " - " + draft.config.money(last)),
-                        Component.literal("Sell: " + draft.config.money(Math.round(first * draft.config.catalogSellRatio * 100) / 100.0) + " - " + draft.config.money(Math.round(last * draft.config.catalogSellRatio * 100) / 100.0)),
-                        Component.literal("Click to choose a level"))));
-                    tiles.add(new Tile("offer", entry.getKey(), offer.name, "minecraft:enchanted_book", null,
-                        icon, "Levels 1-" + max + " | " + draft.config.money(first) + " - " + draft.config.money(last)));
-                } else for (int level = 1; level <= max; level++) {
-                    double price = enchantPrice(offer, level); if (price <= 0) continue;
-                    tiles.add(new Tile("level", entry.getKey() + ":" + level, offer.name + " " + EnchantmentShopService.roman(level), "minecraft:enchanted_book", null,
-                        com.zycu.guishop.ShopIcons.listing(EnchantmentShopService.createBook(holder, level), offer.name + " " + EnchantmentShopService.roman(level), "", price,
-                            Math.round(price * draft.config.catalogSellRatio * 100) / 100.0, draft.config, false),
-                        "Buy " + draft.config.money(price) + " | Sell " + draft.config.money(Math.round(price * draft.config.catalogSellRatio * 100) / 100.0)));
-                }
-            } catch (RuntimeException unavailable) { /* Keep unavailable offers in configuration, outside the preview. */ }
-        }
-        if (enchantId == null) tiles.sort(Comparator.comparing(Tile::name, String.CASE_INSENSITIVE_ORDER));
-        return tiles;
-    }
-    private double enchantPrice(ShopConfig.EnchantmentOffer offer, int level) {
-        double buy = Math.round(offer.pricePerLevel * level * draft.config.priceMultiplier * 100.0) / 100.0;
-        return buy;
     }
     private void paintPreview(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         List<Tile> tiles = tiles(); boolean root = category() == null && !enchantPreview;
@@ -804,7 +771,7 @@ public final class AdminScreen extends WorkbenchScreen {
             if (mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18) {
                 graphics.fill(x, y, x + 18, y + 18, 0x44FFFFFF);
                 text(graphics, font.plainSubstrByWidth(tile.name, 278), 169, 297, WorkbenchTheme.MUTED);
-                if (tile.item != null) text(graphics, "Buy " + number(tile.item.buy * draft.config.priceMultiplier) + " | Sell " + number(tile.item.sell * draft.config.priceMultiplier), 169, 308, WorkbenchTheme.MUTED);
+                if (tile.item != null) text(graphics, "Buy " + number(tile.item.buy) + " | Sell " + number(tile.item.sell), 169, 308, WorkbenchTheme.MUTED);
                 else if (!tile.detail.isBlank()) text(graphics, font.plainSubstrByWidth(tile.detail, 278), 169, 308, WorkbenchTheme.MUTED);
             }
             hits.add(new Hit(x, y, 18, 18, "tile:" + tile.kind, tile.id, categoryId, tile.item));
@@ -836,24 +803,20 @@ public final class AdminScreen extends WorkbenchScreen {
         hits.add(new Hit(x, y, 18, 18, "preview:" + action, "", "", null));
     }
     private void paintSettings(GuiGraphicsExtractor graphics) {
-        panel(graphics, 16, 69, 628, 270, WorkbenchTheme.PANEL);
-        if (settingsSection.equals("Economy")) {
-            labels(graphics, new String[]{"Currency prefix (display only)", "Global buy and sell multiplier"}, 32, new int[]{129, 183});
-            labels(graphics, new String[]{"Starting balance for new players", "Enchanted book sell ratio (0 to 1)"}, 350, new int[]{129, 183});
-            text(graphics, "Existing player balances are preserved.", 32, 307, WorkbenchTheme.MUTED);
-            text(graphics, "Shop title", 350, 263, WorkbenchTheme.MUTED);
-        } else if (settingsSection.equals("Messages")) {
-            labels(graphics, new String[]{"Chat prefix", "Information color", "Warning color"}, 32, new int[]{129, 183, 237});
-            labels(graphics, new String[]{"Prefix color", "Success color", "Error color"}, 350, new int[]{129, 183, 237});
-            text(graphics, "Use Minecraft color names such as gold, aqua, green, or light_purple.", 32, 296, WorkbenchTheme.MUTED);
-        } else {
-            var offers = new ArrayList<>(draft.config.enchantments.entrySet());
-            for (int row = 0; row < 5 && accessPage * 5 + row < offers.size(); row++) {
-                text(graphics, font.plainSubstrByWidth(offers.get(accessPage * 5 + row).getKey(), 245), 32, 121 + row * 35, WorkbenchTheme.MUTED);
-                text(graphics, "Price / level", 291, 121 + row * 35, WorkbenchTheme.MUTED);
-                text(graphics, "Max level", 409, 121 + row * 35, WorkbenchTheme.MUTED);
-            }
-            if (offers.isEmpty()) text(graphics, "No offers yet. Add an offer explicitly to configure it.", 32, 167, WorkbenchTheme.MUTED);
+        panel(graphics,16,69,628,270,WorkbenchTheme.PANEL);
+        if(settingsSection.equals("General")) {
+            text(graphics,"Shop title",32,129,WorkbenchTheme.MUTED);
+            multiline(graphics,"The player shop uses vanilla menus. Admin editing requires the matching client mod and server permission.",32,247,580,WorkbenchTheme.MUTED);
+        } else if(settingsSection.equals("Economy")) {
+            text(graphics,"Currency prefix (display only)",32,129,WorkbenchTheme.MUTED);text(graphics,"Starting balance for new players",350,129,WorkbenchTheme.MUTED);
+            multiline(graphics,"Listings store final buy and sell amounts. Presets and Adjust prices change the draft once. Existing player balances are preserved.",32,307,584,WorkbenchTheme.MUTED);
+        } else if(settingsSection.equals("Messages")) {
+            labels(graphics,new String[]{"Chat prefix","Information color","Warning color"},32,new int[]{129,183,237});labels(graphics,new String[]{"Prefix color","Success color","Error color"},350,new int[]{129,183,237});
+            text(graphics,"Use Minecraft color names such as gold, aqua, green, or light_purple.",32,296,WorkbenchTheme.MUTED);
+        } else if(minecraft.level!=null) {
+            VariantScreen.paintSummary(graphics,font,draft.config,minecraft.level.registryAccess(),true,32,165,variantSources);
+            VariantScreen.paintSummary(graphics,font,draft.config,minecraft.level.registryAccess(),false,350,165,variantSources);
+            multiline(graphics,"Manage exact book and potion variants. Scaling writes ordinary listing prices. Other mods control how above-limit enchantments can be applied.",32,294,584,WorkbenchTheme.MUTED);
         }
     }
     private void paintAccess(GuiGraphicsExtractor graphics) {
@@ -869,22 +832,32 @@ public final class AdminScreen extends WorkbenchScreen {
         if (tab == Tab.TRANSACTIONS && selectedPlayer == null) { paintPlayers(graphics); return; }
         String heading = tab == Tab.HISTORY ? "Server configuration changes" : selectedPlayer.name() + " | Balance: " + accountMoney(selectedPlayer.balance());
         text(graphics, font.plainSubstrByWidth(heading, selectedPlayer == null ? 590 : 278), 32, 82, WorkbenchTheme.MUTED);
-        graphics.fill(30, 139, 629, 155, 0xFF304850);
-        text(graphics, "Time (" + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + ")", 36, 143, WorkbenchTheme.TEXT); text(graphics, "Player", 172, 143, WorkbenchTheme.TEXT);
-        text(graphics, "Action", 260, 143, WorkbenchTheme.TEXT); text(graphics, "Item / source", 340, 143, WorkbenchTheme.TEXT); text(graphics, "Total", 540, 143, WorkbenchTheme.TEXT);
-        for (int row = 0; row < 10 && logPage * 10 + row < logData.entries().size(); row++) {
-            var entry = logData.entries().get(logPage * 10 + row); int y = 158 + row * 14;
-            graphics.fill(30, y, 629, y + 14, row % 2 == 0 ? 0x30283D45 : WorkbenchTheme.ROW);
-            text(graphics, com.zycu.guishop.admin.JournalDates.display(entry.time(), localZone), 36, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(entry.player(), 80), 172, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(entry.action(), 72), 260, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(entry.action().equals("CONFIG_APPLY") ? entry.details() : entry.listing(), 190), 340, y + 3, WorkbenchTheme.TEXT);
-            text(graphics, font.plainSubstrByWidth(accountMoney(entry.total()), 82), 540, y + 3, WorkbenchTheme.TEXT);
-            if (tab == Tab.HISTORY) hits.add(new Hit(30, y, 599, 14, "log", Integer.toString(logPage * 10 + row), "", null));
-            if (mouseX >= 30 && mouseX < 629 && mouseY >= y && mouseY < y + 14) { hoveredRecord = entry; hoveredDate = mouseX < 164; }
+        graphics.fill(30,139,629,155,0xFF304850);
+        text(graphics,"Time ("+com.zycu.guishop.admin.JournalDates.zoneLabel(localZone)+")",36,143,WorkbenchTheme.TEXT);
+        text(graphics,"Action",180,143,WorkbenchTheme.TEXT);text(graphics,"Activity / item",310,143,WorkbenchTheme.TEXT);text(graphics,"Total",550,143,WorkbenchTheme.TEXT);
+        int y=158,row=0;logNext=logPage;
+        for(int index=logPage;index<logData.entries().size();index++){
+            var entry=logData.entries().get(index);
+            String activity=com.zycu.guishop.admin.TransactionJournal.activity(entry);
+            if(tab==Tab.HISTORY)activity=entry.player()+": "+activity;
+            var date=font.split(Component.literal(com.zycu.guishop.admin.JournalDates.display(entry.time(),localZone)),136);
+            var action=font.split(Component.literal(com.zycu.guishop.admin.TransactionJournal.action(entry)),120);
+            var description=font.split(Component.literal(activity==null?"":activity),230);
+            var total=font.split(Component.literal(accountMoney(com.zycu.guishop.admin.TransactionJournal.signedTotal(entry))),76);
+            int height=Math.min(132,6+12*Math.max(Math.max(date.size(),action.size()),Math.max(description.size(),total.size())));
+            if(y+height>295 && row>0)break;
+            graphics.fill(30,y,629,y+height,row++%2==0?0x30283D45:WorkbenchTheme.ROW);
+            paintCell(graphics,date,36,y+3,height);paintCell(graphics,action,180,y+3,height);paintCell(graphics,description,310,y+3,height);paintCell(graphics,total,550,y+3,height);
+            if(tab==Tab.HISTORY)hits.add(new Hit(30,y,599,height,"log",Integer.toString(index),"",null));
+            if(mouseX>=30&&mouseX<629&&mouseY>=y&&mouseY<y+height){hoveredRecord=entry;hoveredDate=mouseX<174;}
+            y+=height;logNext=index+1;
         }
         if (logData.entries().isEmpty()) text(graphics, "No matching records in the recent history window.", 32, 181, WorkbenchTheme.MUTED);
         text(graphics, font.plainSubstrByWidth("Local: " + com.zycu.guishop.admin.JournalDates.zoneLabel(localZone) + " (" + localZone.getId() + "). Search local or UTC dates.", 590), 32, 299, WorkbenchTheme.MUTED);
+    }
+    private void paintCell(GuiGraphicsExtractor graphics,java.util.List<net.minecraft.util.FormattedCharSequence> lines,int x,int y,int height){
+        int count=Math.max(1,(height-6)/12);for(int i=0;i<lines.size()&&i<count;i++)graphics.text(font,lines.get(i),x,y+i*12,WorkbenchTheme.TEXT,false);
+        if(lines.size()>count)text(graphics,"...",x,y+(count-1)*12,WorkbenchTheme.MUTED);
     }
     private void paintPlayers(GuiGraphicsExtractor graphics) {
         text(graphics, "Select a player to view their transactions", 32, 82, WorkbenchTheme.MUTED);

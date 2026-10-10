@@ -46,7 +46,9 @@ Resource reading runs off the tick thread. Codec work is divided across ticks; s
 
 ## Settings and Access
 
-Edit the shop title, currency display, starting balance for new players, global multiplier, creative transaction behavior, offline payments, chat colors, and explicit enchantment offers. A maximum enchantment level of zero uses the enchantment's natural maximum. Values 1 to 255 set the shop maximum explicitly, including levels above vanilla. For example, Looting with maximum 5 offers levels I through V in both the simulator and the live shop. Delivered books retain the purchased level. This does not change vanilla anvil rules.
+Settings has General, Economy, Messages, and Enchantments/Potions. General controls the shop title, creative transactions and offline payments. Economy controls currency, starting balance, damaged/enchanted command sales and public operator balance visibility. Messages controls the general chat prefix/colors. Enchantments/Potions reports detected source counts and store listings; its two buttons open variant managers. Books and normal/splash/lingering potions become ordinary exact listings, with explicit one-time scaling and optional custom book levels through 255. Other mods own anvil/application rules.
+
+Use Adjust prices for selected listings, a category or the whole shop. Review a one-time buy/sell percentage change or a sell-return percentage before changing the draft. There is no live multiplier or book-specific sell ratio. Presets generate the same stored listing amounts.
 
 Access controls player command, transaction, and category requirements using vanilla command levels 0 to 4. Adminshop stays fixed at level 2 or higher.
 
@@ -58,7 +60,9 @@ Discard restores the opened snapshot. Reload fetches current server state and di
 
 ## Transactions and Changes
 
-Search server transaction records by player, UUID, item/listing, action, or date. Select a row for quantities, prices, totals, resulting balance, and details. Records use UTC. The GUI reads the latest 30 daily files, up to the last 2 MB each; older full records remain on disk.
+Select a player for current balance and transaction history. Rows are read-only, wrap to fit, and use normal hover tooltips for full details. Local 12-hour timestamps show the timezone; searches accept both local and UTC dates. Gains/debits use the server currency. Modes show their saved prefix name and readable activity. This recent player view reads the latest 30 daily files, up to the last 2 MB each.
+
+Trending opens from the player selector. Purchased and Sold are separate top-20 lists by unit quantity over 24 hours, 7 days or 30 days. Click an item for its players, then a player for matching archived transactions. It reads complete daily journals on a worker. Player history resets do not remove this evidence; malformed lines show an incomplete-data warning.
 
 Changes lists successful configuration applies. Open an entry and load its previous configuration into a draft. Review the draft and Apply to restore it. This restores configuration, not player balances or transaction history. Every restore Apply creates another backup.
 
@@ -66,8 +70,11 @@ Backups are under `config/guishop/backups/`; daily journals are under `config/gu
 
 ## Presets and Shop Modes
 
-Alpha 10 adds two navigation tabs. Presets generates a server-audited preview, then Use preset draft confirms replacing all draft categories and enchantment offers, including modded content. The live shop remains unchanged until Apply. Normal targets 30%, Hard 10% with triple buying costs, Easy 95% with 75% buying costs, and Basics targets 30% for raw resources. Full presets offer registered vanilla enchantments at natural levels; Basics has no book offers. Locked entries and recipe caps appear in the review. Keep the old shop backup and review every enabled price.
+Presets and Shop Modes have their own navigation tabs. Presets generates a server-audited preview, then Use preset draft confirms replacing all draft categories and listings, including modded content. The live shop remains unchanged until Apply. Normal targets 30%, Hard 10% with triple buying costs, Easy 95% with 75% buying costs, and Basics targets 30% for raw resources. Full presets include ordinary exact vanilla book variants at natural levels; Basics omits them. Locked entries and recipe caps appear in the review. Keep the old shop backup and review every enabled price.
 
-Shop Modes has four independent switches, all off initially. Choose a mode to edit its amount, timing, message color and safeguards. Cash Mobs and Advancement Hunter open searchable payout editors using the server's detected IDs. Zero disables a payout. Use defaults clears only the draft payout overrides after confirmation. Refresh detected IDs reloads current server definitions; saved unavailable overrides are preserved and shown. All mode edits require Apply. Each active mode can run alongside the others.
+Shop Modes has four independent switches, all off initially. Choose a mode to edit its amount, minute timing, prefix name/color and safeguards. Cash Mobs and Advancement Hunter open searchable payout editors using the server's detected IDs. Zero disables a payout. Use defaults clears only the draft payout overrides after confirmation. Refresh detected IDs reloads current server definitions; saved unavailable overrides are preserved and shown. All mode edits require Apply. Each active mode can run alongside the others.
 
 Warrior's same-address check can block legitimate players sharing a connection. Allow debt is an explicit opt-in; switching it off prevents additional debt but preserves existing debt for repayment. Passive income counts AFK online time. Full behavior and preset limitations are described in [Economy and Pricing](Economy-and-Pricing.md).
+
+
+Import / export presets opens the server library. Export current draft validates the unapplied draft and writes data-only JSON to the server and a uniquely named client copy under config/guishop/presets. Import a local JSON path, review dependencies and unavailable variants, then Use reviewed draft and Apply. Missing variants keep their raw data with both prices disabled. Accounts, journals, permissions, currency and earning modes are never imported. Original imported files remain in the library.

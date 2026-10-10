@@ -103,7 +103,7 @@ public final class DetectedContentChecks {
         draft.config.permissionDefaults.put("guishop.category.duplicate_first", 4);
         var saved = AdminEditorService.apply(player, original.revision(), draft);
         String quoted = com.mojang.brigadier.arguments.StringArgumentType.escapeIfRequired(two.listingId);
-        check(server.getCommands().getDispatcher().execute("worth " + quoted + " 2", player.createCommandSourceStack()) == 1, "Worth accepts the exact duplicate listing ID and amount");
+        check(server.getCommands().getDispatcher().execute("worth " + quoted + " 2", player.createCommandSourceStack()) == 0, "Worth rejects a restricted exact duplicate listing");
         var suggestions = server.getCommands().getDispatcher().getCompletionSuggestions(server.getCommands().getDispatcher().parse("worth \"minecraft:diamond@", player.createCommandSourceStack())).join();
         check(suggestions.getList().stream().anyMatch(value -> value.getText().equals(quoted)), "Duplicate listing suggestions include the required quotes");
         player.getInventory().clearContent(); player.getInventory().setItem(0, new ItemStack(Items.DIAMOND));
@@ -135,9 +135,10 @@ public final class DetectedContentChecks {
         var enchantDraft = saved.document().copy(); enchantDraft.config.enchantmentsEnabled = true;
         var looting = new ShopConfig.EnchantmentOffer(); looting.name = "Looting"; looting.maxLevel = 5; looting.pricePerLevel = 2;
         enchantDraft.config.enchantments.put("minecraft:looting", looting);
+        com.zycu.guishop.PriceMigration.flattenBooks(enchantDraft.config,player.registryAccess(),1,.30);
         var enchantSaved = AdminEditorService.apply(player, saved.revision(), enchantDraft);
         var holder = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse("minecraft:looting")));
-        check(EnchantmentShopService.maximumLevel(holder.value(), GuiShop.CONFIG.enchantmentOffer("minecraft:looting")) == 5, "Configured maximum above vanilla is honored");
+        check(EnchantmentShopService.maximumLevel(holder.value(), looting) == 5, "Configured maximum above vanilla is honored");
         check(EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.BUY).size() == 5, "Buy offers include Looting IV and V");
         check(EnchantmentShopService.availableLevels(player, "minecraft:looting", ShopGui.Mode.SELL).size() == 5, "Sell offers include Looting IV and V");
         player.getInventory().clearContent();
@@ -151,7 +152,7 @@ public final class DetectedContentChecks {
         check(EnchantmentShopService.sell(player, "minecraft:looting", 5, 1), "Exact Looting V can be sold");
         check(ShopService.count(player, fifthBook) == 0, "Sale consumes exact Looting V");
         player.getInventory().setItem(0, fifthBook.copy());
-        check(EnchantmentShopService.sellHeld(player, player.getMainHandItem(), 1, false), "Held Looting V sale is recognized");
+        check(ShopService.sellHand(player, 1, false), "Held Looting V sale is recognized");
         looting.maxLevel = 0; check(EnchantmentShopService.maximumLevel(holder.value(), looting) == 3, "Zero retains natural maximum");
         looting.maxLevel = 255;
         check(EnchantmentShopService.createBook(holder, 255).get(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS).getLevel(holder) == 255, "Component supports upper configured bound");

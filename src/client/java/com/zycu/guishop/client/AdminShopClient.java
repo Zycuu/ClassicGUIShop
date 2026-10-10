@@ -120,11 +120,14 @@ public final class AdminShopClient implements ClientModInitializer {
             nextRequestAt = System.nanoTime() + 250_000_000L;
             String body = pending.assembly.body();
             switch (message.action()) {
+                case "variant_sources" -> { if(editor!=null)editor.variantSources(AdminDocument.JSON.fromJson(body,com.zycu.guishop.admin.VariantSources.Catalog.class)); }
+                case "trending" -> { if(Minecraft.getInstance().gui.screen() instanceof TrendingScreen screen)screen.response(AdminDocument.JSON.fromJson(body,com.zycu.guishop.admin.Trending.Result.class)); }
+                case "portable" -> { if(Minecraft.getInstance().gui.screen() instanceof PresetLibraryScreen screen)screen.response(AdminDocument.JSON.fromJson(body,com.zycu.guishop.admin.PortablePresets.Response.class)); }
                 case "denied" -> {
                     // Never keep an old editor visible after permission revocation.
                     editor = null; deferred = null; openRequested = false; notice(AdminEditorService.DENIED);
                 }
-                case "error" -> { if (pending.picker != null) pending.picker.failure(body); else if (editor != null) editor.failure(body); else notice(body); }
+                case "error" -> { if(Minecraft.getInstance().gui.screen() instanceof TrendingScreen screen)screen.failure(body); else if(Minecraft.getInstance().gui.screen() instanceof PresetLibraryScreen screen)screen.failure(body); else if (pending.picker != null) pending.picker.failure(body); else if (editor != null) editor.failure(body); else notice(body); }
                 case "snapshot", "saved" -> {
                     AdminDocument document = AdminDocument.JSON.fromJson(body, AdminDocument.class);
                     if (editor == null || !pending.action.equals("apply") && !pending.action.equals("open")) {

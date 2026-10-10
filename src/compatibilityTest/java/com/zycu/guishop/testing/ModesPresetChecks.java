@@ -24,7 +24,7 @@ public final class ModesPresetChecks {
             check(draft.categories.stream().flatMap(c -> c.items.stream()).allMatch(item -> item.item.startsWith("minecraft:") && item.sell <= item.buy), "Vanilla-only coherent prices " + preset);
             check(plan.ratio() == (preset.equals("hard") ? .10 : preset.equals("easy") ? .95 : .30), "Requested target ratio " + preset);
             if (!preset.equals("basics")) {
-                check(plan.enchantments().size() > 20 && plan.enchantments().keySet().stream().allMatch(id -> id.startsWith("minecraft:")), "Full preset includes vanilla enchantment offers");
+                check(plan.enchantments().isEmpty() && plan.categories().stream().flatMap(c -> c.items.stream()).filter(i -> i.item.equals("minecraft:enchanted_book") && i.buy > 0).count() > 100, "Full preset includes vanilla enchantment offers");
                 check(draft.findItem("minecraft:diamond") != null && draft.findItem("minecraft:map") != null, "Full catalog essentials");
                 check(draft.findItem("minecraft:command_block").item().buy == 0 && draft.findItem("minecraft:pig_spawn_egg").item().sell == 0, "Administrative and spawn items locked");
             } else check(draft.findItem("minecraft:oak_log") != null && draft.findItem("minecraft:diamond_sword") == null && plan.enchantments().isEmpty(), "Basics membership");

@@ -15,6 +15,8 @@ public final class CommandIntegrityCheck {
         CommandNode<CommandSourceStack> root = dispatcher.getRoot();
 
         requireCommand(root, "bal", missing);
+        requirePath(root,missing,"bal","player");
+        requireCommand(root,"baltop",missing);
         requireCommand(root, "shop", missing);
         requirePath(root, missing, "shop", "buy");
         requirePath(root, missing, "shop", "sell");

@@ -56,8 +56,6 @@ public final class HybridShopGui {
             buttons.add(new MenuButton(ShopIcons.category(category, player.registryAccess(), category.name),
                 () -> openCategory(player, category.id, ShopGui.Mode.BUY, 1)));
         }
-        if (GuiShop.CONFIG.enchantmentsEnabled() && ShopPermissions.user(player, "guishop.enchant")) buttons.add(new MenuButton(
-            displayStack("minecraft:enchanted_book", "Enchanted Books"), () -> openEnchantments(player, ShopGui.Mode.BUY, 1)));
         int pages = Math.max(1, (buttons.size() + CategoryLayout.PAGE_SIZE - 1) / CategoryLayout.PAGE_SIZE);
         int page = clampPage(requestedPage, pages), offset = (page - 1) * CategoryLayout.PAGE_SIZE;
         int shown = Math.min(CategoryLayout.PAGE_SIZE, buttons.size() - offset), rows = CategoryLayout.rows(shown);
@@ -84,7 +82,7 @@ public final class HybridShopGui {
             for (int slot = 0; slot < PAGE_SIZE && start + slot < items.size(); slot++) {
                 var entry = items.get(start + slot);
                 var icon = ShopIcons.listing(entry.createStack(player.registryAccess()), entry.name, entry.description,
-                    entry.buy * GuiShop.CONFIG.priceMultiplier, entry.sell * GuiShop.CONFIG.priceMultiplier, GuiShop.CONFIG, true);
+                    entry.buy, entry.sell, GuiShop.CONFIG, true);
                 screen.trade(slot, icon, (side, quantity) -> { if (ShopService.trade(player, entry, side, quantity)) screen.show(page); });
             }
             screen.bind(BACK_SLOT, displayStack("minecraft:barrier", "Back"), false, ignored -> openCategories(player, 1));
@@ -95,7 +93,7 @@ public final class HybridShopGui {
     }
     public static void openEnchantments(ServerPlayer player, int page) { openEnchantments(player, ShopGui.Mode.BUY, page); }
     public static void openEnchantments(ServerPlayer player, ShopGui.Mode ignoredMode, int requestedPage) {
-        if (!allowed(player) || !GuiShop.CONFIG.enchantmentsEnabled() || !ShopPermissions.user(player, "guishop.enchant")) {
+        if (!allowed(player) || !ShopPermissions.user(player, "guishop.enchant")) {
             ShopMessages.warning(player, "The enchanted book shop is unavailable."); return;
         }
         var session = new PageSession(player, Component.literal("Enchanted Books"), (screen, requested) -> {
@@ -107,7 +105,7 @@ public final class HybridShopGui {
                 var icon = ShopIcons.display(EnchantmentShopService.createBook(offer.holder(), 1), offer.displayName(), "Levels 1-" + offer.maxLevel() + " | Click to choose a level");
                 icon.set(DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(List.of(
                     Component.literal("Buy: " + GuiShop.CONFIG.money(offer.firstLevelCost()) + " - " + GuiShop.CONFIG.money(offer.maximumLevelCost())).withStyle(net.minecraft.ChatFormatting.GOLD),
-                    Component.literal("Sell: " + GuiShop.CONFIG.money(Math.round(offer.firstLevelCost() * GuiShop.CONFIG.catalogSellRatio * 100) / 100.0) + " - " + GuiShop.CONFIG.money(Math.round(offer.maximumLevelCost() * GuiShop.CONFIG.catalogSellRatio * 100) / 100.0)).withStyle(net.minecraft.ChatFormatting.GREEN),
+                    Component.literal("Sell: " + GuiShop.CONFIG.money(EnchantmentShopService.cost(player, offer.enchantmentId(), 1, ShopGui.Mode.SELL)) + " - " + GuiShop.CONFIG.money(EnchantmentShopService.cost(player, offer.enchantmentId(), offer.maxLevel(), ShopGui.Mode.SELL))).withStyle(net.minecraft.ChatFormatting.GREEN),
                     Component.literal("Click to choose a level").withStyle(net.minecraft.ChatFormatting.GRAY))));
                 screen.bind(slot, icon, false, ignored -> openEnchantmentLevels(player, offer.enchantmentId(), 1, page));
             }
@@ -125,11 +123,11 @@ public final class HybridShopGui {
             screen.begin();
             for (int slot = 0; slot < PAGE_SIZE && start + slot < offers.size(); slot++) {
                 var offer = offers.get(start + slot);
-                double sell = Math.round(offer.cost() * Math.max(0, GuiShop.CONFIG.catalogSellRatio) * 100) / 100.0;
+                double sell = EnchantmentShopService.cost(player, id, offer.targetLevel(), ShopGui.Mode.SELL);
                 var icon = ShopIcons.listing(EnchantmentShopService.createBook(offer.holder(), offer.targetLevel()),
                     offer.displayName() + " " + EnchantmentShopService.roman(offer.targetLevel()), "", offer.cost(), sell, GuiShop.CONFIG, false);
                 screen.trade(slot, icon, (side, quantity) -> {
-                    if (GuiShop.CONFIG.enchantmentOffer(id) != configured) { ShopMessages.warning(player, "The shop was updated. Reopen /shop before trading."); return; }
+                    if (false) { ShopMessages.warning(player, "The shop was updated. Reopen /shop before trading."); return; }
                     boolean success = side == ShopGui.Mode.BUY ? EnchantmentShopService.purchase(player, id, offer.targetLevel())
                         : EnchantmentShopService.sell(player, id, offer.targetLevel(), quantity);
                     if (success) screen.show(page);

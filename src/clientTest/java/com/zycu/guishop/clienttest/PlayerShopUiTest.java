@@ -44,10 +44,10 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                     if (!(screen instanceof ContainerScreen)) return;
                     if (subphase == 1) {
                         Screenshot.grab(client.gameDirectory, "alpha6-clean-backpack-tooltip.png", client.gameRenderer.mainRenderTarget(), 1, ignored -> {});
-                        slot(client, 3); subphase = 0; next(); return;
+                        slot(client,categorySlot(client,"Materials")); subphase = 0; next(); return;
                     }
                     check(screen.getTitle().getString().equals("Zycu's Shop"), "Saved shop title survives restart");
-                    var categoryIcon = client.player.containerMenu.getSlot(3).getItem();
+                    var categoryIcon = client.player.containerMenu.getSlot(categorySlot(client,"Materials")).getItem();
                     var iconLines = categoryIcon.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.of(client.level), client.player, net.minecraft.world.item.TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList();
                     check(iconLines.equals(java.util.List.of("Materials", "Shop category help")), "Native player category shows only shop text without default item lore");
                     if (FabricLoader.getInstance().isModLoaded("travelersbackpack")) {
@@ -56,7 +56,7 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                     var base = net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class;
                     var left = base.getDeclaredField("leftPos"); left.setAccessible(true);
                     var top = base.getDeclaredField("topPos"); top.setAccessible(true);
-                    var nativeSlot = client.player.containerMenu.getSlot(3);
+                    var nativeSlot = client.player.containerMenu.getSlot(categorySlot(client,"Materials"));
                     var window = client.getWindow();
                     double x = (left.getInt(screen) + nativeSlot.x + 8) * window.getScreenWidth() / (double) window.getGuiScaledWidth();
                     double y = (top.getInt(screen) + nativeSlot.y + 8) * window.getScreenHeight() / (double) window.getGuiScaledHeight();
@@ -133,7 +133,7 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                     // Let the container close finish before sending an asynchronously executed command.
                     if (subphase == 0) { client.getConnection().sendCommand("shop sell"); subphase = 1; delay = 25; return; }
                     if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().equals("Zycu's Shop")) return;
-                    slot(client, 3); subphase = 0; next();
+                    slot(client, categorySlot(client,"Materials")); subphase = 0; next();
                 }
                 case 14 -> {
                     check(screen instanceof ContainerScreen && screen.getTitle().getString().equals("Materials"), "Return to Materials after close and reopen; screen=" + (screen == null ? "null" : screen.getTitle().getString()) + "; menu=" + client.player.containerMenu.containerId);
@@ -162,7 +162,7 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                     check(map.has(net.minecraft.core.component.DataComponents.MAP_ID), "Purchased empty map works with native right-click use");
                     pristine(map); client.getConnection().sendCommand("shop buy"); next();
                 }
-                case 19 -> { if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().equals("Zycu's Shop")) return; slot(client, 3); next(); }
+                case 19 -> { if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().equals("Zycu's Shop")) return; slot(client, categorySlot(client,"Materials")); next(); }
                 case 20 -> { if (!(screen instanceof ContainerScreen) || !screen.getTitle().getString().equals("Materials")) return; slot(client, 3); next(); }
                 case 21 -> {
                     var map = find(client, Items.ABANDONED_CAMP_MAP);
@@ -185,12 +185,13 @@ public final class PlayerShopUiTest implements ClientModInitializer {
                     var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(net.minecraft.resources.Identifier.parse("travelersbackpack:end"));
                     check(client.player.getInventory().countItem(item) == 0, "Right-click sells exact purchased backpack"); next();
                 }
-                case 25 -> { System.out.println("[Player UI test] PASS: client has no ClassicGUIShop; restart persistence; unified left-buy/right-sell and dual-price lore; exact level V purchase/sale; original empty-map lore; native empty-map use; functional camp-map identity and destination; immediate native End backpack components and tier tooltip without rejoin; clean cursor"); next(); }
+                case 25 -> { client.gui.setScreen(null);client.getConnection().sendCommand("bal");client.getConnection().sendCommand("bal "+client.player.getName().getString());client.getConnection().sendCommand("bal ShopTest");client.getConnection().sendCommand("baltop");client.getConnection().sendCommand("worth all");System.out.println("[Player UI test] PASS: client has no ClassicGUIShop; restart persistence; unified left-buy/right-sell and dual-price lore; exact level V purchase/sale; original empty-map lore; native empty-map use; functional camp-map identity and destination; immediate native End backpack components and tier tooltip without rejoin; clean cursor"); next(); }
                 case 26 -> { done = true; client.stop(); }
             }
         } catch (Throwable failure) { done = true; System.err.println("[Player UI test] FAIL at phase " + phase); failure.printStackTrace(); client.stop(); }
     }
     private void next() { System.out.println("[Player UI test] Phase " + phase + " complete"); phase++; delay = 25; }
+    private static int categorySlot(Minecraft client,String name){for(int i=0;i<client.player.containerMenu.slots.size()-36;i++)if(client.player.containerMenu.getSlot(i).getItem().getHoverName().getString().equals(name))return i;throw new AssertionError("Missing category "+name);}
     private static void slot(Minecraft client, int slot) { slot(client, slot, 0); }
     private static void slot(Minecraft client, int slot, int button) {
         client.gameMode.handleContainerInput(client.player.containerMenu.containerId, slot, button, ContainerInput.PICKUP, client.player);

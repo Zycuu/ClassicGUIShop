@@ -70,6 +70,13 @@ Pays another known player.
 
 Shows the player's balance.
 
+```text
+/bal <player-name>
+/baltop
+```
+
+Looks up a known online/offline player's balance, or lists the five richest eligible accounts. Operator accounts are hidden publicly unless Economy / Show operator balances publicly is enabled. Self balance stays available. Hidden accounts are filtered before the top-five limit. All player commands work without ClassicGUIShop on the client.
+
 ### `/sellhand`
 
 ```text
@@ -90,7 +97,7 @@ Sells up to the requested amount from the held stack.
 
 Sells every exact matching item in the player inventory.
 
-Recognizes exact single-enchantment books that match enabled enchantment offers.
+Recognizes exact ordinary book variants. Economy can enable generic damaged and enchanted equipment sales; `/worth` explains the same calculation.
 
 ### `/worth`
 
@@ -98,13 +105,13 @@ Recognizes exact single-enchantment books that match enabled enchantment offers.
 /worth
 ```
 
-Shows buy and sell value for the held stack.
+Shows the held stack sell quote, durability factor, priced enchantment bonus, and any unpriced enchantments. Exact listings also show their buy price.
 
 ```text
 /worth all
 ```
 
-Shows total value for all exact matching items in the player inventory.
+Shows the sell value of all eligible inventory items using the same damage/enchantment quote, with excluded item counts.
 
 ```text
 /worth <item-or-listing-id>

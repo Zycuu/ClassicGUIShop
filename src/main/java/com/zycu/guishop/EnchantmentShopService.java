@@ -1,307 +1,61 @@
 package com.zycu.guishop;
-
 import net.minecraft.core.Holder;
-import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-
+import net.minecraft.world.item.*;
+import net.minecraft.world.item.enchantment.*;
+import net.minecraft.core.component.DataComponents;
+import java.util.*;
+/** Legacy /shop enchant navigation over ordinary, explicitly priced exact book listings. */
 public final class EnchantmentShopService {
     private EnchantmentShopService() {}
-
-    public static List<EnchantmentView> availableEnchantments(ServerPlayer player) {
-        return availableEnchantments(player, ShopGui.Mode.BUY);
+    public static ItemStack createBook(Holder<Enchantment> holder, int level) { var book = new ItemStack(Items.ENCHANTED_BOOK); book.enchant(holder, level); return book; }
+    public static int maximumLevel(Enchantment enchantment, ShopConfig.EnchantmentOffer offer) { return Math.min(offer.maxLevel <= 0 ? enchantment.getMaxLevel() : offer.maxLevel, 255); }
+    private static ShopConfig.FoundItem find(ServerPlayer player, String id, int level, ShopGui.Mode mode) {
+        if (!ShopPermissions.user(player, "guishop.enchant")) return null;
+        var holder = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).get(net.minecraft.resources.Identifier.parse(id)); if (holder.isEmpty()) return null;
+        var stack = createBook(holder.get(), level); ShopConfig.FoundItem best = null;
+        for (var cat : GuiShop.CONFIG.categories) if (ShopPermissions.category(player, cat.id)) for (var item : cat.items)
+            if (VersionedListingStore.isRuntimeAvailable(item, player.registryAccess()) && ItemStackData.same(stack, item.createStack(player.registryAccess())) && (mode == ShopGui.Mode.BUY ? item.buy : item.sell) > 0
+                && (best == null || (mode == ShopGui.Mode.BUY ? item.buy < best.item().buy : item.sell > best.item().sell))) best = new ShopConfig.FoundItem(cat, item);
+        return best;
     }
-
+    public static double cost(ServerPlayer player, String id, int level, ShopGui.Mode mode) { var found = find(player,id,level,mode); return found == null ? 0 : mode == ShopGui.Mode.BUY ? found.item().buy : found.item().sell; }
+    public static List<EnchantmentView> availableEnchantments(ServerPlayer player) { return availableEnchantments(player, ShopGui.Mode.BUY); }
     public static List<EnchantmentView> availableEnchantments(ServerPlayer player, ShopGui.Mode mode) {
-        Registry<Enchantment> registry = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
-        List<EnchantmentView> enchantments = new ArrayList<>();
-
-        for (Map.Entry<ResourceKey<Enchantment>, Enchantment> entry : registry.entrySet()) {
-            String id = entry.getKey().identifier().toString();
-            ShopConfig.EnchantmentOffer configured = GuiShop.CONFIG.enchantmentOffer(id);
-            if (configured == null || !configured.enabled()) continue;
-
-            Holder<Enchantment> holder = registry.getOrThrow(entry.getKey());
-            int maxLevel = maximumLevel(holder.value(), configured);
-            if (maxLevel < 1) continue;
-
-            double firstLevelCost = price(configured, 1, mode);
-            double maximumLevelCost = price(configured, maxLevel, mode);
-            if (firstLevelCost <= 0 && maximumLevelCost <= 0) continue;
-            enchantments.add(new EnchantmentView(
-                id,
-                configured.name,
-                holder,
-                maxLevel,
-                firstLevelCost,
-                maximumLevelCost
-            ));
-        }
-
-        enchantments.sort(Comparator.comparing(EnchantmentView::displayName, String.CASE_INSENSITIVE_ORDER));
-        return enchantments;
-    }
-
-    public static List<OfferView> availableLevels(ServerPlayer player, String enchantmentId) {
-        return availableLevels(player, enchantmentId, ShopGui.Mode.BUY);
-    }
-
-    public static List<OfferView> availableLevels(ServerPlayer player, String enchantmentId, ShopGui.Mode mode) {
-        ResolvedOffer resolved = resolve(player, enchantmentId);
-        if (resolved == null) return List.of();
-
-        int maxLevel = maximumLevel(resolved.holder().value(), resolved.configured());
-        List<OfferView> offers = new ArrayList<>();
-        for (int level = 1; level <= maxLevel; level++) {
-            double value = price(resolved.configured(), level, mode);
-            if (value > 0) offers.add(new OfferView(
-                resolved.enchantmentId(),
-                resolved.configured().name,
-                resolved.holder(),
-                level,
-                value
-            ));
-        }
-        return offers;
-    }
-
-    public static ItemStack createBook(Holder<Enchantment> enchantment, int level) {
-        ItemStack book = new ItemStack(Items.ENCHANTED_BOOK);
-        book.enchant(enchantment, level);
-        return book;
-    }
-
-    public static boolean purchase(ServerPlayer player, String enchantmentId, int targetLevel) {
-        if (!ShopPermissions.user(player, "guishop.enchant")) {
-            ShopMessages.error(player, "You do not have permission to buy enchanted books.");
-            return false;
-        }
-        if (!GuiShop.CONFIG.enchantmentsEnabled()) {
-            ShopMessages.warning(player, "The enchanted book shop is disabled.");
-            return false;
-        }
-        if (!ShopService.canTransact(player, ShopGui.Mode.BUY)) return false;
-
-        ResolvedOffer resolved = resolve(player, enchantmentId);
-        if (resolved == null) {
-            ShopMessages.error(player, "That enchanted book is not for sale.");
-            return false;
-        }
-
-        int maxLevel = maximumLevel(resolved.holder().value(), resolved.configured());
-        if (targetLevel < 1 || targetLevel > maxLevel) {
-            ShopMessages.error(player, "That enchantment level is unavailable.");
-            return false;
-        }
-
-        double cost = buyPrice(resolved.configured(), targetLevel);
-        if (!ShopService.validTotal(player, cost)) return false;
-        if (!GuiShop.ECONOMY.withdraw(player.getUUID(), cost)) {
-            ShopMessages.error(player, "You cannot afford " + GuiShop.CONFIG.money(cost) + ".");
-            return false;
-        }
-
-        ShopService.give(player, createBook(resolved.holder(), targetLevel), 1);
-        com.zycu.guishop.admin.TransactionJournal.record(player, "ENCHANT_BUY", resolved.enchantmentId() + ":" + targetLevel, "minecraft:enchanted_book", 1, cost, cost, "");
-        ShopMessages.success(player, "Purchased " + resolved.configured().name + " " + roman(targetLevel)
-            + " for " + GuiShop.CONFIG.money(cost) + ". Balance: "
-            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
-        return true;
-    }
-
-    public static boolean sell(ServerPlayer player, String enchantmentId, int targetLevel, int requestedQuantity) {
-        if (!ShopPermissions.user(player, "guishop.enchant")) {
-            ShopMessages.error(player, "You do not have permission to sell enchanted books.");
-            return false;
-        }
-        if (!GuiShop.CONFIG.enchantmentsEnabled()) {
-            ShopMessages.warning(player, "The enchanted book shop is disabled.");
-            return false;
-        }
-        if (!ShopService.canTransact(player, ShopGui.Mode.SELL)) return false;
-
-        ResolvedOffer resolved = resolve(player, enchantmentId);
-        if (resolved == null) {
-            ShopMessages.error(player, "That enchanted book is not accepted by the shop.");
-            return false;
-        }
-
-        int maxLevel = maximumLevel(resolved.holder().value(), resolved.configured());
-        if (targetLevel < 1 || targetLevel > maxLevel) {
-            ShopMessages.error(player, "That enchantment level is unavailable.");
-            return false;
-        }
-
-        ItemStack template = createBook(resolved.holder(), targetLevel);
-        int available = ShopService.count(player, template);
-        if (available <= 0) {
-            ShopMessages.warning(player, "You do not have any matching " + resolved.configured().name + " "
-                + roman(targetLevel) + " books to sell.");
-            return false;
-        }
-
-        int quantity = requestedQuantity == ShopService.SELL_ALL
-            ? available
-            : Math.min(Math.max(1, requestedQuantity), available);
-        double unitPrice = sellPrice(resolved.configured(), targetLevel);
-        double total = round(unitPrice * quantity);
-        if (!ShopService.validTotal(player, total)) return false;
-        ShopService.remove(player, template, quantity);
-        GuiShop.ECONOMY.deposit(player.getUUID(), total);
-        com.zycu.guishop.admin.TransactionJournal.record(player, "ENCHANT_SELL", resolved.enchantmentId() + ":" + targetLevel, "minecraft:enchanted_book", quantity, unitPrice, total, "");
-        ShopMessages.success(player, "Sold " + quantity + "x " + resolved.configured().name + " "
-            + roman(targetLevel) + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
-            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
-        return true;
-    }
-
-    public static boolean sellHeld(ServerPlayer player, ItemStack held, int requestedQuantity, boolean allInventory) {
-        if (held == null || held.isEmpty()) return false;
-        ResolvedHeldBook resolved = resolveHeldBook(player, held);
-        if (resolved == null) return false;
-
-        int available = allInventory ? ShopService.count(player, resolved.template()) : held.getCount();
-        int quantity = requestedQuantity == ShopService.SELL_ALL
-            ? available
-            : Math.min(Math.max(1, requestedQuantity), available);
-        if (quantity <= 0) return false;
-
-        double unitPrice = sellPrice(resolved.offer().configured(), resolved.level());
-        double total = round(unitPrice * quantity);
-        if (!ShopService.validTotal(player, total)) return false;
-        if (allInventory) {
-            ShopService.remove(player, resolved.template(), quantity);
-        } else {
-            held.shrink(quantity);
-            player.getInventory().setChanged();
-        }
-
-        GuiShop.ECONOMY.deposit(player.getUUID(), total);
-        com.zycu.guishop.admin.TransactionJournal.record(player, "ENCHANT_SELL", resolved.offer().enchantmentId() + ":" + resolved.level(), "minecraft:enchanted_book", quantity, unitPrice, total, allInventory ? "Inventory sale" : "Held-item sale");
-        ShopMessages.success(player, "Sold " + quantity + "x " + resolved.offer().configured().name + " "
-            + roman(resolved.level()) + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
-            + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
-        return true;
-    }
-
-    public static boolean showWorth(ServerPlayer player, ItemStack stack, int amount) {
-        ResolvedHeldBook resolved = resolveHeldBook(player, stack);
-        if (resolved == null) return false;
-        int quantity = Math.max(1, amount);
-        double buy = buyPrice(resolved.offer().configured(), resolved.level());
-        double sell = sellPrice(resolved.offer().configured(), resolved.level());
-        ShopMessages.info(player, resolved.offer().configured().name + " " + roman(resolved.level()) + " [enchanted book]");
-        ShopMessages.info(player, "Buy: " + GuiShop.CONFIG.money(buy) + " each / "
-            + GuiShop.CONFIG.money(round(buy * quantity)) + " total");
-        ShopMessages.info(player, "Sell: " + GuiShop.CONFIG.money(sell) + " each / "
-            + GuiShop.CONFIG.money(round(sell * quantity)) + " total");
-        ShopMessages.info(player, "Category: Enchanted Books | Quantity checked: " + quantity);
-        return true;
-    }
-
-    public static String roman(int value) {
-        return switch (value) {
-            case 1 -> "I";
-            case 2 -> "II";
-            case 3 -> "III";
-            case 4 -> "IV";
-            case 5 -> "V";
-            case 6 -> "VI";
-            case 7 -> "VII";
-            case 8 -> "VIII";
-            case 9 -> "IX";
-            case 10 -> "X";
-            default -> Integer.toString(value);
-        };
-    }
-
-    private static ResolvedOffer resolve(ServerPlayer player, String enchantmentId) {
-        String id = ShopConfig.normalizeIdentifier(enchantmentId);
-        ShopConfig.EnchantmentOffer configured = GuiShop.CONFIG.enchantmentOffer(id);
-        if (configured == null || !configured.enabled()) return null;
-
-        Registry<Enchantment> registry = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
-        try {
-            ResourceKey<Enchantment> key = ResourceKey.create(Registries.ENCHANTMENT, Identifier.parse(id));
-            Holder<Enchantment> holder = registry.getOrThrow(key);
-            return new ResolvedOffer(id, configured, holder);
-        } catch (Exception exception) {
-            return null;
-        }
-    }
-
-    private static ResolvedHeldBook resolveHeldBook(ServerPlayer player, ItemStack stack) {
-        if (!GuiShop.CONFIG.enchantmentsEnabled() || !ShopPermissions.user(player, "guishop.enchant")) return null;
-        for (EnchantmentView enchantment : availableEnchantments(player, ShopGui.Mode.SELL)) {
-            for (OfferView offer : availableLevels(player, enchantment.enchantmentId(), ShopGui.Mode.SELL)) {
-                ItemStack template = createBook(offer.holder(), offer.targetLevel());
-                if (ItemStackData.same(template, stack)) {
-                    ResolvedOffer resolved = resolve(player, offer.enchantmentId());
-                    if (resolved != null) return new ResolvedHeldBook(resolved, offer.targetLevel(), template);
-                }
+        var result = new ArrayList<EnchantmentView>();
+        for (var holder : player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).listElements().toList()) {
+            String id = holder.key().identifier().toString(); int max = 0; double first = 0,last = 0;
+            for (var cat : GuiShop.CONFIG.categories) if (ShopPermissions.category(player,cat.id)) for (var item : cat.items) {
+                if (!item.item.equals("minecraft:enchanted_book") || !VersionedListingStore.isRuntimeAvailable(item,player.registryAccess())) continue;
+                var stack = item.createStack(player.registryAccess()); var ench = stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY);
+                int level = ench.getLevel(holder); if (ench.size() != 1 || level < 1 || (mode == ShopGui.Mode.BUY ? item.buy : item.sell) <= 0) continue;
+                if (first == 0 || level == 1) first = mode == ShopGui.Mode.BUY ? item.buy : item.sell;
+                if (level > max) { max = level;last = mode == ShopGui.Mode.BUY ? item.buy : item.sell; }
             }
+            if (max > 0 && ShopPermissions.user(player,"guishop.enchant")) result.add(new EnchantmentView(id,holder.value().description().getString(),holder,max,first,last));
         }
-        return null;
+        result.sort(Comparator.comparing(EnchantmentView::displayName,String.CASE_INSENSITIVE_ORDER)); return result;
     }
-
-    public static int maximumLevel(Enchantment enchantment, ShopConfig.EnchantmentOffer configured) {
-        int configuredMax = configured.maxLevel <= 0 ? enchantment.getMaxLevel() : configured.maxLevel;
-        // The component codec supports levels through 255, including levels above vanilla.
-        return Math.min(configuredMax, 255);
+    public static List<OfferView> availableLevels(ServerPlayer player,String id) { return availableLevels(player,id,ShopGui.Mode.BUY); }
+    public static List<OfferView> availableLevels(ServerPlayer player,String id,ShopGui.Mode mode) {
+        var holder = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).get(net.minecraft.resources.Identifier.parse(id)); if (holder.isEmpty()) return List.of();
+        var best=new TreeMap<Integer,Double>();
+        if(!ShopPermissions.user(player,"guishop.enchant"))return List.of();
+        for(var cat:GuiShop.CONFIG.categories)if(ShopPermissions.category(player,cat.id))for(var item:cat.items){
+            if(!item.item.equals("minecraft:enchanted_book")||!VersionedListingStore.isRuntimeAvailable(item,player.registryAccess()))continue;
+            double value=mode==ShopGui.Mode.BUY?item.buy:item.sell;if(value<=0)continue;
+            var stack=item.createStack(player.registryAccess());var ench=stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS,ItemEnchantments.EMPTY);int level=ench.getLevel(holder.get());
+            if(ench.size()!=1||level<1||!ItemStackData.same(stack,createBook(holder.get(),level)))continue;
+            best.merge(level,value,(old,now)->mode==ShopGui.Mode.BUY?Math.min(old,now):Math.max(old,now));
+        }
+        return best.entrySet().stream().map(entry->new OfferView(id,holder.get().value().description().getString(),holder.get(),entry.getKey(),entry.getValue())).toList();
     }
-
-    private static double price(ShopConfig.EnchantmentOffer configured, int level, ShopGui.Mode mode) {
-        return mode == ShopGui.Mode.BUY ? buyPrice(configured, level) : sellPrice(configured, level);
-    }
-
-    private static double buyPrice(ShopConfig.EnchantmentOffer configured, int level) {
-        return round(configured.pricePerLevel * level * GuiShop.CONFIG.priceMultiplier);
-    }
-
-    private static double sellPrice(ShopConfig.EnchantmentOffer configured, int level) {
-        return round(buyPrice(configured, level) * Math.max(0.0, GuiShop.CONFIG.catalogSellRatio));
-    }
-
-    private static double round(double value) {
-        return Math.round(value * 100.0) / 100.0;
-    }
-
-    private record ResolvedOffer(
-        String enchantmentId,
-        ShopConfig.EnchantmentOffer configured,
-        Holder<Enchantment> holder
-    ) {}
-
-    private record ResolvedHeldBook(
-        ResolvedOffer offer,
-        int level,
-        ItemStack template
-    ) {}
-
-    public record EnchantmentView(
-        String enchantmentId,
-        String displayName,
-        Holder<Enchantment> holder,
-        int maxLevel,
-        double firstLevelCost,
-        double maximumLevelCost
-    ) {}
-
-    public record OfferView(
-        String enchantmentId,
-        String displayName,
-        Holder<Enchantment> holder,
-        int targetLevel,
-        double cost
-    ) {}
+    public static boolean purchase(ServerPlayer player,String id,int level) { var found=find(player,id,level,ShopGui.Mode.BUY);return found!=null && ShopService.trade(player,found.item(),ShopGui.Mode.BUY,1); }
+    public static boolean sell(ServerPlayer player,String id,int level,int quantity) { var found=find(player,id,level,ShopGui.Mode.SELL);return found!=null && ShopService.trade(player,found.item(),ShopGui.Mode.SELL,quantity); }
+    public static boolean sellHeld(ServerPlayer player,ItemStack held,int quantity,boolean all) { return false; }
+    public static boolean showWorth(ServerPlayer player,ItemStack held,int quantity) { return false; }
+    public static String roman(int value) { return switch(value) { case 1->"I";case 2->"II";case 3->"III";case 4->"IV";case 5->"V";case 6->"VI";case 7->"VII";case 8->"VIII";case 9->"IX";case 10->"X";default->Integer.toString(value); }; }
+    public record EnchantmentView(String enchantmentId,String displayName,Holder<Enchantment> holder,int maxLevel,double firstLevelCost,double maximumLevelCost) {}
+    public record OfferView(String enchantmentId,String displayName,Holder<Enchantment> holder,int targetLevel,double cost) {}
 }

@@ -67,7 +67,9 @@ public final class ShopPresets {
             String id = holder.key().identifier().toString(); if (!id.startsWith("minecraft:")) continue;
             var offer = new ShopConfig.EnchantmentOffer(); offer.name = holder.value().description().getString(); offer.pricePerLevel = 100 * buyFactor; offer.maxLevel = holder.value().getMaxLevel(); config.enchantments.put(id, offer);
         }
-        return new Plan(request.preset(), config.categories, config.enchantments, ratio, count, locked, capped, audit.recipesChecked(), "Recipe caps can reduce the target return. Admin-only items are locked; component variants are buy-only. Villager trades, world drops and arbitrary mod mechanics need separate review.");
+        PriceMigration.flattenBooks(config, access, 1, ratio);
+        count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
+        return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, audit.recipesChecked(), "Recipe caps can reduce the target return. Admin-only items are locked; component variants are buy-only. Villager trades, world drops and arbitrary mod mechanics need separate review.");
     }
     private static ShopConfig.ShopItem listing(ItemStack stack, String category, double ratio, double factor, Set<String> used, net.minecraft.core.RegistryAccess access) {
         var item = new ShopConfig.ShopItem(); item.item = ShopService.itemId(stack); item.stack = ItemStackData.encode(stack, access); item.name = stack.getHoverName().getString();

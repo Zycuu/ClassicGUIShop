@@ -53,17 +53,18 @@ public final class GuiShop implements ModInitializer {
     }
 
     private static void runStartupWork(MinecraftServer server) {
+        try { PriceMigration.migrate(CONFIG, server.registryAccess()); } catch (Exception error) { throw new IllegalStateException("Beta price migration failed; restore the migration backup before retrying", error); }
         VersionedListingStore.ReconcileResult versioned = VersionedListingStore.reconcile(
             CONFIG,
             server.registryAccess()
         );
-        EconomyExploitScanner.FixReport economy = EconomyExploitScanner.fixGeneratedExploits(server);
+        var economy = EconomyExploitScanner.audit(server, CONFIG);
         com.zycu.guishop.admin.AdminEditorService.rememberDiskState();
         System.out.println("[ClassicGUIShop] Runtime listing filter parked " + versioned.parked()
             + ", restored " + versioned.restored() + ", and is preserving "
             + versioned.remainingParked() + " unavailable listing(s).");
-        System.out.println("[ClassicGUIShop] Economy audit checked " + economy.after().recipesChecked()
-            + " recipes, corrected " + economy.changedListings() + " generated sell prices, and found "
-            + economy.after().exploits().size() + " remaining pricing issue(s).");
+        System.out.println("[ClassicGUIShop] Economy audit checked " + economy.recipesChecked()
+            + " recipes without changing prices, and found "
+            + economy.exploits().size() + " remaining pricing issue(s).");
     }
 }

@@ -8,4 +8,4 @@
 6. Apply, then open `/shop` to check the real player menu and test buying/selling.
 7. Review Transactions and Changes in Adminshop.
 
-`/bal`, `/shop pay`, `/sellhand`, and `/worth` remain player commands. `/adminshop` opens the new client editor, requiring the matching client mod and OP level 2. `/ident`, automatic catalog generation, legacy admin subcommands and old folder commands remain removed.
+`/bal [player]`, `/baltop`, `/shop pay`, `/sellhand`, and `/worth` remain player commands. `/adminshop` opens the new client editor, requiring the matching client mod and OP level 2. `/ident`, automatic catalog generation, legacy admin subcommands and old folder commands remain removed.

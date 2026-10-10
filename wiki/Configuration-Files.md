@@ -24,14 +24,13 @@ mode-progress.json
 
 Stores global settings such as:
 
-- Shop Modes switches, payout overrides, timing, chat colors and PvP safeguards (`modes`)
+- Shop Modes switches, payout overrides, minute timing, prefix names/colors and PvP safeguards (`modes`)
 - Starting balance
 - Currency symbol
-- Price multiplier
+- Damaged and enchanted equipment command-sale switches
 - Shop title (`general.shopTitle`)
-- Legacy catalog settings retained for compatibility; automatic discovery is removed
-- Legacy generated pricing settings retained for compatibility
-- Sell ratio
+- Public operator balance visibility
+- Pricing schema marker; live global multipliers and ratios have been retired
 - Creative transaction behavior
 - Offline payment behavior
 - Chat prefix and message colors
@@ -58,14 +57,11 @@ Do not manually edit exact stack data unless you know the Minecraft component fo
 
 ## `enchantments.json`
 
-Stores enchanted book shop configuration.
+Migration archive for unavailable old enchantment definitions. Active books are exact ordinary listings in `shops.json`, including levels above vanilla. Available legacy offers are converted once. Preserve this archive with the matching settings during rollback.
 
-Each enchantment can have:
+## `presets/`
 
-- Display name and tooltip description (`description`)
-- Enabled/disabled status
-- Price per level
-- Maximum offered level
+Versioned schema-1 JSON with categories, exact variant data, final prices and dependency metadata. It excludes accounts, history, permissions and global server settings. Exports include valid unapplied draft edits; imports are reviewed before Use reviewed draft and Apply.
 
 ## `folders.json`
 
@@ -82,7 +78,7 @@ Example use case:
 3. The required item mod returns.
 4. ClassicGUIShop restores the listing automatically.
 
-The Alpha targets Minecraft 26.3 specifically; this storage does not grant older runtime compatibility.
+The Beta targets Minecraft 26.3 specifically; this storage does not grant older runtime compatibility.
 
 This file preserves data. It is not a trash can.
 

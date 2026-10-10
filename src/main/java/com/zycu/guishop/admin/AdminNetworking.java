@@ -114,7 +114,10 @@ public final class AdminNetworking {
                     var change = AdminDocument.JSON.fromJson(assembly.body(), AccountOperations.Change.class);
                     reply(player, message.id(), "account_saved", "", AdminDocument.JSON.toJson(AccountOperations.change(player, change)));
                 }
+                case "trending" -> queryTrending(player,message.id(),AdminDocument.JSON.fromJson(assembly.body(),Trending.Request.class));
+                case "variant_sources" -> reply(player,message.id(),"variant_sources","",AdminDocument.JSON.toJson(VariantSources.detect(player)));
                 case "mode_catalog" -> reply(player, message.id(), "mode_catalog", "", AdminDocument.JSON.toJson(com.zycu.guishop.ShopModes.catalog(player)));
+                case "portable" -> reply(player,message.id(),"portable","",AdminDocument.JSON.toJson(PortablePresets.handle(player,AdminDocument.JSON.fromJson(assembly.body(),PortablePresets.Request.class))));
                 case "preset" -> reply(player, message.id(), "preset", "", AdminDocument.JSON.toJson(ShopPresets.generate(player, AdminDocument.JSON.fromJson(assembly.body(), ShopPresets.Request.class))));
                 default -> throw new IllegalArgumentException("Unknown editor request");
             }
@@ -147,6 +150,15 @@ public final class AdminNetworking {
                     reply(player, id, "player_logs", "", AdminDocument.JSON.toJson(new AdminPlayers.History(AdminPlayers.player(player, selected), history, GuiShop.CONFIG.currencySymbol, GuiShop.CONFIG.startingBalance)));
                 } else reply(player, id, responseAction, "", responseBody);
             });
+        });
+    }
+    private static void queryTrending(ServerPlayer player,String id,Trending.Request request) {
+        var server=player.createCommandSourceStack().getServer();
+        journalWorker().execute(() -> {
+            String body,action;
+            try{body=AdminDocument.JSON.toJson(Trending.query(request));action="trending";}catch(Exception error){body="Trending failed: "+error.getMessage();action="error";}
+            final String response=body,kind=action;
+            server.execute(() -> {if(server.getPlayerList().getPlayer(player.getUUID())!=player)return; if(!AdminEditorService.allowed(player))reply(player,id,"denied","",AdminEditorService.DENIED);else reply(player,id,kind,"",response);});
         });
     }
     private static void reply(ServerPlayer player, String id, String action, String revision, String body) {

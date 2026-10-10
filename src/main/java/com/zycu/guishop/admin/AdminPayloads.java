@@ -35,7 +35,7 @@ public final class AdminPayloads {
         buffer.writeVarInt(message.count()); buffer.writeUtf(message.body(), CHUNK_SIZE);
     }
     public record Request(Message message) implements CustomPacketPayload {
-        public static final Type<Request> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_request_v5"));
+        public static final Type<Request> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_request_v6"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Request> CODEC = new StreamCodec<>() {
             public Request decode(RegistryFriendlyByteBuf buffer) { return new Request(read(buffer)); }
             public void encode(RegistryFriendlyByteBuf buffer, Request payload) { write(buffer, payload.message()); }
@@ -43,7 +43,7 @@ public final class AdminPayloads {
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
     public record Reply(Message message) implements CustomPacketPayload {
-        public static final Type<Reply> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_reply_v5"));
+        public static final Type<Reply> TYPE = new Type<>(Identifier.fromNamespaceAndPath("guishop", "admin_reply_v6"));
         public static final StreamCodec<RegistryFriendlyByteBuf, Reply> CODEC = new StreamCodec<>() {
             public Reply decode(RegistryFriendlyByteBuf buffer) { return new Reply(read(buffer)); }
             public void encode(RegistryFriendlyByteBuf buffer, Reply payload) { write(buffer, payload.message()); }

@@ -51,13 +51,14 @@ public final class ShopService {
             return false;
         }
 
+        if (entry.item.equals("minecraft:enchanted_book") && !ShopPermissions.user(player, "guishop.enchant")) { ShopMessages.error(player, "You do not have permission to trade enchanted books."); return false; }
         ItemStack template = entry.createStack(player.registryAccess());
         if (template.isEmpty()) {
             ShopMessages.error(player, "Invalid configured item: " + entry.item);
             return false;
         }
 
-        double unitPrice = (mode == ShopGui.Mode.BUY ? entry.buy : entry.sell) * GuiShop.CONFIG.priceMultiplier;
+        double unitPrice = (mode == ShopGui.Mode.BUY ? entry.buy : entry.sell);
         if (unitPrice <= 0 || !Double.isFinite(unitPrice)) {
             ShopMessages.warning(player, "That item is not available for " + mode.name().toLowerCase() + ".");
             return false;
@@ -115,28 +116,17 @@ public final class ShopService {
             return false;
         }
 
-        ShopConfig.FoundItem found = findSellable(player, held);
-        if (found == null || found.item().sell <= 0) {
-            if (EnchantmentShopService.sellHeld(player, held, requestedQuantity, allInventory)) return true;
-            ShopMessages.warning(player, "That exact item does not have a sell price.");
-            return false;
-        }
-        if (!ShopPermissions.category(player, found.category().id)) {
-            ShopMessages.error(player, "You do not have permission to use that category.");
-            return false;
-        }
-        if (!VersionedListingStore.isRuntimeAvailable(found.item(), player.registryAccess())) {
-            ShopMessages.warning(player, "That listing is unavailable in this Minecraft version.");
-            return false;
-        }
+        var quote = SaleValuation.quote(player, held);
+        var found = quote.listing();
+        if (found == null || quote.unit() <= 0) { ShopMessages.warning(player, quote.note()); return false; }
 
-        ItemStack template = found.item().createStack(player.registryAccess());
+        ItemStack template = held.copyWithCount(1);
         if (!safeMapSale(player, template, found.item())) return false;
         int available = allInventory ? count(player, template) : held.getCount();
         int quantity = requestedQuantity == SELL_ALL ? available : Math.min(Math.max(1, requestedQuantity), available);
         if (quantity <= 0) return false;
 
-        double unitPrice = found.item().sell * GuiShop.CONFIG.priceMultiplier;
+        double unitPrice = quote.unit();
         double total = round(unitPrice * quantity);
         if (!validTotal(player, total)) return false;
 
@@ -148,7 +138,7 @@ public final class ShopService {
         }
 
         GuiShop.ECONOMY.deposit(player.getUUID(), total);
-        com.zycu.guishop.admin.TransactionJournal.record(player, "SELL", found.item().listingId, found.item().item, quantity, unitPrice, total, allInventory ? "Inventory sale" : "Held-item sale");
+        com.zycu.guishop.admin.TransactionJournal.recordStack(player, "SELL", found.item().listingId, found.item().item, quantity, unitPrice, total, allInventory ? "Inventory sale" : "Held-item sale", template);
         ShopMessages.success(player, "Sold " + quantity + "x " + found.item().name
             + " for " + GuiShop.CONFIG.money(total) + ". Balance: "
             + GuiShop.CONFIG.money(GuiShop.ECONOMY.balance(player.getUUID())));
@@ -165,22 +155,24 @@ public final class ShopService {
     }
 
     public static boolean showWorth(ServerPlayer player, boolean allInventory) {
-        ItemStack held = player.getMainHandItem();
-        if (held.isEmpty()) {
-            ShopMessages.warning(player, "You are not holding an item.");
-            return false;
+        if (allInventory) {
+            double total = 0; int count = 0, excluded = 0;
+            var inventory = player.getInventory();
+            for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+                var stack = inventory.getItem(slot); if (stack.isEmpty()) continue;
+                var quote = SaleValuation.quote(player, stack);
+                if (quote.unit() > 0 && safeMapSale(player, stack, quote.listing().item())) { total += round(quote.unit() * stack.getCount());count += stack.getCount(); }
+                else excluded += stack.getCount();
+            }
+            ShopMessages.info(player, "Inventory sell value: " + GuiShop.CONFIG.money(total) + " | " + count + " eligible items | " + excluded + " excluded items"); return true;
         }
-
-        ShopConfig.FoundItem found = findSellable(player, held);
-        if (found == null) found = GuiShop.CONFIG.findItem(held, player.registryAccess());
-        if (found == null) {
-            if (EnchantmentShopService.showWorth(player, held, held.getCount())) return true;
-            ShopMessages.warning(player, "No shop listing exists for that exact item.");
-            return false;
-        }
-        ItemStack template = found.item().createStack(player.registryAccess());
-        int amount = allInventory ? count(player, template) : held.getCount();
-        return showWorth(player, found, amount);
+        var held = player.getMainHandItem();
+        if (held.isEmpty()) { ShopMessages.warning(player, "You are not holding an item."); return false; }
+        var quote = SaleValuation.quote(player, held);
+        ShopMessages.info(player, held.getHoverName().getString() + " | Sell: " + GuiShop.CONFIG.money(quote.unit()) + " each / " + GuiShop.CONFIG.money(round(quote.unit()*held.getCount())) + " total");
+        ShopMessages.info(player, "Base " + GuiShop.CONFIG.money(quote.base()) + " + enchantments " + GuiShop.CONFIG.money(quote.enchantments()) + " | Condition " + String.format(java.util.Locale.ROOT,"%.2f%%",quote.condition()*100));
+        if(quote.exact())ShopMessages.info(player,"Buy: "+(quote.listing().item().buy>0?GuiShop.CONFIG.money(quote.listing().item().buy)+" each":"not purchasable"));
+        ShopMessages.info(player,quote.note()); return true;
     }
 
     public static boolean showWorth(ServerPlayer player, String identifier, int amount) {
@@ -193,13 +185,14 @@ public final class ShopService {
             ShopMessages.warning(player, "That listing is unavailable in this Minecraft version.");
             return false;
         }
+        if(!ShopPermissions.category(player,found.category().id)){ShopMessages.warning(player,"That listing is unavailable to you.");return false;}
         return showWorth(player, found, amount);
     }
 
     private static boolean showWorth(ServerPlayer player, ShopConfig.FoundItem found, int amount) {
         ShopConfig.ShopItem item = found.item();
-        double buy = item.buy * GuiShop.CONFIG.priceMultiplier;
-        double sell = item.sell * GuiShop.CONFIG.priceMultiplier;
+        double buy = item.buy;
+        double sell = item.sell;
         int quantity = Math.max(1, amount);
         String buyText = buy > 0 ? GuiShop.CONFIG.money(buy) + " each / " + GuiShop.CONFIG.money(round(buy * quantity)) + " total" : "not purchasable";
         String sellText = sell > 0 ? GuiShop.CONFIG.money(sell) + " each / " + GuiShop.CONFIG.money(round(sell * quantity)) + " total" : "not sellable";

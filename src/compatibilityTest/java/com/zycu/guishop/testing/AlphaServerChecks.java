@@ -142,7 +142,7 @@ public final class AlphaServerChecks {
             int beforeDeniedSale = ShopService.count(player, new ItemStack(Items.DIAMOND));
             check(!ShopService.sellHand(player, 1, false), "Held sale respects category permission");
             check(ShopService.count(player, new ItemStack(Items.DIAMOND)) == beforeDeniedSale, "Denied sale preserves inventory");
-            var zero = restrictedSaved.document().copy(); zero.config.permissionDefaults.put("guishop.category.alpha_test", 0); zero.config.priceMultiplier = 0;
+            var zero = restrictedSaved.document().copy(); zero.config.permissionDefaults.put("guishop.category.alpha_test", 0); zero.config.categories.getFirst().items.getFirst().sell = 0;
             var zeroSaved = AdminEditorService.apply(player, restrictedSaved.revision(), zero);
             int count = ShopService.count(player, new ItemStack(Items.DIAMOND));
             check(!ShopService.sellHand(player, 1, false), "Zero-value sale rejected");
@@ -153,6 +153,7 @@ public final class AlphaServerChecks {
             CombinedShopChecks.run(player);
             AccountChecks.run(player);
             ModesPresetChecks.run(player);
+            BetaChecks.run(player);
             check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
             server.getPlayerList().getOps().remove(player.nameAndId());
             try { AdminEditorService.apply(player, "", changed); throw new AssertionError("Revoked OP applied a draft"); }

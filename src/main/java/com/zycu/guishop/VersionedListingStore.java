@@ -182,6 +182,13 @@ public final class VersionedListingStore {
         return listingId == null ? "" : listingId.toLowerCase(Locale.ROOT);
     }
 
+    public record ExportListing(String categoryId,ShopConfig.ShopItem listing) {}
+    public static java.util.List<ExportListing> parkedForExport() throws Exception {
+        if(!Files.exists(FILE))return java.util.List.of();
+        var stored=GSON.fromJson(Files.readString(FILE,StandardCharsets.UTF_8),ParkedFile.class);
+        if(stored==null||stored.listings==null)throw new IllegalStateException("Unavailable listing archive is invalid; export refused");
+        return stored.listings.stream().filter(value->value!=null&&value.listing!=null).map(value->new ExportListing(value.categoryId,GSON.fromJson(GSON.toJson(value.listing),ShopConfig.ShopItem.class))).toList();
+    }
     public record ReconcileResult(int parked, int restored, int remainingParked) {}
 
     private static final class ParkedFile {

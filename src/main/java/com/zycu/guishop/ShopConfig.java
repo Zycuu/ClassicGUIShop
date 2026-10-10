@@ -28,6 +28,8 @@ public final class ShopConfig {
     private static final Path ENCHANTMENTS_FILE = DIRECTORY.resolve("enchantments.json");
 
     public ShopModesConfig modes = new ShopModesConfig();
+    public int pricingSchema;
+    public boolean sellDamagedItems = true, sellEnchantedEquipment, showOperatorBalances;
     public String currencySymbol = "$";
     public String shopTitle = "ClassicGUIShop";
     public double startingBalance = 500.0;
@@ -67,9 +69,7 @@ public final class ShopConfig {
                 LegacyConfig legacy = GSON.fromJson(Files.readString(LEGACY_FILE, StandardCharsets.UTF_8), LegacyConfig.class);
                 config = fromLegacy(legacy);
                 config.normalize();
-                config.save();
-                Path backup = DIRECTORY.resolve("shop.json.migrated-backup");
-                Files.move(LEGACY_FILE, backup, StandardCopyOption.REPLACE_EXISTING);
+                // Preserve the legacy source until the backed-up startup migration commits.
                 System.out.println("[ClassicGUIShop] Migrated shop.json into settings.json, shops.json, and enchantments.json.");
                 return config;
             }
@@ -79,14 +79,11 @@ public final class ShopConfig {
             if (Files.exists(SHOPS_FILE)) config.applyShops(read(SHOPS_FILE, ShopsFile.class));
             if (Files.exists(ENCHANTMENTS_FILE)) config.applyEnchantments(read(ENCHANTMENTS_FILE, EnchantmentsFile.class));
             config.normalize();
-            config.save();
             return config;
         } catch (Exception exception) {
-            System.err.println("[ClassicGUIShop] Could not load configuration files. Using safe in-memory defaults.");
+            System.err.println("[ClassicGUIShop] Could not load configuration files. Original files preserved; startup refused.");
             exception.printStackTrace();
-            ShopConfig fallback = new ShopConfig();
-            fallback.normalize();
-            return fallback;
+            throw new IllegalStateException("Configuration load failed. Original files were preserved; repair them before restarting.", exception);
         }
     }
 
@@ -103,7 +100,13 @@ public final class ShopConfig {
     public synchronized void saveChecked() throws Exception {
         normalize();
         Files.createDirectories(DIRECTORY);
-        atomicWrite(SETTINGS_FILE, GSON.toJson(toSettingsFile()));
+        var settings = GSON.toJsonTree(toSettingsFile()).getAsJsonObject();
+        if (pricingSchema >= 1) {
+            settings.getAsJsonObject("general").remove("priceMultiplier"); settings.remove("catalog");
+            var savedModes = settings.getAsJsonObject("modes");
+            for(String field : List.of("passiveSeconds","mobCooldownSeconds","warriorCooldownSeconds","warriorMinimumOnlineSeconds")) savedModes.remove(field);
+        }
+        atomicWrite(SETTINGS_FILE, GSON.toJson(settings));
         atomicWrite(SHOPS_FILE, GSON.toJson(toShopsFile()));
         atomicWrite(ENCHANTMENTS_FILE, GSON.toJson(toEnchantmentsFile()));
     }
@@ -172,6 +175,7 @@ public final class ShopConfig {
 
     private void normalize() {
         if (modes == null) modes = new ShopModesConfig();
+        modes.migrateMinutes();
         if (currencySymbol == null) currencySymbol = "$";
         if (shopTitle == null || shopTitle.isBlank()) shopTitle = "ClassicGUIShop";
         if (categories == null) categories = new ArrayList<>();
@@ -295,6 +299,7 @@ public final class ShopConfig {
     private void applySettings(SettingsFile file) {
         if (file == null) return;
         if (file.modes != null) modes = file.modes;
+        pricingSchema = file.pricingSchema;
         if (file.general != null) {
             shopTitle = file.general.shopTitle;
             priceMultiplier = file.general.priceMultiplier;
@@ -304,6 +309,9 @@ public final class ShopConfig {
         if (file.economy != null) {
             currencySymbol = file.economy.currencySymbol;
             startingBalance = file.economy.startingBalance;
+            sellDamagedItems = file.economy.sellDamagedItems;
+            sellEnchantedEquipment = file.economy.sellEnchantedEquipment;
+            showOperatorBalances = file.economy.showOperatorBalances;
         }
         if (file.catalog != null) {
             autoPopulateVanillaCatalog = file.catalog.autoPopulateVanillaCatalog;
@@ -332,6 +340,7 @@ public final class ShopConfig {
 
     private void applyEnchantments(EnchantmentsFile file) {
         if (file == null) return;
+        if(file.legacySellRatio != null) catalogSellRatio = file.legacySellRatio;
         enchantmentsEnabled = file.enabled;
         defaultEnchantmentPricePerLevel = file.defaultPricePerLevel;
         if (file.offers != null) enchantments = file.offers;
@@ -339,6 +348,7 @@ public final class ShopConfig {
 
     private SettingsFile toSettingsFile() {
         SettingsFile file = new SettingsFile();
+        file.pricingSchema = pricingSchema;
         file._about = about();
         file.modes = modes;
         file._notes = settingsNotes();
@@ -348,6 +358,9 @@ public final class ShopConfig {
         file.general.allowOfflinePayments = allowOfflinePayments;
         file.economy.currencySymbol = currencySymbol;
         file.economy.startingBalance = startingBalance;
+        file.economy.sellDamagedItems = sellDamagedItems;
+        file.economy.sellEnchantedEquipment = sellEnchantedEquipment;
+        file.economy.showOperatorBalances = showOperatorBalances;
         file.catalog.autoPopulateVanillaCatalog = autoPopulateVanillaCatalog;
         file.catalog.purgeUnobtainableOnSync = purgeUnobtainableOnSync;
         file.catalog.balancedPricingEnabled = balancedPricingEnabled;
@@ -378,6 +391,7 @@ public final class ShopConfig {
         EnchantmentsFile file = new EnchantmentsFile();
         file._about = about();
         file._notes = enchantmentNotes();
+        file.legacySellRatio = catalogSellRatio;
         file.enabled = enchantmentsEnabled;
         file.defaultPricePerLevel = defaultEnchantmentPricePerLevel;
         file.offers = enchantments;
@@ -397,18 +411,15 @@ public final class ShopConfig {
     private static Map<String, String> settingsNotes() {
         Map<String, String> notes = new LinkedHashMap<>();
         notes.put("general.shopTitle", "Title displayed at the root of the vanilla player shop.");
-        notes.put("general.priceMultiplier", "Multiplies every buy and sell price. 1.0 keeps listed prices unchanged, 2.0 doubles them, and 0.5 halves them.");
+        notes.put("pricingSchema", "1 stores final listing prices; migration has already consumed legacy global multipliers.");
+        notes.put("economy.sellDamagedItems", "Allows command sales with a remaining-durability adjustment; exact explicitly priced variants take priority.");
+        notes.put("economy.sellEnchantedEquipment", "Allows command sales of standard enchanted equipment; eligible exact book sell values are added before the durability adjustment.");
+        notes.put("economy.showOperatorBalances", "Allows operator accounts in public /bal player and /baltop. Adminshop always has access.");
+        notes.put("modes", "Intervals and cooldowns are expressed in minutes; fractional minutes must resolve to whole seconds. Prefix names and colors are editable per mode.");
         notes.put("general.allowCreativeTransactions", "When true, players in Creative mode may buy and sell. When false, Creative transactions require the guishop.creative.bypass permission.");
         notes.put("general.allowOfflinePayments", "When true, /shop pay may send money to a player who is offline but has joined before. When false, the recipient must be online.");
         notes.put("economy.currencySymbol", "Text displayed before money values, such as $, €, or Coins: . This changes display only.");
         notes.put("economy.startingBalance", "Balance assigned when ClassicGUIShop first creates a balance record for a player. Changing it does not alter existing balances.");
-        notes.put("catalog.autoPopulateVanillaCatalog", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
-        notes.put("catalog.purgeUnobtainableOnSync", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
-        notes.put("catalog.balancedPricingEnabled", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
-        notes.put("catalog.rebalanceGeneratedItems", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
-        notes.put("catalog.sellRatio", "Sell ratio retained for configured enchanted book offers. Automatic catalog pricing is removed.");
-        notes.put("catalog.minimumBuyPrice", "Legacy catalog setting preserved for compatibility; automatic item detection and generated pricing have been removed.");
-        notes.put("catalog.disabledDefaultCategories", "Legacy category exclusions retained; automatic catalog creation is removed.");
         notes.put("chat.prefix", "Text placed at the start of every ClassicGUIShop chat message.");
         notes.put("chat.prefixColor", "Minecraft color name used for the chat prefix, such as gold, aqua, green, yellow, red, or light_purple.");
         notes.put("chat.infoColor", "Color used for informational messages such as balances and worth checks.");
@@ -416,7 +427,7 @@ public final class ShopConfig {
         notes.put("chat.warningColor", "Color used for non-fatal warnings, unavailable listings, and disabled features.");
         notes.put("chat.errorColor", "Color used when an action fails or the player lacks permission or money.");
         notes.put("chat.adminColor", "Legacy administrator chat color retained for compatibility; Adminshop is a client GUI.");
-        notes.put("permissionDefaults", "Each entry is an exact vanilla command level from 0 to 4. 0 allows everyone, 2 is gamemaster, and 4 is owner. External permission plugins are not integrated in this Alpha.");
+        notes.put("permissionDefaults", "Each entry is an exact vanilla command level from 0 to 4. 0 allows everyone, 2 is gamemaster, and 4 is owner. External permission plugins are not integrated in this Beta.");
         return notes;
     }
 
@@ -428,27 +439,22 @@ public final class ShopConfig {
         notes.put("categories[].description", "Optional tooltip text on the category icon. This does not change purchased item components.");
         notes.put("categories[].items[].description", "Optional shop tooltip text. Purchased stacks keep their original components.");
         notes.put("categories[].icon", "Minecraft item ID used as the category icon, for example minecraft:bricks.");
-        notes.put("categories[].items", "Listings contained in the category. The colored_blocks category is automatically divided into block-type submenus in the GUI.");
+        notes.put("categories[].items", "Exact listings within this category. Their order controls menu placement.");
         notes.put("categories[].items[].item", "Base Minecraft item ID for the listing.");
         notes.put("categories[].items[].listingId", "Unique listing identifier. Component-rich variants include a #hash so multiple versions of the same base item can coexist.");
         notes.put("categories[].items[].stack", "Serialized exact ItemStack data. It preserves enchantments, names, lore, trims, potion contents, and other components. Preserve this data; use Add held item in Adminshop to add exact variants.");
         notes.put("categories[].items[].name", "Display name used in the shop GUI and chat messages.");
         notes.put("categories[].items[].buy", "Price for one item. Set to 0 to hide the listing from buy menus.");
         notes.put("categories[].items[].sell", "Amount paid for one matching item. Set to 0 to prevent players from selling it.");
-        notes.put("categories[].items[].manualPrice", "When true, automatic economy balancing will not change buy or sell. Manual listings retain their configured prices.");
-        notes.put("categories[].items[].pricingModelVersion", "Internal version of the automatic pricing model last applied. Normally this should not be edited.");
+        notes.put("categories[].items[].manualPrice", "Legacy pricing metadata. Beta always preserves final prices until an explicit administrator draft edit.");
+        notes.put("categories[].items[].pricingModelVersion", "Legacy pricing metadata retained for source compatibility; no runtime pricing modifier.");
         return notes;
     }
 
-    private static Map<String, String> enchantmentNotes() {
-        Map<String, String> notes = new LinkedHashMap<>();
-        notes.put("enabled", "Master switch for the enchanted-book shop. False hides it from players without deleting individual offers.");
-        notes.put("defaultPricePerLevel", "Legacy default price retained for compatibility; automatic enchantment offer discovery has been removed.");
-        notes.put("offers", "Map of enchantment IDs to the books offered by the shop.");
-        notes.put("offers.<enchantment>.name", "Display name shown to players for that enchantment.");
-        notes.put("offers.<enchantment>.pricePerLevel", "Base cost multiplied by the selected level. For example, 100.0 makes level III cost 300.0 before the global price multiplier.");
-        notes.put("offers.<enchantment>.maxLevel", "Highest level the shop offers: 1-255, including above vanilla limits. 0 uses the enchantment's normal registered maximum. This does not change anvil rules.");
-        notes.put("offers.<enchantment>.enabled", "When false, this enchantment is hidden from the shop. When true, players may select its available levels.");
+    private static Map<String,String> enchantmentNotes() {
+        var notes = new LinkedHashMap<String,String>();
+        notes.put("offers","Migration archive for unavailable legacy enchantment definitions. Active books are exact ordinary listings in shops.json; this file is not an active pricing editor.");
+        notes.put("legacySellRatio","Only used to preserve a pending legacy definition when its dependency returns.");
         return notes;
     }
 
@@ -474,6 +480,7 @@ public final class ShopConfig {
         public double sell;
         public Boolean manualPrice;
         public int pricingModelVersion;
+        public boolean unavailableImport;
 
         public ItemStack createStack(RegistryAccess access) {
             return ItemStackData.decode(stack, item, access);
@@ -492,6 +499,7 @@ public final class ShopConfig {
     }
 
     private static final class SettingsFile {
+        int pricingSchema;
         ShopModesConfig modes = new ShopModesConfig();
         List<String> _about = new ArrayList<>();
         Object _notes = new LinkedHashMap<String, String>();
@@ -510,6 +518,7 @@ public final class ShopConfig {
     }
 
     private static final class EconomySection {
+        boolean sellDamagedItems = true, sellEnchantedEquipment, showOperatorBalances;
         String currencySymbol = "$";
         double startingBalance = 500.0;
     }
@@ -541,6 +550,7 @@ public final class ShopConfig {
     }
 
     private static final class EnchantmentsFile {
+        Double legacySellRatio;
         List<String> _about = new ArrayList<>();
         Object _notes = new LinkedHashMap<String, String>();
         Boolean enabled = true;
