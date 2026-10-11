@@ -74,11 +74,20 @@ public final class VanillaPriceSafety {
         return true;
     }
     private static List<Rule> rules(RegistryAccess access) {
+        return rules(access,GuiShop.CONFIG==null||GuiShop.CONFIG.villagerTradeLoopFix);
+    }
+    private static List<Rule> rules(RegistryAccess access,boolean protection) {
         var rules=new ArrayList<>(MODEL.rules().stream().filter(r -> {
             if (!exists(r.output(), access)) return false;
             if (r.block() == null) return true;
             var item = BuiltInRegistries.ITEM.getValue(Identifier.parse(r.block()));
             return item instanceof BlockItem blockItem && BuiltInRegistries.BLOCK.getKey(blockItem.getBlock()).toString().equals(r.block());
+        }).map(r->{
+            if(!protection||!r.kind().equals("trade"))return r;
+            int minimum=TradeLoopProtection.minimum(r.name().substring("trade/".length()));
+            if(minimum==0||r.inputs().getFirst().count()>=minimum)return r;
+            var inputs=new ArrayList<>(r.inputs());var first=inputs.getFirst();inputs.set(0,new Input(first.choices(),minimum));
+            return new Rule(r.name(),r.kind(),inputs,r.output(),r.count(),r.catalysts(),r.block(),r.share(),r.pricingInputs());
         }).toList());
         // Shipped compostables add at most one layer per consumed input. Seven
         // successful inputs yield one bone meal; unsuccessful rolls cost more.
@@ -96,7 +105,7 @@ public final class VanillaPriceSafety {
             var old = costs.get(key);
             if (old == null || item.buy < old.cost()) costs.put(key,new Bound(item.buy,"Direct purchase: " + item.name));
         }
-        relax(costs,rules(access),false);
+        relax(costs,rules(access,config.villagerTradeLoopFix),false);
         return costs;
     }
     private static void relax(Map<String,Bound> costs, List<Rule> rules, boolean pricing) {
@@ -133,7 +142,10 @@ public final class VanillaPriceSafety {
         throw new IllegalStateException("Vanilla price analysis did not converge. Existing shop was not changed.");
     }
     public static Review review(ShopConfig config, RegistryAccess access) {
-        var activeRules=rules(access);var costs=bounds(config,access);var saleLimits=new TreeMap<>(costs);
+        var activeRules=rules(access,config.villagerTradeLoopFix);var costs=bounds(config,access);
+        var audited=VanillaPresetValues.forConfig(config,access);
+        var saleLimits=audited==null?new TreeMap<>(costs):new TreeMap<>(audited);
+        if(audited==null){
         // Allocate the sale budget across every simultaneously obtainable
         // output, including returned containers. These limits affect final
         // sale prices only, never subsequent acquisition-cost propagation.
@@ -147,6 +159,7 @@ public final class VanillaPriceSafety {
             if(available){double limit=total/rule.count()*rule.share();var old=saleLimits.get(rule.output());
                 if(old==null||limit<old.cost())saleLimits.put(rule.output(),new Bound(limit,rule.name()+" | shared budget for outputs and returned containers"));
             }
+        }
         }
         var changes=new ArrayList<Change>();int checked=0,excluded=0,buyOnly=0;
         for(var category:config.categories)for(var item:category.items){
@@ -175,7 +188,7 @@ public final class VanillaPriceSafety {
             if(!ListingGroups.potion(item.item))costs.merge(key,new Bound(item.buy,"Ingredient purchase"),(a,b)->a.cost()<=b.cost()?a:b);
         }
         costs.put("minecraft:potion|potion=minecraft:water",new Bound(bottle,"Empty bottle + water"));
-        var brewing=rules(access).stream().filter(r->r.kind().equals("recipe")&&r.output().contains("|potion=")).toList();
+        var brewing=rules(access,config.villagerTradeLoopFix).stream().filter(r->r.kind().equals("recipe")&&r.output().contains("|potion=")).toList();
         relax(costs,brewing,true);
         for(var category:config.categories)for(var item:category.items){
             if(!(item.buy>0)||!ListingGroups.potion(item.item))continue;

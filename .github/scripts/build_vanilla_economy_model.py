@@ -366,8 +366,14 @@ coverage.append({'source':'interaction/copper_golem',
 for name, loot in sorted((k[18:],v) for k,v in data.items() if k.startswith('loot_table/blocks/')):
     pools=loot.get('pools',[]);share=max(1,len(pools))
     for pool in pools:
+        # A bought composter starts empty. Its full-state bonus costs seven
+        # successful compost inputs, already modeled at runtime. Do not turn
+        # the stored contents of a pre-filled block into a free refill loop.
+        condition=pool.get('condition',{})
+        pool_state=condition.get('state',{}) if isinstance(condition,dict) and condition.get('type')=='minecraft:match_block' else {}
+        if name=='composter' and str(pool_state.get('level','0'))=='8':continue
         for entry in pool['entries']:
-            for item,mods,state in loot_entries(entry,tuple(modifiers(loot.get('modifier')))+tuple(modifiers(pool.get('modifier')))):
+            for item,mods,state in loot_entries(entry,tuple(modifiers(loot.get('modifier')))+tuple(modifiers(pool.get('modifier'))),pool_state):
                 if any(k in state and str(state[k]) not in ('0','false') for k in ['age','stage','berries','honey_level']):continue
                 count=loot_count(mods)*maximum(pool.get('rolls',1));quantity=1
                 if name=='snow':quantity=int(state.get('layers',8 if item=='minecraft:snow_block' else 1))

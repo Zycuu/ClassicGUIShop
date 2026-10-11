@@ -133,8 +133,10 @@ public final class AdminEditorService {
             }
             throw new IllegalStateException("Save failed. Previous configuration was restored where possible; backup: " + backupId, failure);
         }
+        boolean tradeProtectionChanged=GuiShop.CONFIG.villagerTradeLoopFix!=draft.config.villagerTradeLoopFix;
         GuiShop.CONFIG = draft.config;
         GuiShop.ECONOMY.updateConfig(draft.config);
+        if(tradeProtectionChanged)com.zycu.guishop.TradeLoopProtection.changed(player.level().getServer());
         TransactionJournal.record(player, "CONFIG_APPLY", "", "", 0, 0, 0, "Backup " + backupId + " | " + changeSummary(before.document(),draft));
         return current();
     }

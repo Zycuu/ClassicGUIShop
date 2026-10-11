@@ -71,6 +71,9 @@ sourceSets {
     compatibilityTest {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
     }
+    vanillaAudit {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    }
 }
 
 dependencies { compatibilityTestCompileOnly 'net.luckperms:api:5.5' }
@@ -80,9 +83,14 @@ tasks.register('compatibilityTestJar', Jar) {
     from sourceSets.compatibilityTest.output
     archiveClassifier.set('compatibility-test')
 }
+tasks.register('vanillaAuditJar', Jar) {
+    dependsOn tasks.named('vanillaAuditClasses')
+    from sourceSets.vanillaAudit.output
+    archiveClassifier.set('vanilla-audit')
+}
 
 // Opt-in desktop integration harness. Neither its classes nor its metadata enter the release JAR.
-if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest')) {
+if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') || project.hasProperty('beta7UiTest')) {
     sourceSets {
         clientTest {
             compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
@@ -97,15 +105,21 @@ if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest')) {
             client {
                 source sourceSets.clientTest
                 programArgs '--width', '1320', '--height', '772'
+                if(project.hasProperty('beta7UiTest')) {
+                    runDir '../clients/beta7-ui'
+                    programArgs '--username','ShopUiBeta7'
+                    vmArg '-Dguishop.beta7UiTest=true'
+                    vmArg "-Dguishop.beta7UiReport=${file('../../outputs/beta7-ui-review-complete.json').absolutePath}"
+                }
             }
         }
     }
     if (project.hasProperty("betaReviewOnly")) loom.runs.client.vmArg "-Dguishop.betaReviewOnly=true"
     tasks.named('runClient') { dependsOn tasks.named('clientTestClasses') }
     tasks.named('processClientTestResources') {
-        inputs.property 'test_entrypoint', project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest'
+        inputs.property 'test_entrypoint', project.hasProperty('beta7UiTest') ? 'com.zycu.guishop.client.Beta7UiTest' : project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest'
         filesMatching('fabric.mod.json') {
-            expand(test_entrypoint: project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest')
+            expand(test_entrypoint: project.hasProperty('beta7UiTest') ? 'com.zycu.guishop.client.Beta7UiTest' : project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest')
         }
     }
     if (project.hasProperty('playerUiTest')) {

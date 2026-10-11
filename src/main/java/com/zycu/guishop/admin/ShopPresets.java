@@ -10,8 +10,9 @@ import java.util.*;
 /** Planning for explicit editor previews and first-install Vanilla Normal setup. A plan changes no live state. */
 public final class ShopPresets {
     private ShopPresets() {}
-    public record Request(String preset,double normalRatio,Double bookRatio,Double potionRatio) {
-        public Request(String preset,double normalRatio){this(preset,normalRatio,.30,.30);}
+    public record Request(String preset,double normalRatio,Double bookRatio,Double potionRatio,Boolean villagerTradeLoopFix) {
+        public Request(String preset,double normalRatio){this(preset,normalRatio,.30,.30,null);}
+        public Request(String preset,double normalRatio,Double bookRatio,Double potionRatio){this(preset,normalRatio,bookRatio,potionRatio,null);}
     }
     public record Plan(String preset, List<ShopConfig.Category> categories, Map<String, ShopConfig.EnchantmentOffer> enchantments, double ratio, int items, int locked, int capped, int recipes, String warning) {}
     private record Group(String tab, String id, String name, String icon) {}
@@ -32,6 +33,7 @@ public final class ShopPresets {
         double bookRatio=request.bookRatio()==null?GuiShop.CONFIG.bookSellRatio:request.bookRatio(), potionRatio=request.potionRatio()==null?GuiShop.CONFIG.potionSellRatio:request.potionRatio();
         if(request.preset().equals("blank"))return new Plan("blank",List.of(),Map.of(),0,0,0,0,0,"Start with an empty shop and create your own categories and listings.");
         var access = server.registryAccess(); var config = new ShopConfig();
+        config.villagerTradeLoopFix=request.villagerTradeLoopFix()==null?GuiShop.CONFIG.villagerTradeLoopFix:request.villagerTradeLoopFix();
         double ratio = switch (request.preset()) { case "hard" -> .10; case "easy" -> .95; default -> request.normalRatio(); };
         if(request.preset().equals("hard")||request.preset().equals("easy")){bookRatio=ratio;potionRatio=ratio;}
         double buyFactor = switch (request.preset()) { case "hard" -> 3; case "easy" -> .75; default -> 1; };
@@ -79,7 +81,8 @@ public final class ShopPresets {
         ListingGroups.separatePotions(config);
         ListingGroups.separateTippedArrows(config);
         count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
-        return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, 2042, "Vanilla recipes, instant interactions and discounted merchants were audited. Unavoidable loop outputs are buy-only. Modded content and altered datapack mechanics are the admin's responsibility.");
+        return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, 2042,
+            "Vanilla recipes, interactions and merchants audited with Villager Trade Loop Fix "+(config.villagerTradeLoopFix?"On":"Off")+". Keep that setting for these prices. Modded content and custom mechanics are the admin's responsibility.");
     }
     private static ShopConfig.ShopItem listing(ItemStack stack, String category, double ratio, double factor, Set<String> used, net.minecraft.core.RegistryAccess access) {
         var item = new ShopConfig.ShopItem(); item.item = ShopService.itemId(stack); item.stack = ItemStackData.encode(stack, access); item.name = stack.getHoverName().getString();
@@ -93,7 +96,7 @@ public final class ShopPresets {
             });
         }
         String path = item.item.substring(10);
-        if (!LOCKED.contains(path) && !path.endsWith("_spawn_egg")) { item.buy = Math.round(PresetPricing.buy(stack, category) * factor * 100) / 100.0; item.sell = stack.getComponentsPatch().isEmpty() ? floor(item.buy * ratio) : 0; }
+        if (!LOCKED.contains(path) && !path.endsWith("_spawn_egg")) { item.buy = Math.round(PresetPricing.buy(stack, category) * factor * 100) / 100.0; item.sell = VanillaPriceSafety.key(stack)!=null ? floor(item.buy * ratio) : 0; }
         return item;
     }
     private static boolean basic(String path, String group) {

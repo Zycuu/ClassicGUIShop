@@ -44,7 +44,10 @@ public final class Beta4Checks {
             var arrowLevels=ListingGroups.leaves(combat.items,viewer.registryAccess(),"arrow:minecraft:swiftness");
             check(arrowLevels.size()==3&&arrowFamilies.containsKey("arrow:minecraft:swiftness"),"Arrow family contains base, extended and strong levels");
             HybridShopGui.openCategory(viewer,combat.id,ShopGui.Mode.BUY,1);
-            int arrows=new ArrayList<>(arrowGroups.keySet()).indexOf("arrows");viewer.containerMenu.clicked(arrows,0,net.minecraft.world.inventory.ContainerInput.PICKUP,viewer);
+            var ordered=ListingGroups.entries(combat.items.stream().filter(i->i.buy>0||i.sell>0).toList(),viewer.registryAccess(),null);
+            int arrowIndex=java.util.stream.IntStream.range(0,ordered.size()).filter(i->"arrows".equals(ordered.get(i).group())).findFirst().orElseThrow();
+            HybridShopGui.openCategory(viewer,combat.id,ShopGui.Mode.BUY,arrowIndex/45+1);
+            viewer.containerMenu.clicked(arrowIndex%45,0,net.minecraft.world.inventory.ContainerInput.PICKUP,viewer);
             check(viewer.containerMenu.getSlot(0).getItem().getHoverName().getString().startsWith("Arrow"),"Arrow root opens family choices");
             int swift=new ArrayList<>(arrowFamilies.keySet()).indexOf("arrow:minecraft:swiftness");viewer.containerMenu.clicked(swift,0,net.minecraft.world.inventory.ContainerInput.PICKUP,viewer);
             for(var listing:arrowLevels){var exact=listing.createStack(viewer.registryAccess());check(ShopService.trade(viewer,listing,ShopGui.Mode.BUY,1)&&ShopService.count(viewer,exact)==1,"Exact tipped arrow level delivered");}

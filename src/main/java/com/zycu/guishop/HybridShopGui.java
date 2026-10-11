@@ -81,20 +81,19 @@ public final class HybridShopGui {
     private static void openCategoryPage(ServerPlayer player,ShopConfig.Category category,int requestedPage,String group,int parentPage){
         if(!allowed(player)||!ShopPermissions.category(player,category.id))return;
         if(GuiShop.CONFIG.category(category.id)!=category){ShopMessages.warning(player,"The shop was updated. Reopen /shop before trading.");return;}
-        var available=availableItems(player,category);var groups=ListingGroups.groups(available,player.registryAccess(),group);
-        List<ShopConfig.ShopItem> items=ListingGroups.leaves(available,player.registryAccess(),group);
-        var folders=new ArrayList<>(groups.entrySet());
+        var entries=ListingGroups.entries(availableItems(player,category),player.registryAccess(),group);
         String title=group==null?category.name:ListingGroups.name(group,player.registryAccess());
         var session=new PageSession(player,Component.literal(title),(screen,requested)->{
-            int total=folders.size()+items.size(),pages=pageCount(total),page=clampPage(requested,pages),start=(page-1)*PAGE_SIZE;screen.begin();
+            int total=entries.size(),pages=pageCount(total),page=clampPage(requested,pages),start=(page-1)*PAGE_SIZE;screen.begin();
             for(int slot=0;slot<PAGE_SIZE&&start+slot<total;slot++){
                 int index=start+slot;
-                if(index<folders.size()){
-                    var folder=folders.get(index);String name=ListingGroups.name(folder.getKey(),player.registryAccess());
-                    var icon=ShopIcons.display(folder.getValue().getFirst().createStack(player.registryAccess()),name,ListingGroups.description(folder.getKey(),folder.getValue().size()));
-                    screen.bind(slot,icon,false,ignored->openCategoryPage(player,category,1,folder.getKey(),page));
+                var node=entries.get(index);
+                if(node.folder()){
+                    String name=ListingGroups.name(node.group(),player.registryAccess());
+                    var icon=ShopIcons.display(node.item().createStack(player.registryAccess()),name,ListingGroups.description(node.group(),node.items().size()));
+                    screen.bind(slot,icon,false,ignored->openCategoryPage(player,category,1,node.group(),page));
                 }else{
-                    var entry=items.get(index-folders.size());var icon=ShopIcons.listing(entry.createStack(player.registryAccess()),ListingGroups.displayName(entry,player.registryAccess()),entry.description,entry.buy,entry.sell,GuiShop.CONFIG,true);
+                    var entry=node.item();var icon=ShopIcons.listing(entry.createStack(player.registryAccess()),ListingGroups.displayName(entry,player.registryAccess()),entry.description,entry.buy,entry.sell,GuiShop.CONFIG,true);
                     screen.trade(slot,icon,(side,quantity)->{if(ShopService.trade(player,entry,side,quantity))screen.show(page);});
                 }
             }

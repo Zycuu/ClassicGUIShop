@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "guishop_vanilla_preset_audit",
+  "version": "1.0.0",
+  "name": "ClassicGUIShop native preset audit (disposable tests only)",
+  "environment": "server",
+  "depends": {
+    "guishop": ">=1.4.6-beta.1"
+  },
+  "entrypoints": {
+    "main": [
+      "com.zycu.guishop.audit.SecondAudit"
+    ]
+  }
+}

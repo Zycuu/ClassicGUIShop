@@ -25,6 +25,7 @@ public final class GuiShop implements ModInitializer {
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             ShopModes.checkpoint();
             com.zycu.guishop.admin.AdminNetworking.clear(); ShopMaps.clear();
+            TradeLoopProtection.clear();
         });
         // Client installation is an editor, not a second local copy of a remote server's economy.
     }

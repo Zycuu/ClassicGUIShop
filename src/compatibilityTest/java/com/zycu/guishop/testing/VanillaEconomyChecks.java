@@ -52,15 +52,16 @@ public final class VanillaEconomyChecks {
                 var row=new LinkedHashMap<String,Object>();row.put("category",category.name);row.put("name",item.name);row.put("key",key);row.put("buy",item.buy);row.put("sell",item.sell);
                 if(bound!=null){row.put("costBound",bound.cost());row.put("route",bound.route());}rows.add(row);
             }
-            check(find(draft,"minecraft:emerald").sell==0,"Discounted merchant multiplication has no cash outlet");
+            check(original.villagerTradeLoopFix?find(draft,"minecraft:emerald").sell>0:find(draft,"minecraft:emerald").sell==0,"Emerald sale follows protected or native merchant policy");
+            if(original.villagerTradeLoopFix)for(String common:List.of("minecraft:oak_log","minecraft:birch_log","minecraft:spruce_log","minecraft:stick"))if(draft.findItem(common)!=null)check(find(draft,common).sell>0,"Common resource stays sellable: "+common+" "+preset);
             check(find(draft,"minecraft:diamond").sell>0,"Ordinary diamond mining retains income");
             check(find(draft,"minecraft:ancient_debris").sell>0,"Ordinary debris gathering retains income");
             if(!preset.equals("basics")){
-                check(find(draft,"minecraft:glass_bottle").sell==0,"Glass/bottle/emerald loop is buy-only");
+                check(original.villagerTradeLoopFix?find(draft,"minecraft:glass_bottle").sell>0:find(draft,"minecraft:glass_bottle").sell==0,"Glass loop protection follows merchant setting");
                 check(bounds.get("minecraft:potion|potion=minecraft:water").cost()<=bounds.get("minecraft:glass_bottle").cost(),"Water fill respects bottle cost");
                 var water=draft.categories.stream().flatMap(c->c.items.stream()).filter(i->"minecraft:potion|potion=minecraft:water".equals(VanillaPriceSafety.key(i.createStack(access)))).findFirst().orElseThrow();
                 check(water.buy==find(draft,"minecraft:glass_bottle").buy,"Plain water buy is empty-bottle price, independent of translated names");
-                check(water.sell==0,"Filled water cannot monetize glass multiplication");
+                check(original.villagerTradeLoopFix?water.sell>0:water.sell==0,"Water sale is bounded by protected merchant and bottle costs");
                 copperPaths(draft,bounds);
             }
             reports.put(preset,Map.of("items",plan.items(),"sellEnabled",positive,"buyOnly",disabled,"corrected",plan.capped(),"review",review,"listings",rows,"bounds",bounds));

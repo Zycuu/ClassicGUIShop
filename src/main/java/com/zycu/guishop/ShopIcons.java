@@ -40,6 +40,7 @@ public final class ShopIcons {
     public static ItemStack listing(ItemStack template, String name, String detail, double buy, double sell, ShopConfig config, boolean bulkBuy) {
         var icon = display(template, name, "");
         var lines = new java.util.ArrayList<Component>();
+        potionEffects(template, lines);
         lines.add(Component.literal("Buy: " + priceLabel(buy, config)).withStyle(net.minecraft.ChatFormatting.GOLD));
         lines.add(Component.literal("Sell: " + priceLabel(sell, config)).withStyle(net.minecraft.ChatFormatting.GREEN));
         lines.add(Component.literal("Left-click: buy 1 | Right-click: sell 1").withStyle(net.minecraft.ChatFormatting.GRAY));
@@ -51,6 +52,7 @@ public final class ShopIcons {
     }
     public static ItemStack editor(ItemStack template,String name,String detail,double buy,double sell,ShopConfig config) {
         var icon=display(template,name,"");var lines=new java.util.ArrayList<Component>();
+        potionEffects(template,lines);
         lines.add(Component.literal("Buy: "+priceLabel(buy,config)).withStyle(net.minecraft.ChatFormatting.GOLD));
         lines.add(Component.literal("Sell: "+priceLabel(sell,config)).withStyle(net.minecraft.ChatFormatting.GREEN));
         lines.add(Component.literal("Click to edit").withStyle(net.minecraft.ChatFormatting.GRAY));
@@ -60,5 +62,14 @@ public final class ShopIcons {
     }
     private static String priceLabel(double value, ShopConfig config) {
         return value > 0 && Double.isFinite(value) ? config.money(value) + " each" : "Disabled";
+    }
+    private static void potionEffects(ItemStack template, java.util.List<Component> lines) {
+        var contents=template.get(DataComponents.POTION_CONTENTS);
+        if(contents==null)return;
+        // Use the gameplay component's own formatting and duration scale.
+        // Tipped arrows and lingering potions have shorter effects than drinks.
+        contents.addToTooltip(net.minecraft.world.item.Item.TooltipContext.EMPTY,lines::add,
+            net.minecraft.world.item.TooltipFlag.NORMAL,template);
+        if(!lines.isEmpty())lines.add(Component.empty());
     }
 }

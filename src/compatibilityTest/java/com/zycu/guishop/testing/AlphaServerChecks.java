@@ -157,6 +157,7 @@ public final class AlphaServerChecks {
             BetaChecks.run(player);
             Beta2Checks.run(player);
             Beta4Checks.run(player);
+            Beta7Checks.run(player);
             check(java.util.Arrays.equals(Files.readAllBytes(legacyPath), legacyBytes), "Legacy data survives repeated Apply and restore");
             server.getPlayerList().getOps().remove(player.nameAndId());
             try { AdminEditorService.apply(player, "", changed); throw new AssertionError("Revoked OP applied a draft"); }

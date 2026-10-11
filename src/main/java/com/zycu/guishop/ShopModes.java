@@ -91,9 +91,10 @@ public final class ShopModes {
                     double deduction = before - GuiShop.ECONOMY.readBalance(player.getUUID());
                     if (deduction > 0) message(player, config.warriorPrefix, config.warriorColor, "Lost " + GuiShop.CONFIG.money(deduction) + ".");
                 }
-            } else if (config.mobsEnabled) {
+            } else if (config.mobsEnabled && rewardMob(victim)) {
                 String id = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType()).toString();
-                double amount = config.mobPrices.getOrDefault(id, config.mobDefault);
+                double amount = config.mobPrices.getOrDefault(id,id.startsWith("minecraft:")
+                    ? config.mobDefault>0?config.mobDefault:suggestedMob(victim.getType()):0);
                 if (amount < .01) return;
                 // Quick farming is an explicit global bypass, including spawner farms.
                 int cooldown = config.allowSpawnerFarming ? 0 : config.mobCooldown();
@@ -131,11 +132,41 @@ public final class ShopModes {
     }
     public static Catalog catalog(ServerPlayer player) {
         if (!AdminEditorService.allowed(player)) throw new SecurityException(AdminEditorService.DENIED);
-        var entities = BuiltInRegistries.ENTITY_TYPE.keySet().stream().filter(id -> BuiltInRegistries.ENTITY_TYPE.getValue(id).canSummon()).sorted(Comparator.comparing(Object::toString))
-            .limit(10000).map(id -> new Offer(id.toString(), BuiltInRegistries.ENTITY_TYPE.getValue(id).getDescription().getString(), 0)).toList();
+        var entities = new ArrayList<Offer>();
+        for(var id:BuiltInRegistries.ENTITY_TYPE.keySet().stream().sorted(Comparator.comparing(Object::toString)).toList()) {
+            var type=BuiltInRegistries.ENTITY_TYPE.getValue(id);if(!type.canSummon())continue;
+            try {
+                // Classify without spawning, ticks, equipment initialization,
+                // or adding anything to the world.
+                if(rewardMob(type.create(player.level(),net.minecraft.world.entity.EntitySpawnReason.COMMAND)))
+                    entities.add(new Offer(id.toString(),type.getDescription().getString(),suggestedMob(type)));
+            }catch(Exception error){System.err.println("[ClassicGUIShop] Could not classify detected mob "+id+": "+error.getMessage());}
+            if(entities.size()>=10000)break;
+        }
         var advancements = player.level().getServer().getAdvancements().getAllAdvancements().stream().sorted(Comparator.comparing(value -> value.id().toString())).limit(10000)
             .map(value -> new Offer(value.id().toString(), value.value().name().map(Component::getString).orElse(value.id().toString()), suggested(value))).toList();
         return new Catalog(entities, advancements);
+    }
+    private static boolean rewardMob(net.minecraft.world.entity.Entity entity) {
+        return entity instanceof net.minecraft.world.entity.Mob
+            ||entity instanceof LivingEntity&&!(entity instanceof net.minecraft.world.entity.player.Player)
+                &&entity.getType().getCategory()!=net.minecraft.world.entity.MobCategory.MISC;
+    }
+    private static double suggestedMob(net.minecraft.world.entity.EntityType<?> type) {
+        var id=BuiltInRegistries.ENTITY_TYPE.getKey(type);
+        if(!id.getNamespace().equals("minecraft"))return 0;
+        return switch(id.getPath()) {
+            case "villager","wandering_trader" -> 0;
+            case "ender_dragon","wither","warden" -> 50;
+            case "elder_guardian","ravager" -> 25;
+            case "evoker","piglin_brute" -> 20;
+            default -> switch(type.getCategory()) {
+                case MONSTER -> 10;
+                case AMBIENT -> 2;
+                case WATER_AMBIENT,WATER_CREATURE,UNDERGROUND_WATER_CREATURE,AXOLOTLS -> 3;
+                default -> 5;
+            };
+        };
     }
     private static String minutes(int seconds) { double value = seconds / 60.0; return (value == Math.rint(value) ? Long.toString((long)value) : String.format(Locale.ROOT, "%.3f", value)) + (seconds == 60 ? " minute" : " minutes"); }
     private static void message(ServerPlayer player, String mode, String color, String text) {

@@ -30,6 +30,7 @@ public final class ShopConfig {
     public ShopModesConfig modes = new ShopModesConfig();
     public int pricingSchema;
     public boolean sellDamagedItems = true, sellEnchantedEquipment, showOperatorBalances;
+    public boolean villagerTradeLoopFix = true;
     public String currencySymbol = "$";
     public String shopTitle = "ClassicGUIShop";
     public double startingBalance = 500.0;
@@ -318,6 +319,7 @@ public final class ShopConfig {
             sellDamagedItems = file.economy.sellDamagedItems;
             sellEnchantedEquipment = file.economy.sellEnchantedEquipment;
             showOperatorBalances = file.economy.showOperatorBalances;
+            villagerTradeLoopFix = file.economy.villagerTradeLoopFix;
         }
         if (file.catalog != null) {
             autoPopulateVanillaCatalog = file.catalog.autoPopulateVanillaCatalog;
@@ -368,6 +370,7 @@ public final class ShopConfig {
         file.economy.sellDamagedItems = sellDamagedItems;
         file.economy.sellEnchantedEquipment = sellEnchantedEquipment;
         file.economy.showOperatorBalances = showOperatorBalances;
+        file.economy.villagerTradeLoopFix = villagerTradeLoopFix;
         file.catalog.autoPopulateVanillaCatalog = autoPopulateVanillaCatalog;
         file.catalog.purgeUnobtainableOnSync = purgeUnobtainableOnSync;
         file.catalog.balancedPricingEnabled = balancedPricingEnabled;
@@ -422,6 +425,7 @@ public final class ShopConfig {
         notes.put("economy.sellDamagedItems", "Allows command sales with a remaining-durability adjustment; exact explicitly priced variants take priority.");
         notes.put("economy.sellEnchantedEquipment", "Allows command sales of standard enchanted equipment; eligible exact book sell values are added before the durability adjustment.");
         notes.put("economy.showOperatorBalances", "Allows operator accounts in public /bal player and /baltop. Adminshop always has access.");
+        notes.put("economy.villagerTradeLoopFix", "Audited minimum payments for unchanged vanilla villagers and wandering traders, including saved offers. Original terms and progress are preserved. Built-in presets use this setting; regenerate a preset after turning it off. Custom prices/mechanics are the admin's responsibility.");
         notes.put("modes", "Intervals and cooldowns are expressed in minutes; fractional minutes must resolve to whole seconds. Prefix names and colors are editable per mode.");
         notes.put("general.allowCreativeTransactions", "When true, players in Creative mode may buy and sell. When false, Creative transactions require the guishop.creative.bypass permission.");
         notes.put("general.allowOfflinePayments", "When true, /shop pay may send money to a player who is offline but has joined before. When false, the recipient must be online.");
@@ -530,6 +534,7 @@ public final class ShopConfig {
     private static final class EconomySection {
         double presetSellRatio=.30, bookSellRatio=.30, potionSellRatio=.30;
         boolean sellDamagedItems = true, sellEnchantedEquipment, showOperatorBalances;
+        boolean villagerTradeLoopFix = true;
         String currencySymbol = "$";
         double startingBalance = 500.0;
     }

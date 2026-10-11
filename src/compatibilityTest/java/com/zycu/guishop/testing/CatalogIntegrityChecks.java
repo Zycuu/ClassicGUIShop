@@ -40,9 +40,13 @@ public final class CatalogIntegrityChecks {
                 check(icon.get(DataComponents.ITEM_MODEL).equals(source.get(DataComponents.ITEM_MODEL)), "Listing uses native item model: " + identity);
                 check(categoryIcon.get(DataComponents.ITEM_MODEL).equals(source.get(DataComponents.ITEM_MODEL)), "Category uses native item model: " + identity);
                 var lines = icon.getTooltipLines(Item.TooltipContext.of(player.level()), player, TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList();
-                check(lines.size() == 7 && lines.get(1).startsWith("Buy: ") && lines.get(2).startsWith("Sell: ") && lines.getLast().equals("Audit shop description"), "Only shop name, prices, controls and description appear: " + identity + " " + lines);
+                var effects=new java.util.ArrayList<net.minecraft.network.chat.Component>();var potion=source.get(DataComponents.POTION_CONTENTS);
+                if(potion!=null)potion.addToTooltip(Item.TooltipContext.EMPTY,effects::add,TooltipFlag.NORMAL,source);
+                int prefix=effects.isEmpty()?0:effects.size()+1;
+                check(lines.size()==7+prefix&&lines.get(1+prefix).startsWith("Buy: ")&&lines.get(2+prefix).startsWith("Sell: ")&&lines.getLast().equals("Audit shop description"),"Only native potion effects and shop controls appear: "+identity+" "+lines);
+                check(lines.subList(1,1+effects.size()).equals(effects.stream().map(net.minecraft.network.chat.Component::getString).toList()),"Native effects precede buy and sell: "+identity);
                 var editorLines=ShopIcons.editor(source,listing.name,"",10,2,config).getTooltipLines(Item.TooltipContext.of(player.level()),player,TooltipFlag.NORMAL).stream().map(net.minecraft.network.chat.Component::getString).toList();
-                check(editorLines.size()==4&&editorLines.getLast().equals("Click to edit"),"Admin tooltip has editing instructions without source lore or trading controls: "+identity);
+                check(editorLines.size()==4+prefix&&editorLines.getLast().equals("Click to edit"),"Admin tooltip has native potion effects and editing instructions without injected source lore: "+identity);
                 player.getInventory().clearContent();
                 if (source.getItem() instanceof MapItem) {
                     contextual++;

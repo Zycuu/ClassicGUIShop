@@ -276,7 +276,7 @@ public final class AdminScreen extends WorkbenchScreen {
             number("Book sell return %",380,184,110,draft.config.bookSellRatio*100,v->{draft.config.bookSellRatio=v/100;presetPlan=null;});
             number("Potion sell return %",510,184,110,draft.config.potionSellRatio*100,v->{draft.config.potionSellRatio=v/100;presetPlan=null;});
         }
-        button("Preview preset",250,269,174,()->{if(AdminShopClient.request("preset","",AdminDocument.JSON.toJson(new com.zycu.guishop.admin.ShopPresets.Request(presetChoice,draft.config.presetSellRatio,draft.config.bookSellRatio,draft.config.potionSellRatio)))){busy=true;status="Building and auditing the preset on the server...";rebuildWidgets();}}).active=!busy&&errors.isEmpty();
+        button("Preview preset",250,269,174,()->{if(AdminShopClient.request("preset","",AdminDocument.JSON.toJson(new com.zycu.guishop.admin.ShopPresets.Request(presetChoice,draft.config.presetSellRatio,draft.config.bookSellRatio,draft.config.potionSellRatio,draft.config.villagerTradeLoopFix)))){busy=true;status="Building and auditing the preset on the server...";rebuildWidgets();}}).active=!busy&&errors.isEmpty();
         presetLoadButton=button("Load into editor",434,269,186,()->{if(presetPlan==null)return;confirm("Replace draft shop?","This replaces all editor categories and listings, including modded content. Review the result, then Save changes. Accounts and modes are preserved.",()->{draft.config.categories=new ArrayList<>(presetPlan.categories());if(presetPlan.preset().equals("blank"))draft.config.enchantments.clear();categoryId="";selectedItem=null;browserPage=previewPage=0;tab=Tab.BUILDER;status="Preset loaded into the editor. Review it, then Save changes.";});});presetLoadButton.active=!busy&&presetPlan!=null&&errors.isEmpty();
     }
     private void paintPresets(GuiGraphicsExtractor g){
@@ -301,7 +301,7 @@ public final class AdminScreen extends WorkbenchScreen {
         } else if (modeSection.equals("Cash Mobs")) {
             toggle("Cash Mobs", 218, 81, 182, m.mobsEnabled, value -> m.mobsEnabled = value);
             toggle("Quick farming", 418, 81, 194, m.allowSpawnerFarming, value -> m.allowSpawnerFarming = value);
-            number("Default mob reward", 218, 125, 174, m.mobDefault, value -> m.mobDefault = value);
+            number("Default reward override", 218, 125, 174, m.mobDefault, value -> m.mobDefault = value);
             number("Kill cooldown minutes", 418, 125, 194, m.mobCooldownMinutes, value -> m.mobCooldownMinutes = value);
             modeColor("Prefix color", 218, 181, m.mobsColor, value -> m.mobsColor = value);
             button("Edit mob rewards", 418, 181, 194, () -> minecraft.gui.setScreen(new ModeOffersScreen(this, m, modeCatalog, false))).active = modeCatalog != null;
@@ -332,14 +332,14 @@ public final class AdminScreen extends WorkbenchScreen {
     private void colorChoice(String label,int x,int y,int width,String color,Consumer<String> changed){button(ChoiceDialog.label(color)+"...",x,y,width,()->minecraft.gui.setScreen(new ChoiceDialog(this,label,color,ChoiceDialog.colors(),value->{changed.accept(value);rebuildWidgets();})));}
     private void paintModes(GuiGraphicsExtractor graphics) {
         panel(graphics, 16, 69, 188, 270, WorkbenchTheme.PANEL); panel(graphics, 208, 69, 436, 270, WorkbenchTheme.PANEL);
-        String[] labels = switch (modeSection) { case "Passive Income" -> new String[]{"Income amount", "Interval minutes"}; case "Cash Mobs" -> new String[]{"Default mob reward", "Kill cooldown minutes"}; case "Advancement Hunter" -> new String[]{"Default mod advancement reward", ""}; case "Mishap Charge" -> new String[]{"Death charge", ""}; default -> new String[]{"Kill reward", "Victim deduction"}; };
+        String[] labels = switch (modeSection) { case "Passive Income" -> new String[]{"Income amount", "Interval minutes"}; case "Cash Mobs" -> new String[]{"Default reward override", "Kill cooldown minutes"}; case "Advancement Hunter" -> new String[]{"Default mod advancement reward", ""}; case "Mishap Charge" -> new String[]{"Death charge", ""}; default -> new String[]{"Kill reward", "Victim deduction"}; };
         int y = 112;
         text(graphics, labels[0], 218, y, WorkbenchTheme.MUTED); text(graphics, labels[1], 418, y, WorkbenchTheme.MUTED);
         if (modeSection.equals("Warrior Mode")) { text(graphics, "Repeat kill cooldown (min)", 218, 159, WorkbenchTheme.MUTED); text(graphics, "Online time required (min)", 418, 159, WorkbenchTheme.MUTED); text(graphics, "Prefix color", 418, 195, WorkbenchTheme.MUTED); }
         else text(graphics, "Prefix color", 218, 168, WorkbenchTheme.MUTED);
         String help = switch (modeSection) {
             case "Passive Income" -> "Survival/adventure play earns income. AFK counts; offline time and disabled periods do not.";
-            case "Cash Mobs" -> "Player kills only. Unknown entities pay 0. Cooldown is per player/type; quick farming bypasses it.";
+            case "Cash Mobs" -> "Living mobs only. 0 uses vanilla rewards of 2 to 50. Added mobs use your default override. Quick farming bypasses cooldowns.";
             case "Advancement Hunter" -> "One reward per advancement. Vanilla: Task 25, Goal 100, Challenge 500. Hidden entries pay 0.";
             case "Mishap Charge" -> "Each survival/adventure death is charged once. Debt is optional. Warrior deductions apply separately.";
             default -> "Repeat pairs, self kills and creative/spectator players do not pay. Same-address blocking includes shared connections.";
@@ -466,8 +466,9 @@ public final class AdminScreen extends WorkbenchScreen {
             number("Starting balance for new players", 350, 142, 276, config.startingBalance, value -> config.startingBalance = value);
             toggle("Damaged item selling",32,196,276,config.sellDamagedItems,value->config.sellDamagedItems=value);
             toggle("Enchanted equipment selling",350,196,276,config.sellEnchantedEquipment,value->config.sellEnchantedEquipment=value);
-            toggle("Show operator balances publicly",32,235,594,config.showOperatorBalances,value->config.showOperatorBalances=value);
-            button("Preset price defaults",32,279,276,()->{tab=Tab.PRESETS;rebuildWidgets();});
+            toggle("Show operator balances publicly",32,235,276,config.showOperatorBalances,value->config.showOperatorBalances=value);
+            button("Preset price defaults",350,235,276,()->{tab=Tab.PRESETS;rebuildWidgets();});
+            toggle("Villager Trade Loop Fix",32,279,594,config.villagerTradeLoopFix,value->{config.villagerTradeLoopFix=value;presetPlan=null;status=value?"Trade protection enabled in the draft. Preview a preset to update its prices.":"Vanilla trades restored when saved. Preview and load a preset with protection Off to keep prices safe.";});
         } else if (settingsSection.equals("Messages")) {
             field("Chat prefix", 32, 142, 276, config.chatPrefix, value -> config.chatPrefix = value);
             colorChoice("Prefix color", 350, 142, 276, config.chatPrefixColor, value -> config.chatPrefixColor = value);
@@ -750,16 +751,18 @@ public final class AdminScreen extends WorkbenchScreen {
 
             return tiles;
         }
-        var groups=com.zycu.guishop.ListingGroups.groups(category.items,minecraft.level.registryAccess(),enchantId);
-        for(var entry:groups.entrySet()){
-            String name=com.zycu.guishop.ListingGroups.name(entry.getKey(),minecraft.level.registryAccess());
-            if(!search.isBlank()&&!name.toLowerCase(Locale.ROOT).contains(search)&&entry.getValue().stream().noneMatch(item->(item.name+" "+item.item+" "+item.listingId).toLowerCase(Locale.ROOT).contains(search)))continue;
-            var icon=com.zycu.guishop.ShopIcons.display(entry.getValue().getFirst().createStack(minecraft.level.registryAccess()),name,com.zycu.guishop.ListingGroups.description(entry.getKey(),entry.getValue().size()));
-            tiles.add(new Tile("bookgroup",entry.getKey(),name,entry.getValue().getFirst().item,null,icon,com.zycu.guishop.ListingGroups.description(entry.getKey(),entry.getValue().size())));
-        }
-        for(var item:com.zycu.guishop.ListingGroups.leaves(category.items,minecraft.level.registryAccess(),enchantId)){
-            if(!search.isBlank()&&!(item.name+" "+item.item+" "+item.listingId).toLowerCase(Locale.ROOT).contains(search))continue;
-            tiles.add(new Tile("item",item.listingId,com.zycu.guishop.ListingGroups.displayName(item,minecraft.level.registryAccess()),item.item,item));
+        for(var node:com.zycu.guishop.ListingGroups.entries(category.items,minecraft.level.registryAccess(),enchantId)){
+            if(node.folder()){
+                String name=com.zycu.guishop.ListingGroups.name(node.group(),minecraft.level.registryAccess());
+                if(!search.isBlank()&&!name.toLowerCase(Locale.ROOT).contains(search)&&node.items().stream().noneMatch(item->(item.name+" "+item.item+" "+item.listingId).toLowerCase(Locale.ROOT).contains(search)))continue;
+                String detail=com.zycu.guishop.ListingGroups.description(node.group(),node.items().size());
+                var icon=com.zycu.guishop.ShopIcons.display(node.item().createStack(minecraft.level.registryAccess()),name,detail);
+                tiles.add(new Tile("bookgroup",node.group(),name,node.item().item,null,icon,detail));
+            }else{
+                var item=node.item();
+                if(!search.isBlank()&&!(item.name+" "+item.item+" "+item.listingId).toLowerCase(Locale.ROOT).contains(search))continue;
+                tiles.add(new Tile("item",item.listingId,com.zycu.guishop.ListingGroups.displayName(item,minecraft.level.registryAccess()),item.item,item));
+            }
         }
         return tiles;
     }
@@ -833,8 +836,8 @@ public final class AdminScreen extends WorkbenchScreen {
             multiline(graphics,"The player shop uses vanilla menus. Admin editing requires the matching client mod and server permission.",32,247,580,WorkbenchTheme.MUTED);
         } else if(settingsSection.equals("Economy")) {
             text(graphics,"Currency prefix (display only)",32,129,WorkbenchTheme.MUTED);text(graphics,"Starting balance for new players",350,129,WorkbenchTheme.MUTED);
-            text(graphics,"New preset prices",32,264,WorkbenchTheme.MUTED);
-            multiline(graphics,"Edit listing prices in Shop Builder. Set new preset defaults in Presets. Existing balances are preserved.",32,307,584,WorkbenchTheme.MUTED);
+            text(graphics,"Adjusts vanilla villager and wandering trader trades to prevent shop exploits.",32,308,WorkbenchTheme.MUTED);
+            text(graphics,"Balanced for built-in presets. Off restores original trades; rebuild preset prices.",32,322,WorkbenchTheme.TEAL);
         } else if(settingsSection.equals("Messages")) {
             labels(graphics,new String[]{"Chat prefix","Information color","Warning color"},32,new int[]{129,183,237});labels(graphics,new String[]{"Prefix color","Success color","Error color"},350,new int[]{129,183,237});
             text(graphics,"Choose a color to preview it, then Update and Save changes.",32,296,WorkbenchTheme.MUTED);

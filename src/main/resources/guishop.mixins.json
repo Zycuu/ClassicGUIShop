@@ -8,7 +8,10 @@
     "MinecraftServerMixin",
     "LivingEntityMixin",
     "ServerPlayerMixin",
-    "PlayerAdvancementsMixin"
+    "PlayerAdvancementsMixin",
+    "MerchantOfferMixin",
+    "AbstractVillagerMixin",
+    "VillagerTradeMixin"
   ],
   "injectors": {
     "defaultRequire": 1
