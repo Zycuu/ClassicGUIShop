@@ -12,16 +12,20 @@ data = json.loads(source.read_text(encoding='utf-8'))
 actions = data['actions']
 
 def audit(preset, *, negative_control=False, allowed_kinds=None, blocked_sales=()):
+    preset_actions=actions+data.get('merchantActions',{}).get(preset,[])
     entries = data['prices'][preset]
     buys, sells = {}, {}
     for row in entries:
         k = row['key']
         if row['buy'] > 0: buys[k] = min(buys.get(k, float('inf')), row['buy'])
         if row['sell'] > 0: sells[k] = max(sells.get(k, 0), row['sell'])
-    if negative_control: sells['minecraft:potion|potion=minecraft:water'] = 1.0
+    if negative_control:
+        # Independent purchased-log -> plank conversion, even with NPCs protected.
+        log=min(row['buy'] for row in entries if row['key']=='minecraft:oak_log' and row['buy']>0)
+        sells['minecraft:oak_planks']=log
     for key in blocked_sales: sells.pop(key,None)
-    kinds = allowed_kinds if allowed_kinds is not None else {a['kind'] for a in actions} - {'farming-excluded'}
-    processes = [a for a in actions if a['kind'] in kinds]
+    kinds = allowed_kinds if allowed_kinds is not None else {a['kind'] for a in preset_actions} - {'farming-excluded'}
+    processes = [a for a in preset_actions if a['kind'] in kinds]
     keys = sorted(set(buys) | set(sells) | {k for a in processes for k in a['outputs']} | {k for a in processes for s in a['inputs'] for k in s['choices']})
     index = {k:i for i,k in enumerate(keys)}
     cost, metadata, rr, cc, vv = [], [], [], [], []
@@ -71,7 +75,7 @@ if any(result['maxProfit']>1e-6 for result in report['results']):
     immediate_kinds = {a['kind'] for a in actions} - {'world-timed','farming-excluded'}
     report['immediateRoutesOnly'] = [audit(p,allowed_kinds=immediate_kinds) for p in data['prices']]
 report['negativeControl'] = audit('normal',negative_control=True)
-if report['negativeControl']['maxProfit'] <= 0: raise AssertionError('Injected unsafe water-bottle sale was not detected')
+if report['negativeControl']['maxProfit'] <= 0: raise AssertionError('Injected unsafe plank sale was not detected')
 output = Path(sys.argv[2]).resolve() if len(sys.argv)>2 else source.with_name(source.stem+'-profit-report.json')
 output.write_text(json.dumps(report,indent=2),encoding='utf-8')
 if any(result['maxProfit']>1e-6 for result in report['results']):raise AssertionError('Profitable preset sequence found; inspect '+str(output))

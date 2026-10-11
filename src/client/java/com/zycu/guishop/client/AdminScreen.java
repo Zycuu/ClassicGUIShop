@@ -468,7 +468,7 @@ public final class AdminScreen extends WorkbenchScreen {
             toggle("Enchanted equipment selling",350,196,276,config.sellEnchantedEquipment,value->config.sellEnchantedEquipment=value);
             toggle("Show operator balances publicly",32,235,276,config.showOperatorBalances,value->config.showOperatorBalances=value);
             button("Preset price defaults",350,235,276,()->{tab=Tab.PRESETS;rebuildWidgets();});
-            toggle("Villager Trade Loop Fix",32,279,594,config.villagerTradeLoopFix,value->{config.villagerTradeLoopFix=value;presetPlan=null;status=value?"Trade protection enabled in the draft. Preview a preset to update its prices.":"Vanilla trades restored when saved. Preview and load a preset with protection Off to keep prices safe.";});
+            toggle("Villager Trade Loop Fix",32,279,594,config.villagerTradeLoopFix,value->{config.villagerTradeLoopFix=value;presetPlan=null;status=value?"Save changes to refresh existing villager prices from this shop.":"Save changes restores original payments. Shop prices stay; native trade loops are unprotected.";});
         } else if (settingsSection.equals("Messages")) {
             field("Chat prefix", 32, 142, 276, config.chatPrefix, value -> config.chatPrefix = value);
             colorChoice("Prefix color", 350, 142, 276, config.chatPrefixColor, value -> config.chatPrefixColor = value);
@@ -836,8 +836,8 @@ public final class AdminScreen extends WorkbenchScreen {
             multiline(graphics,"The player shop uses vanilla menus. Admin editing requires the matching client mod and server permission.",32,247,580,WorkbenchTheme.MUTED);
         } else if(settingsSection.equals("Economy")) {
             text(graphics,"Currency prefix (display only)",32,129,WorkbenchTheme.MUTED);text(graphics,"Starting balance for new players",350,129,WorkbenchTheme.MUTED);
-            text(graphics,"Adjusts vanilla villager and wandering trader trades to prevent shop exploits.",32,308,WorkbenchTheme.MUTED);
-            text(graphics,"Balanced for built-in presets. Off restores original trades; rebuild preset prices.",32,322,WorkbenchTheme.TEAL);
+            text(graphics,"Uses shop values. Saving refreshes existing villagers and wandering traders.",32,308,WorkbenchTheme.MUTED);
+            text(graphics,"Off restores original payments. Expensive offers can use emerald blocks.",32,322,WorkbenchTheme.TEAL);
         } else if(settingsSection.equals("Messages")) {
             labels(graphics,new String[]{"Chat prefix","Information color","Warning color"},32,new int[]{129,183,237});labels(graphics,new String[]{"Prefix color","Success color","Error color"},350,new int[]{129,183,237});
             text(graphics,"Choose a color to preview it, then Update and Save changes.",32,296,WorkbenchTheme.MUTED);

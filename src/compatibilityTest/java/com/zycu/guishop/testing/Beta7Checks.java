@@ -36,6 +36,7 @@ public final class Beta7Checks {
         var results=new LinkedHashMap<String,Object>();
         try {
             config.villagerTradeLoopFix=true;
+            config.categories=new ArrayList<>(ShopPresets.generate(viewer,new ShopPresets.Request("normal",.30)).categories());
             trades(viewer,results);potions(viewer,results);mobs(viewer,results);
             check(before.equals(AdminDocument.JSON.toJson(original)),"Regression checks preserve the live editor snapshot");
             Files.writeString(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("guishop/beta7-checks.json"),AdminDocument.JSON.toJson(results));
@@ -82,11 +83,11 @@ public final class Beta7Checks {
         var definition=access.lookupOrThrow(Registries.VILLAGER_TRADE).getOrThrow(ResourceKey.create(Registries.VILLAGER_TRADE,Identifier.parse("minecraft:librarian/3/emerald_glass"))).value();
         var generated=definition.getOffer(context);check(generated.getCostA().getCount()==4,"Newly generated vanilla offers use the same protection");
         var custom=new MerchantOffer(new ItemCost(Items.EMERALD),new ItemStack(Items.GLASS,5),12,10,.05f);
-        var customOffers=new MerchantOffers();customOffers.add(custom);TradeLoopProtection.prepare(restored,customOffers);check(custom.getCostA().getCount()==1,"Custom offer quantities are not rewritten");
+        var customOffers=new MerchantOffers();customOffers.add(custom);TradeLoopProtection.prepare(restored,customOffers);check(custom.getCostA().getCount()==5,"Standard vanilla items with changed quantities receive a calculated payment");
         var named=new ItemStack(Items.GLASS,4);named.set(DataComponents.CUSTOM_NAME,Component.literal("Custom glass"));
         var customName=new MerchantOffer(new ItemCost(Items.EMERALD),named,12,10,.05f);customOffers.clear();customOffers.add(customName);TradeLoopProtection.prepare(restored,customOffers);check(customName.getCostA().getCount()==1,"Custom item components are not rewritten");
         var modified=VillagerTrade.CODEC.encodeStart(ops,definition).getOrThrow().deepCopy();modified.getAsJsonObject().getAsJsonObject("gives").addProperty("count",6);
-        var customDefinition=VillagerTrade.CODEC.parse(ops,modified).getOrThrow();check(customDefinition.getOffer(context).getCostA().getCount()==1,"Unregistered custom trade providers stay outside vanilla protection");
+        var customDefinition=VillagerTrade.CODEC.parse(ops,modified).getOrThrow();check(customDefinition.getOffer(context).getCostA().getCount()==6,"Vanilla-item definitions do not depend on a static fingerprint");
         results.put("savedVillager",Map.of("level",4,"xp",140,"uses",5,"protectedPayment",4,"nativePaymentWhenOff",1,"originalTermsPreserved",true,"vanillaPacketParity",true));
     }
     private static void potions(ServerPlayer viewer,Map<String,Object> results) {

@@ -82,7 +82,7 @@ public final class ShopPresets {
         ListingGroups.separateTippedArrows(config);
         count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
         return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, 2042,
-            "Vanilla recipes, interactions and merchants audited with Villager Trade Loop Fix "+(config.villagerTradeLoopFix?"On":"Off")+". Keep that setting for these prices. Modded content and custom mechanics are the admin's responsibility.");
+            "Vanilla recipes and interactions audited. These prices require Villager Trade Loop Fix On for merchant safety. Off restores native trades and leaves their loops unprotected. Modded content and custom mechanics are the admin's responsibility.");
     }
     private static ShopConfig.ShopItem listing(ItemStack stack, String category, double ratio, double factor, Set<String> used, net.minecraft.core.RegistryAccess access) {
         var item = new ShopConfig.ShopItem(); item.item = ShopService.itemId(stack); item.stack = ItemStackData.encode(stack, access); item.name = stack.getHoverName().getString();

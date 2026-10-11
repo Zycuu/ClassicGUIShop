@@ -46,6 +46,8 @@ public final class SecondAudit implements ModInitializer {
     private final Map<String,Object> details=new LinkedHashMap<>();
     private final Map<String,ItemStack> variantStacks=new TreeMap<>();
     private final Map<String,ShopConfig> presetConfigs=new LinkedHashMap<>();
+    private final Map<String,List<Action>> merchantActions=new LinkedHashMap<>();
+    private final Map<String,Object> merchantChecks=new LinkedHashMap<>();
     private final Map<String,List<ItemStack>> demoInputs=new LinkedHashMap<>(),demoOutputs=new LinkedHashMap<>();
     private ServerPlayer player;private ServerLevel level;private MinecraftServer server;
     private final BlockPos pos=new BlockPos(17,160,17);
@@ -73,9 +75,17 @@ public final class SecondAudit implements ModInitializer {
                 var cfg=new ShopConfig();cfg.villagerTradeLoopFix=GuiShop.CONFIG.villagerTradeLoopFix;cfg.categories=new ArrayList<>(plan.categories());presetConfigs.put(name,cfg);
             }
             recipes();System.out.println("[Second audit] Native recipes exported: "+coverage.size()+"; actions "+actions.size());
-            trades();System.out.println("[Second audit] Native merchant offers exported: actions "+actions.size());
+            var original=GuiShop.CONFIG;
+            try{for(var preset:presetConfigs.entrySet()){
+                GuiShop.CONFIG=preset.getValue();GuiShop.CONFIG.sellEnchantedEquipment=true;
+                int begin=actions.size();trades();merchantActions.put(preset.getKey(),new ArrayList<>(actions.subList(begin,actions.size())));actions.subList(begin,actions.size()).clear();
+                merchantChecks.put(preset.getKey(),Map.of("draws",details.get("nativeMerchantDraws"),"uniqueOffers",details.get("uniqueNativeMerchantOffers"),"unpayable",0));
+            }}finally{GuiShop.CONFIG=original;}
+            System.out.println("[Second audit] Native merchant offers exported for each preset");
+            details.put("merchantChecks",merchantChecks);
             interactions();blockDrops();extraWorldActions();bookActions();growthReview();replays();tradeReplays();variantSales(prices);itemInventory();equipmentEnchantments();
-            var report=new LinkedHashMap<String,Object>();report.put("method","native recipe assembly, returned inventory, native merchant discounts and whole output vectors; no first-audit model imported");report.put("minecraft","26.3");report.put("villagerTradeLoopFix",GuiShop.CONFIG.villagerTradeLoopFix);report.put("prices",prices);report.put("actions",actions);report.put("coverage",coverage);report.put("details",details);
+            details.put("itemStackLimits",BuiltInRegistries.ITEM.keySet().stream().filter(id->id.getNamespace().equals("minecraft")).collect(java.util.stream.Collectors.toMap(Object::toString,id->new ItemStack(BuiltInRegistries.ITEM.getValue(id)).getMaxStackSize())));
+            var report=new LinkedHashMap<String,Object>();report.put("method","native recipe assembly, returned inventory, per-preset actual merchant payments and whole output vectors; no first-audit model imported");report.put("minecraft","26.3");report.put("villagerTradeLoopFix",GuiShop.CONFIG.villagerTradeLoopFix);report.put("prices",prices);report.put("actions",actions);report.put("merchantActions",merchantActions);report.put("coverage",coverage);report.put("details",details);
             Path output=Path.of(System.getProperty("guishop.secondAuditOutput"));Files.writeString(output,AdminDocument.JSON.toJson(report));
             System.out.println("[Second audit] PASS: native fact export; "+actions.size()+" inventory transitions; "+coverage.size()+" source checks");
         }finally{GuiShop.CONFIG.villagerTradeLoopFix=originalProtection;s.getPlayerList().getOps().remove(player.nameAndId());}
@@ -156,7 +166,8 @@ public final class SecondAudit implements ModInitializer {
                 var context=new LootContext.Builder(params).withOptionalRandomSeed(1900L+attempt).create(Optional.empty());MerchantOffer offer;
                 if(map){var wants=(TradeCost)field(def,"wants");var second=(Optional<TradeCost>)field(def,"additionalWants");var reputation=(Holder<net.minecraft.world.level.storage.loot.providers.number.floats.ContextFloatProvider>)field(def,"reputationDiscount");offer=new MerchantOffer(wants.toItemCost(context,0),second.map(v->v.toItemCost(context,0)),given.create(),4,1,reputation.value().getFloat(context));}
                 else offer=def.getOffer(context);
-                sampled++;if(offer==null)continue;if(!wandering){villager.getOffers().clear();villager.getOffers().add(offer);discount.invoke(villager,player);}
+                sampled++;if(offer==null)continue;((ProtectedMerchantOffer)offer).guishop$protection(server);if(!wandering){villager.getOffers().clear();villager.getOffers().add(offer);discount.invoke(villager,player);}
+                if(offer.isOutOfStock()||offer.getCostA().getCount()>offer.getCostA().getMaxStackSize()||offer.getCostB().getCount()>offer.getCostB().getMaxStackSize())throw new AssertionError("Fresh native offer exceeds payment capacity: "+name);
                 var in=new ArrayList<ItemStack>();in.add(offer.getCostA());if(!offer.getCostB().isEmpty())in.add(offer.getCostB());var out=List.of(offer.getResult());String identity=name+" "+slots(in)+" "+key(out.getFirst())+" "+out.getFirst().getCount();
                 if(unique.add(identity)){add(name,map?"merchant-map-conservative":"merchant",slots(in),out);variantOffers++;}
             }

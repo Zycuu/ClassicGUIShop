@@ -4,7 +4,7 @@ This developer-only LP combines native mechanics and exhaustive shipped-data
 possibilities. Runtime stores final prices; neither SciPy nor an optimizer is
 bundled with the mod. Unknown mechanics and resource farming remain excluded.
 """
-import argparse, collections, hashlib, json, pathlib
+import argparse, collections, json, pathlib, re
 import numpy as np
 from scipy.optimize import linprog
 from scipy.sparse import coo_matrix
@@ -12,25 +12,23 @@ from scipy.sparse import coo_matrix
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('model',type=pathlib.Path)
 parser.add_argument('native_facts',type=pathlib.Path)
-parser.add_argument('trade_profile',type=pathlib.Path)
 parser.add_argument('--output',type=pathlib.Path,required=True)
 args=parser.parse_args()
-model=json.loads(args.model.read_text());native=json.loads(args.native_facts.read_text());profile=json.loads(args.trade_profile.read_text())
+model=json.loads(args.model.read_text());native=json.loads(args.native_facts.read_text())
+native_merchants=native.get('merchantActions',{}).get('normal',[a for a in native['actions'] if a['kind'].startswith('merchant')])
 def canonical(key):
     return key if '|potion=' in key or '|enchantment=' in key else key.split('|',1)[0]
 actions=[]
 for a in native['actions']:
-    if a['kind']=='farming-excluded':continue
+    if a['kind']=='farming-excluded' or a['kind'].startswith('merchant'):continue
     outputs=collections.Counter()
     for k,n in a['outputs'].items():outputs[canonical(k)]+=n
     actions.append({'source':a['source'],'kind':a['kind'],'inputs':[{'choices':sorted({canonical(k) for k in s['choices']}),'count':s['count']} for s in a['inputs']],'outputs':dict(outputs)})
 groups={};active_blocks={x['item'] for x in native['details']['vanillaItemInventory'] if x['isBlockItem']}
 for r in model['rules']:
+    if r['kind']=='trade':continue
     if r.get('block') and r['block'] not in active_blocks:continue
     slots=json.loads(json.dumps(r['inputs']))
-    if r['kind']=='trade':
-        definition=r['name'].removeprefix('trade/')
-        if definition in profile['profile']:slots[0]['count']=max(slots[0]['count'],profile['profile'][definition]['minimum'])
     if 'share' in r:
         key=(r['kind'],json.dumps(slots,sort_keys=True),tuple(sorted(r.get('catalysts',[]))))
         a=groups.setdefault(key,{'source':r['name'],'kind':r['kind'],'inputs':slots,'outputs':{}})
@@ -51,7 +49,6 @@ for enchant,maximum in model['enchantments'].items():
     if not levels:continue
     enchant_max[enchant]=variable_count;variable_count+=1
     for k in levels:rows.append({sale_values[k]:1,enchant_max[enchant]:-1})
-enchanted_trades={a['source'].removeprefix('minecraft:') for a in native['actions'] if a['kind']=='merchant' and any('|applied=' in k for k in a['outputs'])}
 for a in actions:
     row=collections.Counter({indices[k]:n for k,n in a['outputs'].items()})
     for s in a['inputs']:
@@ -64,24 +61,50 @@ for a in actions:
             i=aux[choices]
         row[i]-=s['count']
     rows.append(dict(row))
-    # /sellhand can add exact book sell values to an enchanted item's base
-    # payout. Bound the most conservative combination of supported vanilla
-    # enchantments, across every level, by the cheapest native trade payment.
-    if a['kind']=='trade' and a['source'].removeprefix('trade/') in enchanted_trades:
-        bonus=dict(row)
-        for item,count in a['outputs'].items():
-            bonus[indices[item]]=bonus.get(indices[item],0)-count
-            bonus[sale_values[item]]=bonus.get(sale_values[item],0)+count
-            for enchant in equipment.get(item,[]):
-                if enchant in enchant_max:bonus[enchant_max[enchant]]=bonus.get(enchant_max[enchant],0)+count
-        rows.append(bonus)
-# XP farming is intended gameplay. Even with free XP and the cheapest one-
-# lapis table roll, enchanting purchased equipment must not create cash profit.
-for enchantments in equipment.values():
-    budget=collections.Counter({indices['minecraft:lapis_lazuli']:-1})
-    for enchant in enchantments:
-        if enchant in enchant_max:budget[enchant_max[enchant]]+=1
-    if len(budget)>1:rows.append(dict(budget))
+# An enchanted barter/loot output can pay for its base item AND its book
+# bonus through /sellhand. Capture the complete cash-out, not just the base.
+for a in native['actions']:
+    if a['kind']=='farming-excluded' or a['kind'].startswith('merchant'):continue
+    applied=[(key,count) for key,count in a['outputs'].items() if '|applied=' in key]
+    if not applied:continue
+    cash=collections.Counter()
+    for key,count in a['outputs'].items():
+        base=canonical(key)
+        if '|applied=' in key:
+            cash[sale_values[base]]+=count
+            for enchant,level in re.findall(r'(minecraft:[a-z0-9_]+)@(\d+)',key):
+                book=f'minecraft:enchanted_book|enchantment={enchant}@{level}'
+                if book in sale_values:cash[sale_values[book]]+=count
+        else:cash[indices[base]]+=count
+    for s in a['inputs']:
+        choices=tuple(sorted({canonical(k) for k in s['choices']}))
+        variable=indices[choices[0]] if len(choices)==1 else aux[choices]
+        cash[variable]-=s['count']
+    rows.append(dict(cash))
+# Enforce feasible vanilla payment-slot capacities, then runtime chooses the
+# lowest safe whole payment within them. No fixed merchant terms are assumed.
+def capacity(key):
+    item=key.split('|')[0]
+    limits=native['details'].get('itemStackLimits',{})
+    return limits.get(item,1 if item.endswith(('_boat','_raft','_bucket')) or item=='minecraft:potion' else 64)
+capacity_count=0
+for a in native_merchants:
+    row=collections.Counter()
+    for key,count in a['outputs'].items():
+        base=canonical(key);row[indices[base]]+=count
+    slots=a['inputs'];first=canonical(slots[0]['choices'][0]);maximum=576 if first=='minecraft:emerald' else capacity(first)
+    row[indices[first]]-=maximum
+    if len(slots)>1:
+        second=canonical(slots[1]['choices'][0]);row[indices[second]]-=capacity(second)
+    elif maximum>1:row[indices[first]]-=maximum
+    rows.append(dict(row));capacity_count+=1
+    for key,count in a['outputs'].items():
+        if '|applied=' not in key:continue
+        base=canonical(key);cash=dict(row);cash[indices[base]]-=count;cash[sale_values[base]]=count
+        for e in equipment.get(base,[]):
+            if e in enchant_max:cash[enchant_max[e]]=cash.get(enchant_max[e],0)+count
+        rows.append(cash)
+
 rr,cc,vv=[],[],[]
 for ri,row in enumerate(rows):
     for ci,value in row.items():
@@ -98,18 +121,32 @@ for name in ('normal','hard','easy','basics'):
     for key,price in buys.items():
         if key not in indices:raise AssertionError(('Unmodeled purchase',name,key))
         i=indices[key];ranges[i]=(0,price)
-        i=sale_values[key];ranges[i]=(.015*factor,price);objective[i]=-1/price
+        i=sale_values[key];minimum=.015*factor
+        if key.split('|')[0].endswith(('_log','_stem','_wood','_hyphae')):minimum=price*(.1 if name=='hard' else .95 if name=='easy' else .3)/.95
+        upper=min(price,price*(.1 if name=='hard' else .95 if name=='easy' else .3)/.95)
+        if key=='minecraft:stick':minimum=min(upper,(.20 if name=='easy' else .15)/.95)
+        if '|enchantment=' in key:minimum=max(minimum,int(key.rsplit('@',1)[1])/.95)
+        ranges[i]=(minimum,upper);objective[i]=-1/price
     result=linprog(objective,A_ub=matrix,b_ub=np.zeros(len(rows)),bounds=ranges,method='highs',options={'primal_feasibility_tolerance':1e-9,'dual_feasibility_tolerance':1e-9})
     if not result.success:raise AssertionError((name,result.message))
+    residual=float(np.max(matrix@result.x));assert residual<1e-7
+    # Keep attained sell limits fixed, choose a clear currency value, then
+    # minimize asset values to avoid unnecessary villager price inflation.
+    for key,idx in sale_values.items():ranges[idx]=(max(0,result.x[idx]),max(0,result.x[idx]))
+    currency_objective=np.zeros(variable_count);currency_objective[indices['minecraft:emerald']]=-1
+    currency_result=linprog(currency_objective,A_ub=matrix,b_ub=np.zeros(len(rows)),bounds=ranges,method='highs')
+    assert currency_result.success
+    e=indices['minecraft:emerald'];ranges[e]=(currency_result.x[e],currency_result.x[e])
+    value_objective=np.zeros(variable_count)
+    for idx in indices.values():value_objective[idx]=1
+    polished=linprog(value_objective,A_ub=matrix,b_ub=np.zeros(len(rows)),bounds=ranges,method='highs')
+    assert polished.success;result=polished
     residual=float(np.max(matrix@result.x));assert residual<1e-7
     values={k:float(max(0,result.x[i])) for k,i in sale_values.items()}
     inventory={k:float(max(0,result.x[i])) for k,i in indices.items()}
     assert all(values[k]*.95>=.01 for k in buys)
     tables.append({'name':name,'buySeeds':buys,'values':values,'inventoryValues':inventory})
     print(name,'purchase keys',len(buys),'minimum positive',min(values[k] for k in buys),'max residual',residual,flush=True)
-fingerprint=hashlib.sha256(json.dumps(profile['profile'],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
-output={'version':1,'minecraft':'26.3','tradeProfileSha256':fingerprint,
-        'method':'Joint native and exhaustive inventory constraints; positive common-item floors; maximum normalized purchasable-item value',
-        'constraints':len(rows),'variables':variable_count,'tables':tables}
+output={'version':2,'minecraft':'26.3','method':'Joint native conversion budgets and merchant payment capacities; preserved common-resource returns; runtime payments use these asset values; earned XP is separate gameplay income','constraints':len(rows),'variables':variable_count,'capacityConstraints':capacity_count,'tables':tables}
 args.output.write_text(json.dumps(output,sort_keys=True,separators=(',',':'))+'\n')
 print('Written',args.output,flush=True)

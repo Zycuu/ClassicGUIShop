@@ -133,7 +133,10 @@ public final class AdminEditorService {
             }
             throw new IllegalStateException("Save failed. Previous configuration was restored where possible; backup: " + backupId, failure);
         }
-        boolean tradeProtectionChanged=GuiShop.CONFIG.villagerTradeLoopFix!=draft.config.villagerTradeLoopFix;
+        boolean tradeProtectionChanged=GuiShop.CONFIG.villagerTradeLoopFix!=draft.config.villagerTradeLoopFix
+            ||GuiShop.CONFIG.sellEnchantedEquipment!=draft.config.sellEnchantedEquipment
+            ||GuiShop.CONFIG.sellDamagedItems!=draft.config.sellDamagedItems
+            ||!AdminDocument.JSON.toJson(GuiShop.CONFIG.categories).equals(AdminDocument.JSON.toJson(draft.config.categories));
         GuiShop.CONFIG = draft.config;
         GuiShop.ECONOMY.updateConfig(draft.config);
         if(tradeProtectionChanged)com.zycu.guishop.TradeLoopProtection.changed(player.level().getServer());

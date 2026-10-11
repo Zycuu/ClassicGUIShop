@@ -36,6 +36,7 @@ public final class VanillaEconomyChecks {
     public static void run(ServerPlayer viewer) throws Exception {
         var access=viewer.registryAccess();var original=GuiShop.CONFIG;String before=AdminDocument.JSON.toJson(original);
         var reports=new LinkedHashMap<String,Object>();
+        var runtimeRules=VanillaPriceSafety.class.getDeclaredMethod("rules",net.minecraft.core.RegistryAccess.class,ShopConfig.class,boolean.class);runtimeRules.setAccessible(true);
         for(String preset:List.of("normal","hard","easy","basics")){
             var plan=ShopPresets.generate(viewer,new ShopPresets.Request(preset,.30));
             var draft=new ShopConfig();draft.categories=plan.categories();
@@ -52,19 +53,19 @@ public final class VanillaEconomyChecks {
                 var row=new LinkedHashMap<String,Object>();row.put("category",category.name);row.put("name",item.name);row.put("key",key);row.put("buy",item.buy);row.put("sell",item.sell);
                 if(bound!=null){row.put("costBound",bound.cost());row.put("route",bound.route());}rows.add(row);
             }
-            check(original.villagerTradeLoopFix?find(draft,"minecraft:emerald").sell>0:find(draft,"minecraft:emerald").sell==0,"Emerald sale follows protected or native merchant policy");
-            if(original.villagerTradeLoopFix)for(String common:List.of("minecraft:oak_log","minecraft:birch_log","minecraft:spruce_log","minecraft:stick"))if(draft.findItem(common)!=null)check(find(draft,common).sell>0,"Common resource stays sellable: "+common+" "+preset);
+            check(find(draft,"minecraft:emerald").sell>0,"Emerald sale scales with the preset");
+            for(String common:List.of("minecraft:oak_log","minecraft:birch_log","minecraft:spruce_log","minecraft:stick"))if(draft.findItem(common)!=null)check(find(draft,common).sell>0,"Common resource stays sellable: "+common+" "+preset);
             check(find(draft,"minecraft:diamond").sell>0,"Ordinary diamond mining retains income");
             check(find(draft,"minecraft:ancient_debris").sell>0,"Ordinary debris gathering retains income");
             if(!preset.equals("basics")){
-                check(original.villagerTradeLoopFix?find(draft,"minecraft:glass_bottle").sell>0:find(draft,"minecraft:glass_bottle").sell==0,"Glass loop protection follows merchant setting");
+                check(find(draft,"minecraft:glass_bottle").sell>0,"Ordinary bottles stay sellable");
                 check(bounds.get("minecraft:potion|potion=minecraft:water").cost()<=bounds.get("minecraft:glass_bottle").cost(),"Water fill respects bottle cost");
                 var water=draft.categories.stream().flatMap(c->c.items.stream()).filter(i->"minecraft:potion|potion=minecraft:water".equals(VanillaPriceSafety.key(i.createStack(access)))).findFirst().orElseThrow();
                 check(water.buy==find(draft,"minecraft:glass_bottle").buy,"Plain water buy is empty-bottle price, independent of translated names");
-                check(original.villagerTradeLoopFix?water.sell>0:water.sell==0,"Water sale is bounded by protected merchant and bottle costs");
+                check(water.sell>0,"Water sale is bounded by its bottle conversion");
                 copperPaths(draft,bounds);
             }
-            reports.put(preset,Map.of("items",plan.items(),"sellEnabled",positive,"buyOnly",disabled,"corrected",plan.capped(),"review",review,"listings",rows,"bounds",bounds));
+            reports.put(preset,Map.of("items",plan.items(),"sellEnabled",positive,"buyOnly",disabled,"corrected",plan.capped(),"review",review,"listings",rows,"bounds",bounds,"rules",runtimeRules.invoke(null,access,draft,true)));
         }
         check(before.equals(AdminDocument.JSON.toJson(original)),"Generating/reviewing all presets does not change live config");
         var unsafe=new ShopConfig();var c=new ShopConfig.Category();c.id="audit_test";c.name="Audit Test";c.icon="minecraft:glass_bottle";unsafe.categories.add(c);
@@ -90,10 +91,8 @@ public final class VanillaEconomyChecks {
         VanillaPriceSafety.apply(honey,access);check(find(honey,"minecraft:honey_bottle").sell>0,"Honey gathering retains positive income without a genuine merchant route");
         check(find(honey,"minecraft:sugar").sell*3+find(honey,"minecraft:glass_bottle").sell<=honeyBounds.get("minecraft:honey_bottle").cost(),"All sugar and returned bottle payouts fit the same recipe budget");
         nativeMechanics(viewer);
-        var runtimeRules=VanillaPriceSafety.class.getDeclaredMethod("rules",net.minecraft.core.RegistryAccess.class);runtimeRules.setAccessible(true);
-        reports.put("_runtimeRules",runtimeRules.invoke(null,access));
         Files.writeString(FabricLoader.getInstance().getConfigDir().resolve("guishop/vanilla-economy-test-report.json"),AdminDocument.JSON.toJson(reports));
-        System.out.println("[Vanilla economy test] PASS: all four preset listings covered; recipes and merchants; buy-only multiplication outputs; ordinary mining income; component-aware water prices; mod/custom exclusion; read-only review; native crafting, bottle filling, tool actions, brewing, composting, Fortune drops and merchant discounts");
+        System.out.println("[Vanilla economy test] PASS: all four preset listings covered; recipes and live merchant payments; positive common-item income; component-aware water prices; mod/custom exclusion; read-only review; native crafting, bottle filling, tool actions, brewing, composting, Fortune drops and merchant discounts");
     }
     private static ShopConfig.ShopItem listing(ItemStack stack,String id,double buy,double sell,ServerPlayer viewer){var item=new ShopConfig.ShopItem();item.item=ShopService.itemId(stack);item.listingId=id;item.name=stack.getHoverName().getString();item.stack=ItemStackData.encode(stack,viewer.registryAccess());item.buy=buy;item.sell=sell;item.manualPrice=true;return item;}
     private static ShopConfig.ShopItem find(ShopConfig config,String id){return config.categories.stream().flatMap(c->c.items.stream()).filter(i->i.item.equals(id)).findFirst().orElseThrow();}
@@ -122,6 +121,7 @@ public final class VanillaEconomyChecks {
         var craft=CraftingInput.of(3,3,glass);var recipe=level.recipeAccess().getRecipeFor(RecipeType.CRAFTING,craft,level).orElseThrow().value();
         var bottles=recipe.assemble(craft);check(bottles.is(Items.GLASS_BOTTLE)&&bottles.getCount()==3,"Actual glass recipe: 3 glass makes 3 bottles");
         var village=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);var offers=village.getOffers();offers.clear();
+        boolean nativeTradeSetting=GuiShop.CONFIG.villagerTradeLoopFix;GuiShop.CONFIG.villagerTradeLoopFix=false;
         var glassOffer=new MerchantOffer(new ItemCost(Items.EMERALD,1),new ItemStack(Items.GLASS,4),12,1,.05f);
         var bottleOffer=new MerchantOffer(new ItemCost(Items.GLASS_BOTTLE,9),new ItemStack(Items.EMERALD),12,1,.05f);
         var secondary=new MerchantOffer(new ItemCost(Items.EMERALD,64),Optional.of(new ItemCost(Items.BOOK,1)),new ItemStack(Items.ENCHANTED_BOOK),12,1,.2f);
@@ -134,7 +134,7 @@ public final class VanillaEconomyChecks {
             check(glassOffer.getCostA().getCount()==1&&bottleOffer.getCostA().getCount()==1,"Actual merchant discounts enable glass multiplication");
             check(secondary.getCostA().getCount()==1&&secondary.getCostB().getCount()==1,"Secondary book payment is not discounted");
             var payment=new ItemStack(Items.GLASS_BOTTLE,4);check(bottleOffer.take(payment,ItemStack.EMPTY)&&payment.getCount()==3,"Actual offer consumes one bottle, pays one emerald");
-        }finally{viewer.removeEffect(MobEffects.HERO_OF_THE_VILLAGE);}
+        }finally{viewer.removeEffect(MobEffects.HERO_OF_THE_VILLAGE);GuiShop.CONFIG.villagerTradeLoopFix=nativeTradeSetting;}
         BlockPos pos=new BlockPos(17,160,17);var old=level.getBlockState(pos);var above=level.getBlockState(pos.above());var held=viewer.getMainHandItem().copy();
         try{
             level.setBlockAndUpdate(pos.above(),Blocks.AIR.defaultBlockState());

@@ -1,134 +1,137 @@
 package com.zycu.guishop;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.mojang.serialization.JsonOps;
-import com.zycu.guishop.admin.AdminDocument;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.RegistryOps;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.npc.villager.AbstractVillager;
 import net.minecraft.world.inventory.MerchantMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.item.trading.ItemCost;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.item.trading.VillagerTrade;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
-
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 
-/** Audited minimum payments for recognized, unmodified vanilla merchant offers. */
+/** Reversible live payments calculated from shop values, not fixed trade fingerprints. */
 public final class TradeLoopProtection {
     private TradeLoopProtection() {}
-    private record Rule(int minimum, int base, JsonElement wants, JsonElement gives, JsonElement additional_wants,
-                        int maxUses, int xp, float discount, String fingerprint) {}
-    private record Profile(int version, String minecraft, Map<String,Rule> profile) {}
-    private record Match(String name, Rule rule, ItemCost wants, ItemStack gives) {}
-    private record Cache(Object resources, Map<String,Rule> valid, Map<String,List<Match>> matches) {}
-    private static final Profile PROFILE=load();
-    private static final Map<MinecraftServer,Cache> CACHES=new WeakHashMap<>();
-    private static Profile load() {
-        try(var stream=TradeLoopProtection.class.getResourceAsStream("/guishop/vanilla-trade-protection-26.3.json")) {
-            if(stream==null)throw new IllegalStateException("Missing vanilla trade profile");
-            var profile=AdminDocument.JSON.fromJson(new InputStreamReader(stream,StandardCharsets.UTF_8),Profile.class);
-            if(profile.version()!=1||!profile.minecraft().equals("26.3")||profile.profile().isEmpty())throw new IllegalStateException("Invalid vanilla trade profile");
-            for(var rule:profile.profile().values())if(rule.minimum()<1||rule.minimum()>64||rule.fingerprint()==null)throw new IllegalStateException("Invalid vanilla trade payment");
-            return profile;
-        }catch(Exception error){throw new IllegalStateException("Could not load vanilla trade protection",error);}
+    public record Payment(ItemCost first, Optional<ItemCost> second, int minimum, boolean unavailable) {}
+    public record Refresh(boolean enabled,int villagers,int offers,int changed,int unavailable) {
+        public String description(){return enabled?"Trade Loop Fix On: "+villagers+" villagers refreshed, "+changed+" offers adjusted"+(unavailable>0?", "+unavailable+" exceed payment capacity":"")+".":"Trade Loop Fix Off: original payments restored for "+villagers+" villagers.";}
     }
-    public static int minimum(String definition) {
-        var rule=PROFILE.profile().get(definition.startsWith("minecraft:")?definition.substring(10):definition);
-        return rule==null?0:rule.minimum();
+    private record Market(ShopConfig config,Map<String,Double> assets,Map<String,Double> sales) {}
+    private static final Map<MinecraftServer,Market> MARKETS=new WeakHashMap<>();
+    private static final Map<MinecraftServer,Refresh> REFRESHES=new WeakHashMap<>();
+
+    private static synchronized Market market(MinecraftServer server) {
+        var config=GuiShop.CONFIG;var cached=MARKETS.get(server);
+        if(cached!=null&&cached.config()==config)return cached;
+        var access=server.registryAccess();var selected=VanillaPresetValues.inventory(config,access);
+        var assets=new TreeMap<String,Double>(selected==null?VanillaPresetValues.defaults():selected);
+        if(selected==null) {
+            // Existing/custom shops use their actual purchase/conversion costs.
+            // Their own inconsistent prices remain visible to the read-only audit.
+            for(var e:VanillaPriceSafety.conversionBounds(config,access).entrySet())assets.put(e.getKey(),e.getValue().cost());
+            double currency=assets.getOrDefault("minecraft:emerald",2.0);
+            currency=VanillaPriceSafety.unstackableEmeraldLimit(assets,access,currency);
+            assets.put("minecraft:emerald",currency);assets.put("minecraft:emerald_block",currency*9);
+        }
+        var sales=new HashMap<String,Double>();
+        for(var category:config.categories)for(var item:category.items)if(item.sell>0&&VersionedListingStore.isRuntimeAvailable(item,access)) {
+            String key=VanillaPriceSafety.key(item.createStack(access));if(key!=null)sales.merge(key,item.sell,Math::max);
+        }
+        cached=new Market(config,assets,sales);MARKETS.put(server,cached);return cached;
     }
-    // Canonical native-codec fingerprints keep overwritten datapack definitions
-    // and modded trade providers outside this vanilla-only compatibility path.
-    private static JsonElement sorted(JsonElement value) {
-        if(value.isJsonObject()){var result=new JsonObject();value.getAsJsonObject().keySet().stream().sorted().forEach(k->result.add(k,sorted(value.getAsJsonObject().get(k))));return result;}
-        if(value.isJsonArray()){var result=new com.google.gson.JsonArray();value.getAsJsonArray().forEach(v->result.add(sorted(v)));return result;}
+    private static double unit(ItemStack stack,Market market,boolean output) {
+        String key=VanillaPriceSafety.key(stack);if(key==null)return Double.NaN;
+        double value=market.assets().getOrDefault(key,Double.NaN);
+        var enchants=stack.getOrDefault(DataComponents.ENCHANTMENTS,ItemEnchantments.EMPTY);
+        for(var e:enchants.entrySet())if(e.getKey().unwrapKey().isEmpty()||!e.getKey().unwrapKey().get().identifier().getNamespace().equals("minecraft"))return Double.NaN;
+        if(output) {
+            double sale=market.sales().getOrDefault(key,0.0);
+            if(market.config().sellEnchantedEquipment&&stack.isDamageableItem())for(var e:enchants.entrySet()) {
+                String book="minecraft:enchanted_book|enchantment="+e.getKey().unwrapKey().orElseThrow().identifier()+"@"+e.getIntValue();
+                sale+=market.sales().getOrDefault(book,0.0);
+            }
+            value=Math.max(value,sale);
+        }
         return value;
     }
-    static String fingerprint(JsonElement value) {
-        try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(sorted(value).toString().getBytes(StandardCharsets.UTF_8)));}
-        catch(Exception impossible){throw new IllegalStateException(impossible);}
+    private static int ceiling(double value){return (int)Math.min(Integer.MAX_VALUE,Math.max(1,Math.ceil(value-1e-8)));}
+    private static ItemCost count(ItemCost original,int amount){return new ItemCost(original.item(),amount,original.components());}
+    private static boolean same(ItemCost a,ItemCost b){return a.item().equals(b.item())&&a.count()==b.count()&&a.components().equals(b.components());}
+    private static boolean same(Optional<ItemCost> a,Optional<ItemCost> b){return a.isPresent()==b.isPresent()&&(a.isEmpty()||same(a.get(),b.get()));}
+    private static ItemCost denomination(ItemCost original,int needed) {
+        if(original.itemStack().is(Items.EMERALD)&&needed>64&&original.components().equals(net.minecraft.core.component.DataComponentExactPredicate.EMPTY))
+            return new ItemCost(Items.EMERALD_BLOCK,ceiling(needed/9.0));
+        return count(original,needed);
     }
-    private static Cache cache(MinecraftServer server) {
-        var cached=CACHES.get(server);
-        if(cached!=null&&cached.resources()==server.getResourceManager())return cached;
-        var valid=new HashMap<String,Rule>();var matches=new HashMap<String,List<Match>>();
-        var ops=RegistryOps.create(JsonOps.INSTANCE,server.registryAccess());
-        var registry=server.registryAccess().lookupOrThrow(Registries.VILLAGER_TRADE);
-        for(var entry:PROFILE.profile().entrySet()) {
-            var holder=registry.get(Identifier.withDefaultNamespace(entry.getKey()));if(holder.isEmpty())continue;
-            var rule=entry.getValue();
-            var encoded=VillagerTrade.CODEC.encodeStart(ops,holder.get().value()).result().orElse(null);
-            if(encoded==null||!rule.fingerprint().equals(fingerprint(encoded)))continue;
-            var wants=ItemCost.CODEC.parse(ops,rule.wants()).getOrThrow();
-            var gives=ItemStack.CODEC.parse(ops,rule.gives()).getOrThrow();
-            if(rule.minimum()>wants.itemStack().getMaxStackSize())throw new IllegalStateException("Trade profile exceeds input stack size: "+entry.getKey());
-            valid.put(entry.getKey(),rule);
-            matches.computeIfAbsent(pair(wants.itemStack(),gives),ignored->new ArrayList<>()).add(new Match(entry.getKey(),rule,wants,gives));
+    public static Payment payment(MerchantOffer offer) {
+        var metadata=(ProtectedMerchantOffer)offer;
+        if(GuiShop.CONFIG==null||!GuiShop.CONFIG.villagerTradeLoopFix||metadata.guishop$owner()==null)return null;
+        var market=market(metadata.guishop$owner());if(market.sales().isEmpty())return null;
+        return calculate(metadata.guishop$originalA(),metadata.guishop$originalB(),offer.getResult(),market);
+    }
+    private static Payment calculate(ItemCost original,Optional<ItemCost> second,ItemStack result,Market market) {
+        double input=unit(original.itemStack(),market,false),output=unit(result,market,true)*result.getCount();
+        double extra=second.map(c->unit(c.itemStack(),market,false)*c.count()).orElse(0.0);
+        if(!(input>0)||!Double.isFinite(output)||!Double.isFinite(extra))return null;
+        int needed=ceiling(Math.max(0,output-extra)/input);
+        var first=denomination(original,needed);double firstValue=unit(first.itemStack(),market,false);
+        int max=first.itemStack().getMaxStackSize();int floor=Math.min(max,first.count());
+        int base=first.itemStack().is(original.itemStack().getItem())?Math.max(original.count(),floor):Math.max(ceiling(original.count()/9.0),floor);
+        first=count(first,Math.min(max,base));
+        var paymentB=second;
+        if(needed*input>floor*firstValue+1e-7) {
+            double remaining=output-floor*firstValue;
+            ItemCost b=second.isPresent()?second.get():original.itemStack().getMaxStackSize()>1?count(first,1):new ItemCost(Items.EMERALD);
+            double bValue=unit(b.itemStack(),market,false);
+            if(!(bValue>0))return new Payment(first,paymentB,floor,true);
+            int bNeeded=ceiling(remaining/bValue);var adjusted=denomination(b,bNeeded);
+            if(!adjusted.itemStack().is(b.itemStack().getItem()))bValue=unit(adjusted.itemStack(),market,false);
+            int required=Math.max(adjusted.count(),adjusted.itemStack().is(b.itemStack().getItem())?b.count():ceiling(b.count()/9.0));
+            if(required>adjusted.itemStack().getMaxStackSize()||floor*firstValue+required*bValue+1e-7<output)return new Payment(first,paymentB,floor,true);
+            paymentB=Optional.of(count(adjusted,required));
         }
-        cached=new Cache(server.getResourceManager(),valid,matches);CACHES.put(server,cached);return cached;
+        return new Payment(first,paymentB,floor,false);
     }
-    private static String pair(ItemStack wants,ItemStack gives){return ShopService.itemId(wants)+">"+ShopService.itemId(gives);}
-    public static int floor(MerchantOffer offer) {
-        var protectedOffer=(ProtectedMerchantOffer)offer;
-        if(GuiShop.CONFIG==null||!GuiShop.CONFIG.villagerTradeLoopFix||protectedOffer.guishop$owner()==null)return 0;
-        var cache=cache(protectedOffer.guishop$owner());
-        var rule=cache.valid().get(protectedOffer.guishop$definition());
-        if(rule==null)return 0;
-        for(var match:cache.matches().getOrDefault(pair(offer.getBaseCostA(),offer.getResult()),List.of()))
-            if(match.name().equals(protectedOffer.guishop$definition())&&matches(offer,match))return protectedOffer.guishop$minimum();
-        return 0;
+    public static List<VanillaPriceSafety.Input> inputs(Map<String,Double> selected,List<VanillaPriceSafety.Input> inputs,String output,double quantity) {
+        if(selected==null||inputs.isEmpty())return inputs;
+        double value=selected.getOrDefault(output,0.0)*quantity;
+        double b=inputs.size()>1?inputs.get(1).choices().stream().mapToDouble(k->selected.getOrDefault(k,0.0)).min().orElse(0)*inputs.get(1).count():0;
+        var a=inputs.getFirst();double unit=a.choices().stream().mapToDouble(k->selected.getOrDefault(k,0.0)).min().orElse(0);
+        if(!(unit>0))return inputs;
+        int required=ceiling(Math.max(0,value-b)/unit);var replacement=new ArrayList<>(inputs);
+        if(a.choices().equals(List.of("minecraft:emerald"))&&required>64)replacement.set(0,new VanillaPriceSafety.Input(List.of("minecraft:emerald_block"),Math.max(ceiling(a.count()/9),ceiling(required/9.0))));
+        else replacement.set(0,new VanillaPriceSafety.Input(a.choices(),Math.max(a.count(),required)));
+        return replacement;
     }
     public static void generated(VillagerTrade definition,LootContext context,MerchantOffer offer) {
-        if(offer==null)return;
         var entity=context.getOptional(LootContextParams.THIS_ENTITY);
-        if(!(entity instanceof AbstractVillager merchant)||!vanilla(merchant))return;
-        var server=context.getLevel().getServer();
-        var id=server.registryAccess().lookupOrThrow(Registries.VILLAGER_TRADE).getKey(definition);
-        if(id==null||!id.getNamespace().equals("minecraft"))return;
-        var rule=cache(server).valid().get(id.getPath());
-        if(rule!=null)for(var match:cache(server).matches().getOrDefault(pair(offer.getBaseCostA(),offer.getResult()),List.of()))
-            if(match.name().equals(id.getPath())&&matches(offer,match)){((ProtectedMerchantOffer)offer).guishop$protection(server,id.getPath(),rule.minimum());break;}
+        if(offer!=null&&entity instanceof AbstractVillager merchant&&vanilla(merchant))((ProtectedMerchantOffer)offer).guishop$protection(context.getLevel().getServer());
     }
     private static boolean vanilla(AbstractVillager merchant){return merchant.getType()==EntityTypes.VILLAGER||merchant.getType()==EntityTypes.WANDERING_TRADER;}
-    private static boolean matches(MerchantOffer offer,Match match) {
-        var rule=match.rule();
-        return offer.getBaseCostA().getCount()==rule.base()&&ItemStack.isSameItemSameComponents(offer.getBaseCostA(),match.wants().itemStack())
-            &&offer.getItemCostA().components().equals(match.wants().components())&&offer.getCostB().isEmpty()
-            &&offer.getResult().getCount()==match.gives().getCount()&&ItemStack.isSameItemSameComponents(offer.getResult(),match.gives())
-            &&offer.getMaxUses()==rule.maxUses()&&offer.getXp()==rule.xp()&&Float.compare(offer.getPriceMultiplier(),rule.discount())==0;
-    }
-    /** Reattach transient protection to saved offers. No offer terms are rewritten. */
     public static void prepare(AbstractVillager merchant,MerchantOffers offers) {
         if(offers==null||!vanilla(merchant)||!(merchant.level() instanceof ServerLevel level))return;
-        var server=level.getServer();var cache=cache(server);
-        for(var offer:offers) {
-            var candidates=cache.matches().getOrDefault(pair(offer.getBaseCostA(),offer.getResult()),List.of());
-            var protectedOffer=(ProtectedMerchantOffer)offer;
-            if(protectedOffer.guishop$owner()==server&&cache.valid().containsKey(protectedOffer.guishop$definition()))continue;
-            protectedOffer.guishop$protection(null,null,0);
-            for(var match:candidates){
-                boolean wandering=merchant.getType()==EntityTypes.WANDERING_TRADER;
-                if(wandering!=match.name().startsWith("wandering_trader/"))continue;
-                if(!matches(offer,match))continue;
-                protectedOffer.guishop$protection(server,match.name(),match.rule().minimum());break;
-            }
-        }
+        for(var offer:offers)((ProtectedMerchantOffer)offer).guishop$protection(level.getServer());
     }
-    public static void changed(MinecraftServer server) {
-        // A vanilla client must not retain a preview prepared under the other
-        // setting while the authoritative payment has already changed.
+    public static synchronized Refresh changed(MinecraftServer server) {
+        MARKETS.remove(server);int villagers=0,offers=0,changed=0,unavailable=0;
         for(var player:server.getPlayerList().getPlayers())if(player.containerMenu instanceof MerchantMenu){player.closeContainer();ShopMessages.info(player,"Villager trades changed. Reopen the trading window.");}
+        for(var level:server.getAllLevels())for(var entity:level.getAllEntities())if(entity instanceof AbstractVillager merchant&&vanilla(merchant)) {
+            var loaded=((VillagerOfferAccess)merchant).guishop$loadedOffers();if(loaded==null)continue;
+            villagers++;prepare(merchant,loaded);
+            for(var offer:loaded){offers++;var p=payment(offer);if(p!=null){if(p.unavailable())unavailable++;var m=(ProtectedMerchantOffer)offer;if(!same(p.first(),m.guishop$originalA())||!same(p.second(),m.guishop$originalB())||p.minimum()>1)changed++;}}
+        }
+        var result=new Refresh(GuiShop.CONFIG.villagerTradeLoopFix,villagers,offers,changed,unavailable);REFRESHES.put(server,result);
+        System.out.println("[ClassicGUIShop] "+result.description());return result;
     }
-    public static void clear(){CACHES.clear();}
+    public static synchronized String lastSummary(MinecraftServer server){var r=REFRESHES.get(server);return r==null?"":r.description();}
+    public static synchronized Refresh lastRefresh(MinecraftServer server){return REFRESHES.get(server);}
+    public static synchronized void clear(){MARKETS.clear();REFRESHES.clear();}
 }

@@ -61,6 +61,8 @@ public final class GuiShop implements ModInitializer {
             server.registryAccess()
         );
         var economy = EconomyExploitScanner.audit(server, CONFIG);
+        TradeLoopProtection.changed(server);
+        if(!CONFIG.villagerTradeLoopFix)System.out.println("[ClassicGUIShop] Villager Trade Loop Fix is Off. Preset prices are retained; native merchant loops are unprotected.");
         com.zycu.guishop.admin.AdminEditorService.rememberDiskState();
         System.out.println("[ClassicGUIShop] Runtime listing filter parked " + versioned.parked()
             + ", restored " + versioned.restored() + ", and is preserving "

@@ -90,8 +90,11 @@ public final class AdminNetworking {
                 }
                 case "apply" -> {
                     var draft = AdminDocument.JSON.fromJson(assembly.body(), AdminDocument.class);
+                    var tradeBefore=com.zycu.guishop.TradeLoopProtection.lastRefresh(player.level().getServer());
                     var saved = AdminEditorService.apply(player, message.revision(), draft);
-                    reply(player, message.id(), "saved", saved.revision(), AdminDocument.JSON.toJson(saved.document()));
+                    var body=AdminDocument.JSON.toJsonTree(saved.document()).getAsJsonObject();
+                    if(tradeBefore!=com.zycu.guishop.TradeLoopProtection.lastRefresh(player.level().getServer()))body.addProperty("tradeUpdate",com.zycu.guishop.TradeLoopProtection.lastSummary(player.level().getServer()));
+                    reply(player, message.id(), "saved", saved.revision(), AdminDocument.JSON.toJson(body));
                 }
                 case "detected" -> {
                     var query = AdminDocument.JSON.fromJson(assembly.body(), DetectedContent.Query.class);

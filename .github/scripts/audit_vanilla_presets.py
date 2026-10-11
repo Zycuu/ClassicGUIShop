@@ -29,7 +29,9 @@ def solve(preset,broken=False):
         if key not in indices:continue
         i=indices[key];ranges[i][0]=max(ranges[i][0],row['sell'])
         if row['buy']>0:ranges[i][1]=row['buy'] if ranges[i][1] is None else min(ranges[i][1],row['buy'])
-    if broken:ranges[indices['minecraft:potion|potion=minecraft:water']][0]=1
+    if broken:
+        log_buy=min(row['buy'] for row in preset['listings'] if row.get('key')=='minecraft:oak_log' and row['buy']>0)
+        ranges[indices['minecraft:oak_planks']][0]=log_buy
     rows=[];auxiliaries={};groups={}
     def input_vector(rule):
         counts=collections.Counter()
@@ -50,7 +52,7 @@ def solve(preset,broken=False):
             row[i]-=count
         return row
     active=0
-    for rule in report.get('_runtimeRules',model['rules']):
+    for rule in preset.get('rules',report.get('_runtimeRules',model['rules'])):
         if rule['output'] not in available or any(k not in available for k in rule.get('catalysts',[])):continue
         if rule.get('block') and rule['block'] not in available:continue
         vector=input_vector(rule)
@@ -86,7 +88,7 @@ for name in ['normal','hard','easy','basics']:
     results[name]=solve(report[name]);print(name,json.dumps(results[name]),flush=True)
     assert results[name]['success'],f'No-arbitrage potential is infeasible for {name}: {results[name]}'
 broken=solve(report['normal'],True)
-assert not broken['success'] and broken['status']==2,('Positive water resale must fail the independent check',broken)
-results['knownGlassWaterExploitRejected']=broken
+assert not broken['success'] and broken['status']==2,('Overpriced crafted planks must fail the independent check',broken)
+results['knownLogPlankExploitRejected']=broken
 args.output.write_text(json.dumps({'scipy':scipy.__version__,'minecraft':'26.3','scope':model['scope'],'method':'HiGHS independent price potentials with combined output constraints','results':results},indent=2)+'\n',encoding='utf-8')
-print('PASS: all four modeled vanilla presets have feasible no-arbitrage potentials; known water exploit rejected')
+print('PASS: all four modeled vanilla presets have feasible no-arbitrage potentials; known log/plank exploit rejected')

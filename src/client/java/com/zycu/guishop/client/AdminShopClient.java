@@ -133,6 +133,8 @@ public final class AdminShopClient implements ClientModInitializer {
                     if (editor == null || !pending.action.equals("apply") && !pending.action.equals("open")) {
                         editor = new AdminScreen(document, message.revision());
                     } else editor.load(document, message.revision(), message.action().equals("saved"));
+                    var response=com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+                    if(message.action().equals("saved")&&response.has("tradeUpdate"))editor.status(response.get("tradeUpdate").getAsString());
                     Minecraft.getInstance().gui.setScreen(editor);
                 }
                 case "detected" -> {

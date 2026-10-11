@@ -5,7 +5,19 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Map;
 
 public final class PresetPricing {
-    public static final int MODEL_VERSION = 2;
+    public static final int MODEL_VERSION = 3;
+
+    // Price recoverable materials before applying category fallbacks. Cheap
+    // raw blocks, ores and waxed blocks must not mint expensive metals.
+    private static final Map<String,Double> CORRECTED = Map.ofEntries(
+        Map.entry("stick",.50), Map.entry("iron_nugget",2.5), Map.entry("gold_nugget",10.0), Map.entry("copper_nugget",.75),
+        Map.entry("raw_iron",24.0),Map.entry("raw_gold",96.0),Map.entry("raw_copper",7.0),
+        Map.entry("raw_iron_block",216.0),Map.entry("raw_gold_block",864.0),Map.entry("raw_copper_block",63.0),
+        Map.entry("gold_ingot",96.0),Map.entry("gold_block",864.0),Map.entry("gilded_blackstone",50.0),
+        Map.entry("coal_ore",32.0),Map.entry("diamond_ore",1040.0),Map.entry("iron_ore",96.0),
+        Map.entry("gold_ore",384.0),Map.entry("nether_gold_ore",240.0),Map.entry("copper_ore",140.0),
+        Map.entry("lapis_ore",252.0),Map.entry("redstone_ore",45.0)
+    );
 
     private static final Map<String, Double> EXACT = Map.ofEntries(
         Map.entry("minecraft:dragon_egg", 50000.0),
@@ -117,7 +129,7 @@ public final class PresetPricing {
         Map.entry("wooden", 1.0),
         Map.entry("stone", 2.0),
         Map.entry("copper", 7.0),
-        Map.entry("golden", 42.0),
+        Map.entry("golden", 96.0),
         Map.entry("iron", 24.0),
         Map.entry("diamond", 260.0),
         Map.entry("netherite", 3200.0),
@@ -130,10 +142,29 @@ public final class PresetPricing {
     /** Historical base values, used only for an explicit preset draft. Sell caps are audited separately. */
     public static double buy(ItemStack stack, String categoryId) {
         String id = ShopService.itemId(stack), path = id.substring(id.indexOf(':') + 1);
-        double buy = EXACT.getOrDefault(id, Double.NaN);
+        double buy = CORRECTED.getOrDefault(path.startsWith("deepslate_")?path.substring(10):path,Double.NaN);
+        if(!Double.isFinite(buy))buy=copperPrice(path);
+        if(!Double.isFinite(buy))buy=EXACT.getOrDefault(id, Double.NaN);
         if (!Double.isFinite(buy)) buy = calculate(path, stack.getHoverName().getString().toLowerCase(java.util.Locale.ROOT), categoryId);
         if (!Double.isFinite(buy) || buy <= 0) buy = categoryFloor(categoryId);
         return Math.max(.25, nice(buy));
+    }
+
+    private static double copperPrice(String path) {
+        String base=path.startsWith("waxed_")?path.substring(6):path;
+        for(String phase:new String[]{"exposed_","weathered_","oxidized_"})if(base.startsWith(phase)){base=base.substring(phase.length());break;}
+        return switch(base) {
+            case "copper","copper_block","cut_copper","chiseled_copper","copper_grate" -> 63;
+            case "cut_copper_stairs" -> 94.5;
+            case "cut_copper_slab" -> 31.5;
+            case "copper_bulb" -> 57.25;
+            case "copper_door" -> 14;
+            case "copper_trapdoor" -> 21;
+            case "copper_bars" -> 2.625;
+            case "copper_chest" -> 76;
+            case "copper_golem_statue" -> 42;
+            default -> Double.NaN;
+        };
     }
 
     private static double calculate(String path, String display, String categoryId) {

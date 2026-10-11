@@ -74,19 +74,18 @@ public final class VanillaPriceSafety {
         return true;
     }
     private static List<Rule> rules(RegistryAccess access) {
-        return rules(access,GuiShop.CONFIG==null||GuiShop.CONFIG.villagerTradeLoopFix);
+        return rules(access,GuiShop.CONFIG,true);
     }
-    private static List<Rule> rules(RegistryAccess access,boolean protection) {
+    private static List<Rule> rules(RegistryAccess access,ShopConfig config,boolean merchants) {
+        var values=config!=null&&config.villagerTradeLoopFix&&merchants?VanillaPresetValues.inventory(config,access):null;
         var rules=new ArrayList<>(MODEL.rules().stream().filter(r -> {
-            if (!exists(r.output(), access)) return false;
+            if (!exists(r.output(), access)||!merchants&&r.kind().equals("trade")) return false;
             if (r.block() == null) return true;
             var item = BuiltInRegistries.ITEM.getValue(Identifier.parse(r.block()));
             return item instanceof BlockItem blockItem && BuiltInRegistries.BLOCK.getKey(blockItem.getBlock()).toString().equals(r.block());
         }).map(r->{
-            if(!protection||!r.kind().equals("trade"))return r;
-            int minimum=TradeLoopProtection.minimum(r.name().substring("trade/".length()));
-            if(minimum==0||r.inputs().getFirst().count()>=minimum)return r;
-            var inputs=new ArrayList<>(r.inputs());var first=inputs.getFirst();inputs.set(0,new Input(first.choices(),minimum));
+            if(config==null||!config.villagerTradeLoopFix||!r.kind().equals("trade"))return r;
+            var inputs=TradeLoopProtection.inputs(values,r.inputs(),r.output(),r.count());
             return new Rule(r.name(),r.kind(),inputs,r.output(),r.count(),r.catalysts(),r.block(),r.share(),r.pricingInputs());
         }).toList());
         // Shipped compostables add at most one layer per consumed input. Seven
@@ -98,6 +97,10 @@ public final class VanillaPriceSafety {
         return rules;
     }
     public static Map<String,Bound> bounds(ShopConfig config, RegistryAccess access) {
+        return bounds(config,access,true);
+    }
+    static Map<String,Bound> conversionBounds(ShopConfig config,RegistryAccess access){return bounds(config,access,false);}
+    private static Map<String,Bound> bounds(ShopConfig config, RegistryAccess access,boolean merchants) {
         var costs = new TreeMap<String,Bound>();
         for (var category : config.categories) for (var item : category.items) {
             if (!(item.buy > 0) || !VersionedListingStore.isRuntimeAvailable(item, access)) continue;
@@ -105,7 +108,7 @@ public final class VanillaPriceSafety {
             var old = costs.get(key);
             if (old == null || item.buy < old.cost()) costs.put(key,new Bound(item.buy,"Direct purchase: " + item.name));
         }
-        relax(costs,rules(access,config.villagerTradeLoopFix),false);
+        relax(costs,rules(access,config,merchants),false);
         return costs;
     }
     private static void relax(Map<String,Bound> costs, List<Rule> rules, boolean pricing) {
@@ -142,7 +145,7 @@ public final class VanillaPriceSafety {
         throw new IllegalStateException("Vanilla price analysis did not converge. Existing shop was not changed.");
     }
     public static Review review(ShopConfig config, RegistryAccess access) {
-        var activeRules=rules(access,config.villagerTradeLoopFix);var costs=bounds(config,access);
+        var activeRules=rules(access,config,true);var costs=bounds(config,access);
         var audited=VanillaPresetValues.forConfig(config,access);
         var saleLimits=audited==null?new TreeMap<>(costs):new TreeMap<>(audited);
         if(audited==null){
@@ -171,7 +174,7 @@ public final class VanillaPriceSafety {
         }
         changes.sort(Comparator.comparing(Change::name,String.CASE_INSENSITIVE_ORDER).thenComparing(Change::listingId));
         return new Review(checked,excluded,MODEL.recipe_count(),MODEL.trade_count(),activeRules.size(),buyOnly,changes,
-            "Vanilla 26.3 only. Mods, custom components and modified datapack mechanics are not assessed. Timed resource farming is separate.");
+            "Vanilla 26.3 only. Preset inventory caps assume Villager Trade Loop Fix On; Off leaves native merchant loops unprotected. Mods, custom components and modified datapack mechanics are not assessed. Timed resource farming is separate.");
     }
     public static int apply(ShopConfig config, RegistryAccess access) {
         var report=review(config,access);
@@ -188,7 +191,7 @@ public final class VanillaPriceSafety {
             if(!ListingGroups.potion(item.item))costs.merge(key,new Bound(item.buy,"Ingredient purchase"),(a,b)->a.cost()<=b.cost()?a:b);
         }
         costs.put("minecraft:potion|potion=minecraft:water",new Bound(bottle,"Empty bottle + water"));
-        var brewing=rules(access,config.villagerTradeLoopFix).stream().filter(r->r.kind().equals("recipe")&&r.output().contains("|potion=")).toList();
+        var brewing=rules(access,config,false).stream().filter(r->r.kind().equals("recipe")&&r.output().contains("|potion=")).toList();
         relax(costs,brewing,true);
         for(var category:config.categories)for(var item:category.items){
             if(!(item.buy>0)||!ListingGroups.potion(item.item))continue;
@@ -196,6 +199,16 @@ public final class VanillaPriceSafety {
             boolean water=item.item.equals("minecraft:potion")&&key(item.createStack(access)).endsWith("=minecraft:water");
             item.buy=Math.max(.01,Math.round(cost.cost()*(water?1:1.10)*100)/100.0);
         }
+    }
+    static double unstackableEmeraldLimit(Map<String,Double> values,RegistryAccess access,double initial) {
+        double bound=initial;
+        for(var r:MODEL.rules())if(r.kind().equals("trade")&&r.output().equals("minecraft:emerald")&&r.inputs().size()==1) {
+            var input=r.inputs().getFirst();if(input.choices().size()!=1)continue;String key=input.choices().getFirst();
+            var item=BuiltInRegistries.ITEM.getValue(Identifier.parse(key.split("\\|",2)[0]));
+            if(new ItemStack(item).getMaxStackSize()!=1)continue;
+            Double value=values.get(key);if(value!=null&&value>0)bound=Math.min(bound,value*input.count()/r.count());
+        }
+        return bound;
     }
     private static String number(double value){return value==Math.rint(value)?Long.toString((long)value):Double.toString(value);}
     private static double floor(double amount){return Math.max(0,Math.floor((amount+1e-10)*100)/100.0);}
