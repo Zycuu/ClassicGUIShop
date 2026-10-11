@@ -1,8 +1,8 @@
 # ClassicGUIShop
 
-A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
+A Fabric shop mod for Minecraft Java 26.3, 26.2, 26.1.2, 1.21.11, 1.20.6, 1.20.4 and 1.20.1 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.8 Beta 1** fixes missing Adminshop text on fresh installs without full Fabric API. Fabric Resource Loader is now bundled so Minecraft loads the included admin font and translations. Shop behavior and prices are unchanged from 1.4.7 Beta 1, including live villager trade updates and usable vanilla preset prices.
+**1.4.0 release** ships as one universal JAR for all seven versions listed above. Fabric Loader selects the implementation and bundled API modules for the running Minecraft version. The optional Adminshop font and translations are included.
 
 Ordinary players use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`**. Every editor request checks `guishop.admin` through an installed Fabric Permissions API provider, falling back to OP level 2 when unassigned. Ordinary clients need no permission library.
 
@@ -31,13 +31,21 @@ Custom folder controls remain removed; enchanted books have automatic folders pe
 
 ## Installation
 
-Use Minecraft **26.3**, Java **25+**, and Fabric Loader **0.19.5+**. This Beta targets 26.3 specifically; the previous compatibility JARs remain separate builds.
+Install **one** `ClassicGUIShop-v1.4.0.jar` on Fabric Loader **0.19.5+**. Supported versions are exact releases, not an untested continuous range:
+
+| Minecraft | Minimum Java |
+| --- | --- |
+| 26.3, 26.2, 26.1.2 | 25 |
+| 1.21.11, 1.20.6 | 21 |
+| 1.20.4, 1.20.1 | 17 |
+
+Do not install the internal version implementations separately or alongside the universal JAR. Moving a world backwards between Minecraft versions is not supported by this mod; use Minecraft's normal world compatibility precautions.
 
 1. Stop the server and back up `config/guishop/` before updating.
-2. Replace the old server JAR with `ClassicGUIShop-v1.4.4-beta.1.jar`, then start the server.
+2. Replace the old server JAR with `ClassicGUIShop-v1.4.0.jar`, then start the server.
 3. For administrators, install that same JAR on a matching Fabric client and press F8 in-game. Rebind it under Controls if needed.
 
-The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching Minecraft 26.3.
+The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching your Minecraft version.
 
 The standalone client font regression check runs with only those bundled modules: `gradle -PstandaloneFontTest=<absolute-report-path.json> runClient`. It verifies the admin font resources, readable glyphs, and rendering after a resource reload in an isolated client directory. The test code is excluded from release JARs.
 
@@ -60,7 +68,7 @@ Item mods still need their usual client dependencies. Datapack custom models req
 /worth <item-or-listing-id> [amount]
 ```
 
-Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells matching items across the player inventory. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. 1.4.4 Beta uses editor protocol v7. Install the matching administrator JAR for this UI; older protocol versions are rejected.
+Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells matching items across the player inventory. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. 1.4.0 uses editor protocol v7. Install the matching administrator JAR for this UI; older protocol versions are rejected.
 
 Trusted integrations can run this only through the server console or authenticated RCON:
 
@@ -127,11 +135,11 @@ Preset JSON is saved to `config/guishop/presets` on the server; exports also cre
 
 A disposable first-install fixture can be verified with `.github/scripts/verify_starter_shop.py <server-dir> --java-home <jdk-dir> --output-dir <new-output-dir> --disposable`. It checks the ready-to-play Normal catalog, 30% target returns, restart bytes, preserved customized prices and an intentionally empty shop. It preserves every edited fixture file in a backup and rejects an existing shop at entry.
 
-This is **1.4.8-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
+This is **1.4.0**. Bug fixes and minor changes will use 1.4.x. Future feature releases and completeness milestones follow the agreed x.y.z scheme; 2.0.0 still requires separate release approval.
 
 ### Optional permission compatibility and variant folders
 
-ClassicGUIShop bundles and requires no permission manager. An independently installed provider using Fabric Permissions API 0.7.0 or later can answer `guishop.*` checks through the same optional hook; the API alone supplies no permission manager. Vanilla Permissions manages Minecraft's own nodes and can coexist with this bridge. Bukkit-only permission plugins cannot run directly on Fabric. The linked Permission Levels project has no Fabric 26.3 release; the vanilla fallback respects exact OP levels independently. Explicit provider denial applies even to operators. Provider exceptions fail closed. The console-only `/shopreward` restriction is unchanged.
+ClassicGUIShop bundles and requires no permission manager. An independently installed provider using the matching Fabric Permissions API (0.7.0+ on 26.x, 0.6.1+ on 1.21.11, 0.3.1+ on the listed 1.20 versions, using a build compatible with their Java version) can answer `guishop.*` checks through the same optional hook; the API alone supplies no permission manager. Vanilla Permissions manages Minecraft's own nodes and can coexist with this bridge. Bukkit-only permission plugins cannot run directly on Fabric. The linked Permission Levels project has no Fabric 26.3 release; the vanilla fallback respects exact OP levels independently. Explicit provider denial applies even to operators. Provider exceptions fail closed. The console-only `/shopreward` restriction is unchanged.
 
 Full Vanilla presets and fresh installations now include a dedicated Potions category. Each potion family contains its regular, extended, strong, splash and lingering variants as applicable, each with its own existing final buy/sell values and original components. Extended and strong preset names are labeled for clarity. Modded registered families retain their namespace; custom unregistered potions appear under Custom Potions. Existing saved shops keep their categories and prices, with the same automatic potion folders wherever their potions are listed. Loading a full preset creates the dedicated category after review and Save changes.
 
@@ -139,7 +147,7 @@ Combat uses Tipped Arrows > arrow type > variants, including extended and strong
 
 ## Vanilla preset safety
 
-The built-in Normal, Hard, Easy and Basics presets use the shipped 26.3 recipe and merchant definitions plus verified item interactions. With Villager Trade Loop Fix On, all purchasable vanilla listings retain positive sell prices; administrative/unavailable content stays disabled. The return percentages are targets, with lower prices where required by a complete inventory budget. That budget follows returned containers through later conversions and covers the optional enchanted-equipment sell bonus. Potion buy prices follow exact brewing components and three-bottle batches. Modded items, custom components and modified datapack mechanics remain the administrator's responsibility. Ordinary world resource farming and game duplication bugs are outside the audit.
+The built-in Normal, Hard, Easy and Basics presets use the verified vanilla conversion model, filtered to registered items, with the older four-string/slime lead recipe and its sale budget corrected for 1.20. Version-native ordinary recipe constraints are checked against generated prices. Shared special recipes, world interactions and merchant constraints come from the detailed 26.3 audit; that is not a claim of an independent replay of every older world mechanic. With Villager Trade Loop Fix On, all purchasable vanilla listings retain positive sell prices; administrative/unavailable content stays disabled. The return percentages are targets, with lower prices where required by a complete inventory budget. That budget follows returned containers through later conversions and covers the optional enchanted-equipment sell bonus. Potion buy prices follow exact brewing components and three-bottle batches. Modded items, custom components and modified datapack mechanics remain the administrator's responsibility. Ordinary world resource farming and game duplication bugs are outside the audit.
 
 Economy / Villager Trade Loop Fix defaults On. Saving its toggle or relevant shop prices closes open trading menus and refreshes loaded villagers and wandering traders during the same session. The existing editor footer reports the refresh. Newly generated and saved offers receive the same protection when accessed. Standard vanilla item offers are valued without requiring exact stock, XP, quantity or definition fingerprints; nonvanilla items and custom data, models, names, lore or enchantments are excluded. No client mod is required for protected merchant trading.
 
@@ -150,3 +158,11 @@ Normal buy/sell examples are logs 2.50/0.75, sticks 0.50/0.15, iron ingots 24/7.
 The preset constraints also cover all lightning rod oxidation, wax and scrape variants. Copper golem summoning budgets include the chest together with either recovered copper or a statue, including the repeated reuse of death copper to make more chests. These corrections are generated into the preset; there is no additional price modifier during trades or new editor interface.
 
 Fresh installations receive the corrected Vanilla Normal preset. Existing shops are never silently repriced. To replace an existing shop with an updated built-in preset, use the existing Presets controls: Preview preset, Load into editor, review the resulting categories, then Save changes. Loading replaces the draft catalog, including custom categories; preserve the existing shop or export its preset first if those need to be kept. See [Economy and Pricing](wiki/Economy-and-Pricing.md) for the audit method and research sources.
+
+## Building the universal release
+
+Use Python 3.10+, JDK 25 and Gradle 9.6.0. Build every exact target in `ports/targets.json` with `gradle -PtargetMinecraft=<version> build`, then run `python .github/scripts/package_universal.py <new-output-path.jar>`. Only the resulting universal JAR is installed or distributed. Shared behavior remains in `src`; API adapters and lossless pre-1.20.5 NBT helpers live under `ports` and `.github/scripts`. Generated source files stay under `build/<version>`.
+
+The separate `remapReleaseTestJar` task builds a disposable server test addon. It checks actual purchases and sales for every registered ordinary item and book/potion variant, exact item data, world maps, villager toggle behavior, permissions and bounded editor packets. Never install test addons in a live world. Client rendering checks run separately with `-PtargetMinecraft=<version> -PstandaloneFontTest=<absolute-report-path.json> runClient`.
+
+Item data formats differ across Minecraft versions. Unavailable exact variants are preserved in `versioned-listings.json` rather than silently converted into plain items. A preset exported on one version may require review or replacement variants on another. Back up the full configuration before changing versions.

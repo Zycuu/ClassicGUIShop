@@ -1,9 +1,17 @@
 plugins {
-    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}" apply false
     id 'maven-publish'
 }
 
-version = project.mod_version
+def targetMinecraft = providers.gradleProperty('targetMinecraft').getOrElse(project.minecraft_version)
+def targetProfiles = new groovy.json.JsonSlurper().parse(file('ports/targets.json'))
+if (!targetProfiles.containsKey(targetMinecraft)) throw new GradleException("Unsupported Minecraft target: $targetMinecraft")
+def targetProfile = targetProfiles[targetMinecraft]
+apply plugin: targetProfile.remap ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
+layout.buildDirectory.set(file("build/$targetMinecraft"))
+
+version = "${project.mod_version}+mc${targetMinecraft}"
 group = project.maven_group
 
 base { archivesName = "ClassicGUIShop" }
@@ -11,6 +19,7 @@ base { archivesName = "ClassicGUIShop" }
 tasks.withType(AbstractArchiveTask).configureEach {
     archiveBaseName.set("ClassicGUIShop")
     archiveVersion.set("v${project.mod_version}")
+    archiveAppendix.set("mc${targetMinecraft}")
 }
 
 repositories {
@@ -27,18 +36,34 @@ loom {
     }
 }
 
+tasks.register('prepareTargetSources', Exec) {
+    inputs.dir('src')
+    inputs.dir('ports')
+    inputs.file('.github/scripts/prepare_target_sources.py')
+    inputs.file('.github/scripts/adapt_120_client.py')
+    inputs.file('.github/scripts/adapt_nbt.py')
+    outputs.dir(layout.buildDirectory.dir('generated'))
+    commandLine 'python', '.github/scripts/prepare_target_sources.py', targetMinecraft
+}
+if (targetMinecraft != '26.3') {
+    sourceSets.configureEach { source ->
+        if (file("src/${source.name}/java").exists()) source.java.setSrcDirs([layout.buildDirectory.dir("generated/${source.name}")])
+    }
+    tasks.withType(JavaCompile).configureEach { dependsOn 'prepareTargetSources' }
+    tasks.matching { it.name == 'sourcesJar' }.configureEach { dependsOn 'prepareTargetSources' }
+}
+
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    minecraft "com.mojang:minecraft:${targetMinecraft}"
+    if (targetProfile.remap) mappings loom.officialMojangMappings()
+    add(targetProfile.remap ? 'modImplementation' : 'implementation', "net.fabricmc:fabric-loader:${project.loader_version}")
     // Bundle only the APIs the editor needs. Players can still use unmodified clients.
-    implementation include('net.fabricmc.fabric-api:fabric-api-base:2.0.6+fcdff87f5d')
-    implementation include('net.fabricmc.fabric-api:fabric-networking-api-v1:6.3.8+fcdff87f5d')
-    implementation include('net.fabricmc.fabric-api:fabric-lifecycle-events-v1:4.1.9+ffef5f675d')
-    implementation include('net.fabricmc.fabric-api:fabric-key-mapping-api-v1:2.0.8+3434d6d95d')
-    // The bundled admin font and translations need mod assets registered even without full Fabric API.
-    implementation include('net.fabricmc.fabric-api:fabric-resource-loader-v1:3.0.4+fcdff87f5d')
+    targetProfile.modules.each { module, moduleVersion ->
+        add(targetProfile.remap ? 'modImplementation' : 'implementation', include("net.fabricmc.fabric-api:$module:$moduleVersion"))
+    }
     // Optional server integration. Providers bundle/install this API; ordinary clients do not need it.
-    compileOnly 'me.lucko:fabric-permissions-api:0.7.0'
+    if (targetProfile.remap) modCompileOnly "me.lucko:fabric-permissions-api:${targetProfile.permissionsApi}"
+    else compileOnly "me.lucko:fabric-permissions-api:${targetProfile.permissionsApi}"
     // Optional integration fixtures are runtime-only and never bundled or published.
     if (project.hasProperty('usefulFoodTestJar')) runtimeOnly files(project.property('usefulFoodTestJar'))
     if (project.hasProperty('fullFabricApiTestJar')) runtimeOnly files(project.property('fullFabricApiTestJar'))
@@ -49,23 +74,60 @@ dependencies {
 
 processResources {
     inputs.property "version", project.version
-    inputs.property "minecraft_range", project.minecraft_range
+    inputs.property "minecraft_range", targetMinecraft
+    inputs.property "java_version", targetProfile.java
+    inputs.property "permissions_api", targetProfile.permissionsApi
     filesMatching("fabric.mod.json") {
         expand(
             "version": project.version,
-            "minecraft_range": project.minecraft_range
+            "minecraft_range": targetMinecraft,
+            "java_version": targetProfile.java,
+            "permissions_api": targetProfile.permissionsApi
         )
     }
+    // Leads yield two for four string plus slime on the supported 1.20 releases.
+    // Keep the economic witness consistent with that native recipe.
+    if (targetMinecraft.startsWith('1.20.')) {
+        filesMatching('guishop/vanilla-preset-values-26.3.json') {
+            filter { line ->
+                def data = new groovy.json.JsonSlurper().parseText(line)
+                data.tables.each { table ->
+                    def limit = (4 * table.inventoryValues['minecraft:string'] + table.inventoryValues['minecraft:slime_ball']) / 2
+                    table.inventoryValues['minecraft:lead'] = Math.min(table.inventoryValues['minecraft:lead'] as double, limit as double)
+                    table.values['minecraft:lead'] = Math.min(table.values['minecraft:lead'] as double, limit as double)
+                }
+                groovy.json.JsonOutput.toJson(data)
+            }
+        }
+        filesMatching('guishop/vanilla-economy-26.3.json') {
+            filter { line ->
+                def data = new groovy.json.JsonSlurper().parseText(line)
+                data.rules.findAll { it.kind == 'recipe' && it.name == 'lead' }.each { rule ->
+                    rule.inputs = [[choices:['minecraft:string'], count:4], [choices:['minecraft:slime_ball'], count:1]]
+                    rule.count = 2
+                }
+                groovy.json.JsonOutput.toJson(data)
+            }
+        }
+    }
+    filesMatching('*.mixins.json') {
+        filter { line ->
+            def updated = line.replace('JAVA_25', "JAVA_${targetProfile.java}")
+            if (targetProfile.remap) updated = updated.replace('"AbstractVillagerMixin",', '"AbstractVillagerMixin"').replace('"VillagerTradeMixin"', '')
+            updated
+        }
+    }
 }
+processClientResources { filesMatching('*.mixins.json') { filter { it.replace('JAVA_25', "JAVA_${targetProfile.java}") } } }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 25
+    it.options.release = targetProfile.java as int
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    sourceCompatibility = JavaVersion.toVersion(targetProfile.java)
+    targetCompatibility = JavaVersion.toVersion(targetProfile.java)
 }
 
 // Separate test mod: never included in the player/server release JAR.
@@ -76,6 +138,7 @@ sourceSets {
     vanillaAudit {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
     }
+    releaseTest { compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath }
 }
 
 dependencies { compatibilityTestCompileOnly 'net.luckperms:api:5.5' }
@@ -90,6 +153,19 @@ tasks.register('vanillaAuditJar', Jar) {
     from sourceSets.vanillaAudit.output
     archiveClassifier.set('vanilla-audit')
 }
+tasks.register('releaseTestJar', Jar) {
+    dependsOn tasks.named('releaseTestClasses')
+    from sourceSets.releaseTest.output
+    archiveClassifier.set('release-test-dev')
+}
+if(targetProfile.remap) {
+    tasks.register('remapReleaseTestJar', net.fabricmc.loom.task.RemapJarTask) {
+        dependsOn tasks.named('releaseTestJar')
+        inputFile.set(tasks.named('releaseTestJar').flatMap { it.archiveFile })
+        archiveClassifier.set('release-test')
+        addNestedDependencies.set(false)
+    }
+} else tasks.register('remapReleaseTestJar') { dependsOn tasks.named('releaseTestJar') }
 
 // Opt-in desktop integration harness. Neither its classes nor its metadata enter the release JAR.
 if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') || project.hasProperty('beta7UiTest') || project.hasProperty('beta8UiTest') || project.hasProperty('standaloneFontTest')) {
@@ -99,6 +175,7 @@ if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') ||
             runtimeClasspath += sourceSets.client.runtimeClasspath
         }
     }
+    if(project.hasProperty('standaloneFontTest')) sourceSets.clientTest.java.include('**/StandaloneFontTest.java')
     loom {
         mods {
             guishop_alpha_test { sourceSet sourceSets.clientTest }
@@ -108,8 +185,9 @@ if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') ||
                 source sourceSets.clientTest
                 programArgs '--width', '1320', '--height', '772'
                 if(project.hasProperty('standaloneFontTest')) {
-                    runDir '../clients/standalone-font'
+                    runDir "../clients/release-font-${targetMinecraft}"
                     vmArg "-Dguishop.fontReport=${project.property('standaloneFontTest')}"
+                    if(project.hasProperty("networkSmoke")){programArgs "--username","ReleaseAdmin";vmArg "-Dguishop.networkSmoke=true"}
                 }
                 if(project.hasProperty('beta8UiTest')) {
                     runDir '../clients/beta8-ui'

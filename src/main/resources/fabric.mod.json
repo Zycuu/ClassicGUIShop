@@ -18,8 +18,8 @@
   "depends": {
     "fabricloader": ">=0.19.5",
     "minecraft": "${minecraft_range}",
-    "java": ">=25"
+    "java": ">=${java_version}"
   },
-  "suggests": { "fabric-api": "*", "fabric-permissions-api-v0": ">=0.7.0" },
-  "breaks": { "fabric-permissions-api-v0": "<0.7.0" }
+  "suggests": { "fabric-api": "*", "fabric-permissions-api-v0": ">=${permissions_api}" },
+  "breaks": { "fabric-permissions-api-v0": "<${permissions_api}" }
 }

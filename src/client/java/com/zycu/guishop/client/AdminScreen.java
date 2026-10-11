@@ -640,7 +640,7 @@ public final class AdminScreen extends WorkbenchScreen {
         hits.clear(); panel(graphics, -144, 0, W + 144, H, WorkbenchTheme.SURFACE);
         graphics.text(font, Component.literal("ClassicGUIShop").withStyle(style -> style.withBold(true)), -124, 12, WorkbenchTheme.TEXT, false);
         text(graphics, "Admin Workbench", -124, 25, WorkbenchTheme.MUTED);
-        String version=net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("guishop").orElseThrow().getMetadata().getVersion().getFriendlyString().replace("-beta."," BETA ").replace("-alpha."," ALPHA ");
+        String version=net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("guishop").orElseThrow().getMetadata().getVersion().getFriendlyString().split("[+]",2)[0].replace("-beta."," BETA ").replace("-alpha."," ALPHA ");
         text(graphics,version,636-font.width(version),17,WorkbenchTheme.MUTED);
         graphics.fill(-128, 41, W - 16, 42, 0x553C515A);
         panel(graphics, -136, 69, 132, 270, 0xAA142027);

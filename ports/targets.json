@@ -1,0 +1,93 @@
+{
+  "26.3": {
+    "fabricApi": "0.162.0+26.3",
+    "modules": {
+      "fabric-api-base": "2.0.6+fcdff87f5d",
+      "fabric-networking-api-v1": "6.3.8+fcdff87f5d",
+      "fabric-lifecycle-events-v1": "4.1.9+ffef5f675d",
+      "fabric-key-mapping-api-v1": "2.0.8+3434d6d95d",
+      "fabric-resource-loader-v1": "3.0.4+fcdff87f5d"
+    },
+    "java": 25,
+    "remap": false,
+    "permissionsApi": "0.7.0"
+  },
+  "26.2": {
+    "fabricApi": "0.161.0+26.2",
+    "modules": {
+      "fabric-api-base": "2.0.4+ece063239e",
+      "fabric-networking-api-v1": "6.3.4+2989c6a09e",
+      "fabric-lifecycle-events-v1": "4.1.4+29b6eb019e",
+      "fabric-key-mapping-api-v1": "2.0.5+e2bdee789e",
+      "fabric-resource-loader-v1": "2.0.13+9edec1269e"
+    },
+    "java": 25,
+    "remap": false,
+    "permissionsApi": "0.7.0"
+  },
+  "26.1.2": {
+    "fabricApi": "0.145.1+26.1",
+    "modules": {
+      "fabric-api-base": "2.0.3+ece0632347",
+      "fabric-networking-api-v1": "6.3.0+50a808ce47",
+      "fabric-lifecycle-events-v1": "4.0.6+a9b9c17647",
+      "fabric-key-mapping-api-v1": "2.0.4+e2bdee7847",
+      "fabric-resource-loader-v1": "2.0.9+d871b99e47"
+    },
+    "java": 25,
+    "remap": false,
+    "permissionsApi": "0.7.0"
+  },
+  "1.21.11": {
+    "fabricApi": "0.141.6+1.21.11",
+    "modules": {
+      "fabric-api-base": "1.0.5+4ebb5c083e",
+      "fabric-networking-api-v1": "5.1.6+6b6d71a53e",
+      "fabric-lifecycle-events-v1": "2.6.15+4ebb5c083e",
+      "fabric-key-binding-api-v1": "1.1.7+4fc5413f3e",
+      "fabric-resource-loader-v1": "1.0.10+78c8b4663e"
+    },
+    "java": 21,
+    "remap": true,
+    "permissionsApi": "0.6.1"
+  },
+  "1.20.6": {
+    "fabricApi": "0.100.8+1.20.6",
+    "modules": {
+      "fabric-api-base": "0.4.40+80f8cf51b0",
+      "fabric-networking-api-v1": "4.2.0+a916f7c5b0",
+      "fabric-lifecycle-events-v1": "2.3.4+c5fc38b3b0",
+      "fabric-key-binding-api-v1": "1.0.45+80f8cf51b0",
+      "fabric-resource-loader-v0": "1.1.1+f4bfb622b0"
+    },
+    "java": 21,
+    "remap": true,
+    "permissionsApi": "0.3.1"
+  },
+  "1.20.4": {
+    "fabricApi": "0.97.3+1.20.4",
+    "modules": {
+      "fabric-api-base": "0.4.37+78d798af4f",
+      "fabric-networking-api-v1": "3.1.9+6abb6a4b4f",
+      "fabric-lifecycle-events-v1": "2.3.1+a67ffb5d4f",
+      "fabric-key-binding-api-v1": "1.0.42+78d798af4f",
+      "fabric-resource-loader-v0": "0.11.21+ee30b13a4f"
+    },
+    "java": 17,
+    "remap": true,
+    "permissionsApi": "0.3.1"
+  },
+  "1.20.1": {
+    "fabricApi": "0.92.12+1.20.1",
+    "modules": {
+      "fabric-api-base": "0.4.32+1802ada577",
+      "fabric-networking-api-v1": "1.3.15+0caff8d077",
+      "fabric-lifecycle-events-v1": "2.2.23+1802ada577",
+      "fabric-key-binding-api-v1": "1.0.38+1802ada577",
+      "fabric-resource-loader-v0": "0.11.12+fb82e9d777"
+    },
+    "java": 17,
+    "remap": true,
+    "permissionsApi": "0.3.1"
+  }
+}

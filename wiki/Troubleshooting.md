@@ -2,7 +2,7 @@
 
 ## F8 does not open Adminshop
 
-Install the Alpha JAR on both the Minecraft 26.3 server and your matching Fabric client. Check the key binding under Controls. The older server builds do not support this client protocol.
+Install the same 1.4.0 universal JAR on both a supported Minecraft server and your matching Fabric client. Check the key binding under Controls. Earlier ClassicGUIShop builds may use a different editor protocol.
 
 ## Permission popup
 
@@ -34,4 +34,4 @@ The GUI reads the newest 30 daily files and the last 2 MB of each. Full UTC JSON
 
 ## The mod does not load
 
-Use Minecraft 26.3, Java 25+, and Fabric Loader 0.19.5+. Keep one active ClassicGUIShop JAR. Any separately installed Fabric API must match Minecraft 26.3.
+Use an exact supported Minecraft release, its required Java version and Fabric Loader 0.19.5+. Keep one active ClassicGUIShop JAR. Any separately installed Fabric API must match Minecraft. See Installation for the version list.

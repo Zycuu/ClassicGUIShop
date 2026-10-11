@@ -1,6 +1,6 @@
 # Quick Start
 
-1. Back up `config/guishop/` and install 1.4.1 Beta on a Minecraft 26.3 test server.
+1. Back up `config/guishop/` and install the 1.4.0 universal JAR on a supported Fabric server.
 2. Install the same JAR on your matching Fabric client and join with `guishop.admin` permission (default OP level 2 or higher).
 3. Press F8, create a category, and choose its icon.
 4. Add a selected item or your exact held stack. Set buy/sell prices; zero disables that side.

@@ -13,6 +13,7 @@ public final class PortablePresets {
     public record Request(String action,String name,Bundle bundle,AdminDocument draft) {}
     public record Review(Bundle bundle,int unavailable,List<String> warnings) {}
     public record Response(String action,List<String> files,Bundle bundle,Review review,String message) {}
+    private static String minecraftVersion(){return FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString();}
     private static void authorize(ServerPlayer player){if(!AdminEditorService.allowed(player))throw new SecurityException(AdminEditorService.DENIED);}
     private static String filename(String name){if(name==null||!name.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}"))throw new IllegalArgumentException("Use a preset filename of 1 to 64 letters, numbers, dots, underscores or dashes");return name.endsWith(".json")?name:name+".json";}
     public static Bundle export(ServerPlayer player,String name,AdminDocument draft) throws Exception {
@@ -33,7 +34,7 @@ public final class PortablePresets {
             }
         }}}
         dependencies.remove("minecraft");
-        return new Bundle(1,name,"26.3",List.copyOf(dependencies),draft.copy().config.categories);
+        return new Bundle(1,name,minecraftVersion(),List.copyOf(dependencies),draft.copy().config.categories);
     }
     private static void collectEnchantmentNamespaces(com.google.gson.JsonObject value,Set<String> namespaces){for(var entry:value.entrySet()){if(entry.getKey().contains(":"))namespaces.add(entry.getKey().split(":")[0]);else if(entry.getValue().isJsonObject())collectEnchantmentNamespaces(entry.getValue().getAsJsonObject(),namespaces);}}
     public static Review review(ServerPlayer player,Bundle bundle){
@@ -59,7 +60,7 @@ public final class PortablePresets {
             // An unavailable icon is presented as a barrier without altering its saved exact data.
         }
         AdminEditorService.validate(draft,player);
-        if(!"26.3".equals(copy.minecraft()))warnings.add("Created for Minecraft "+copy.minecraft()+"; exact stacks were checked against this server.");
+        if(!minecraftVersion().equals(copy.minecraft()))warnings.add("Created for Minecraft "+copy.minecraft()+"; exact stacks were checked against this server.");
         if(unavailable>0)warnings.add(unavailable+" unavailable exact variants retained with buy/sell disabled. Install dependencies and explicitly reprice them before trading.");
         warnings.add("Namespace metadata is a dependency hint. Custom-data-only behavior and resource-pack assets need their original content installed.");
         warnings.add("Replaces categories and listings only. Currency, permissions, balances, journals and modes stay on this server.");

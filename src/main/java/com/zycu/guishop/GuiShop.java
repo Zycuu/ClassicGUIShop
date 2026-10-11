@@ -54,7 +54,7 @@ public final class GuiShop implements ModInitializer {
     }
 
     private static void runStartupWork(MinecraftServer server) {
-        try { PriceMigration.migrate(CONFIG, server.registryAccess()); } catch (Exception error) { throw new IllegalStateException("Beta price migration failed; restore the migration backup before retrying", error); }
+        try { PriceMigration.migrate(CONFIG, server.registryAccess()); } catch (Exception error) { throw new IllegalStateException("Price migration failed; restore the migration backup before retrying", error); }
         try { DefaultShopSetup.complete(server,CONFIG); } catch(Exception error){throw new IllegalStateException("Starter shop setup failed. Saved files were preserved; correct the error and restart to retry.",error);}
         VersionedListingStore.ReconcileResult versioned = VersionedListingStore.reconcile(
             CONFIG,

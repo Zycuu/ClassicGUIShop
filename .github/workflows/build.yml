@@ -1,5 +1,5 @@
-name: Build ClassicGUIShop Alpha
-run-name: ClassicGUIShop Alpha - ${{ github.event_name }} - ${{ github.sha }}
+name: Build ClassicGUIShop
+run-name: ClassicGUIShop 1.4.0 - ${{ github.event_name }} - ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -8,118 +8,111 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  ARTIFACT_BASE: ClassicGUIShop-v1.4.4-beta.1
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.6.0"
-      - name: Build release and separate test mod
-        shell: bash
-        run: |
-          set +e
-          gradle build compatibilityTestJar -PalphaUiTest=true clientTestClasses > build.log 2>&1
-          status=$?
-          tail -n 100 build.log
-          if [ "$status" -ne 0 ]; then exit "$status"; fi
-          test -f "build/libs/$ARTIFACT_BASE.jar"
-      - name: Verify release excludes test harnesses
-        shell: bash
-        run: |
-          jar tf "build/libs/$ARTIFACT_BASE.jar" > jar-contents.txt
-          if grep -E 'AlphaUiTest|PlayerShopUiTest|AlphaServerChecks|AccountChecks|ModesPresetChecks|BetaChecks|Beta2Checks|Beta4Checks|VanillaEconomyChecks|DetectedContentChecks|CombinedShopChecks|CatalogIntegrityChecks|InventoryOverflowTest|guishop_alpha_test' jar-contents.txt; then
-            echo "Test harness entered release JAR" >&2
-            exit 1
-          fi
-          if grep -E 'com/zycu/guishop/(ShopFolderStore|SafeShopFolderLoader|FolderAwareShopGui|CursorStableShopGui|ColoredBlockGroups)' jar-contents.txt; then
-            echo "Retired folder implementation entered release JAR" >&2
-            exit 1
-          fi
-          grep -F 'com/zycu/guishop/client/AdminShopClient.class' jar-contents.txt
-          grep -F 'META-INF/jars/fabric-networking-api-v1' jar-contents.txt
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ClassicGUIShop-build-log
-          path: build.log
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ClassicGUIShop
-          path: |
-            build/libs/${{ env.ARTIFACT_BASE }}.jar
-            build/libs/${{ env.ARTIFACT_BASE }}-sources.jar
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ClassicGUIShop-compatibility-test
-          path: build/libs/${{ env.ARTIFACT_BASE }}-compatibility-test.jar
-
-  runtime:
-    needs: build
+  implementations:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        api: [false, true]
+        minecraft: ["26.3", "26.2", "26.1.2", "1.21.11", "1.20.6", "1.20.4", "1.20.1"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "25"
-      - uses: actions/download-artifact@v4
+      - uses: actions/setup-python@v5
         with:
-          name: ClassicGUIShop
-          path: release
-      - uses: actions/download-artifact@v4
+          python-version: "3.12"
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          name: ClassicGUIShop-compatibility-test
-          path: tests
-      - name: Prepare disposable Minecraft 26.3 server
-        shell: bash
-        run: |
-          python .github/scripts/setup_fabric_server.py 26.3 server \
-            "release/$ARTIFACT_BASE.jar" 0.19.5 "${{ matrix.api }}" \
-            "tests/$ARTIFACT_BASE-compatibility-test.jar"
-      - name: Check startup, editor integrity, transactions, and restart
-        shell: bash
-        run: |
-          python .github/scripts/install_detection_fixture.py server --disposable
-          mkdir -p server/config/guishop
-          printf 'Retired data must remain untouched.\n' > server/config/guishop/folders.json
-          cp server/config/guishop/folders.json folders-original.json
-          bash .github/scripts/boot_fabric_server.sh server startup.log
-          cmp folders-original.json server/config/guishop/folders.json
-          grep -F '[ClassicGUIShop Alpha test] PASS:' server/startup.log
-          grep -F '[Detected content test] PASS:' server/startup.log
-          grep -F '[Account test] PASS:' server/startup.log
-          grep -F '[Modes and presets test] PASS:' server/startup.log
-          grep -F '[Vanilla economy test] PASS:' server/startup.log
-          grep -F '[ClassicGUIShop Beta test] PASS:' server/startup.log
-          grep -F 'Command integrity verified' server/startup.log
-          cp server/config/guishop/shops.json shops-before-restart.json
-          cp server/config/guishop/folders.json folders-before-restart.json
-          bash .github/scripts/boot_fabric_server.sh server restart.log
-          grep -F '[ClassicGUIShop Alpha test] PASS:' server/restart.log
-          grep -F '[Detected content test] PASS:' server/restart.log
-          grep -F '[Account test] PASS:' server/restart.log
-          grep -F '[Modes and presets test] PASS:' server/restart.log
-          grep -F '[Vanilla economy test] PASS:' server/restart.log
-          grep -F '[ClassicGUIShop Beta test] PASS:' server/restart.log
-          cmp shops-before-restart.json server/config/guishop/shops.json
-          cmp folders-before-restart.json server/config/guishop/folders.json
+          gradle-version: "9.6.0"
+      - name: Build matching implementation and separate tests
+        run: gradle --console=plain -PtargetMinecraft=${{ matrix.minecraft }} build remapReleaseTestJar > build.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: runtime-26.3-api-${{ matrix.api }}
-          path: |
-            server/startup.log
-            server/restart.log
+          name: build-log-${{ matrix.minecraft }}
+          path: build.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: implementation-${{ matrix.minecraft }}
+          path: build/${{ matrix.minecraft }}/libs/*.jar
+
+  package:
+    needs: implementations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: implementation-*
+          path: implementations
+      - name: Assemble one universal installable JAR
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          for directory in Path('implementations').iterdir():
+              target = directory.name.removeprefix('implementation-')
+              destination = Path('build') / target / 'libs'
+              destination.mkdir(parents=True)
+              for jar in directory.glob('*.jar'): shutil.copy2(jar, destination / jar.name)
+          PY
+          python .github/scripts/package_universal.py release/ClassicGUIShop-v1.4.0.jar
+          sha256sum release/ClassicGUIShop-v1.4.0.jar > release/ClassicGUIShop-v1.4.0.jar.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClassicGUIShop-1.4.0
+          path: release/*
+
+  runtime:
+    needs: package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { minecraft: "26.3", java: "25", remap: false }
+          - { minecraft: "26.2", java: "25", remap: false }
+          - { minecraft: "26.1.2", java: "25", remap: false }
+          - { minecraft: "1.21.11", java: "21", remap: true }
+          - { minecraft: "1.20.6", java: "21", remap: true }
+          - { minecraft: "1.20.4", java: "17", remap: true }
+          - { minecraft: "1.20.1", java: "17", remap: true }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ClassicGUIShop-1.4.0
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: implementation-${{ matrix.minecraft }}
+          path: tests
+      - name: Prepare disposable server using the universal JAR
+        env:
+          TARGET: ${{ matrix.minecraft }}
+          REMAP: ${{ matrix.remap }}
+        run: |
+          classifier=release-test-dev
+          if [ "$REMAP" = "true" ]; then classifier=release-test; fi
+          python .github/scripts/setup_fabric_server.py "$TARGET" server release/ClassicGUIShop-v1.4.0.jar 0.19.5 false "tests/ClassicGUIShop-mc$TARGET-v1.4.0-$classifier.jar"
+          printf 'server-ip=127.0.0.1\nserver-port=25589\nonline-mode=false\nview-distance=2\nsimulation-distance=2\nlevel-name=release-test-world\n' > server/server.properties
+      - name: Test native purchases, sales, variants and live villagers
+        run: python .github/scripts/run_release_smoke.py server results/report.json --disposable
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-${{ matrix.minecraft }}
+          path: results/*

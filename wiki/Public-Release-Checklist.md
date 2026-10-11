@@ -1,6 +1,6 @@
 # Public Release Checklist
 
-1.4.0 Alpha 1 is a testing build, not an approved public release.
+Zycu has approved preparing the 1.4.0 release. Publishing a GitHub tag or release still requires final confirmation.
 
 Before a stable release:
 
@@ -12,4 +12,4 @@ Before a stable release:
 - Pass local and GitHub checks on the declared Minecraft version.
 - Obtain Zycu's explicit approval immediately before publishing a tag or release.
 
-Version policy: x is a completeness milestone, y adds features, z is a minor tweak or bug fix. Alpha suffixes identify previews before the intended 1.4.0 release. A future 2.0.0 requires its own readiness review and explicit approval.
+Version policy: x is a completeness milestone, y adds features, z is a minor tweak or bug fix. Stable patch releases use 1.4.x. A future 2.0.0 requires its own readiness review and explicit approval.

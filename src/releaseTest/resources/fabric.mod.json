@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"guishop_release_test","version":"1.0.0","environment":"server","entrypoints":{"main":["com.zycu.guishop.testing.ReleaseSmoke"]},"depends":{"guishop":"*"}}

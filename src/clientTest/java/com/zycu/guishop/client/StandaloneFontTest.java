@@ -25,7 +25,27 @@ public final class StandaloneFontTest implements ClientModInitializer {
             if(client.gui.overlay()!=null||ticks<100)return;
             if(stage==0){
                 if(FabricLoader.getInstance().isModLoaded("fabric-api"))throw new AssertionError("Full Fabric API masks standalone packaging problems");
+                if(Boolean.getBoolean("guishop.networkSmoke")){
+                    net.minecraft.client.gui.screens.ConnectScreen.startConnecting(client.gui.screen(),client,net.minecraft.client.multiplayer.resolver.ServerAddress.parseString("127.0.0.1:25588"),new net.minecraft.client.multiplayer.ServerData("Release fixture","127.0.0.1:25588",net.minecraft.client.multiplayer.ServerData.Type.OTHER),false,null);
+                    stage=10;return;
+                }
                 client.gui.setScreen(new AdminNoticeScreen("Ask the Server Owner for permission to use the Adminshop tools",client.gui.screen()));
+                stage=1;ticks=100;return;
+            }
+            if(stage==10){if(client.player==null)return;client.gui.setScreen(null);client.getConnection().sendCommand("shop");stage=11;return;}
+            if(stage==11){if(!(client.player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu))return;client.player.closeContainer();client.getConnection().sendCommand("adminshop");stage=12;ticks=100;return;}
+            if(stage==12){
+                if(!(client.gui.screen() instanceof AdminScreen screen)||ticks<125)return;
+                var field=AdminScreen.class.getDeclaredField("draft");field.setAccessible(true);var document=(AdminDocument)field.get(screen);
+                if(document.config.categories.isEmpty())throw new AssertionError("Server snapshot has no starter shop");
+                Screenshot.grab(client.gameDirectory,"network-builder-"+report.getFileName()+".png",client.gameRenderer.mainRenderTarget(),1,message->{});
+                boolean clicked=false;for(var child:screen.children())if(child instanceof net.minecraft.client.gui.components.Button button&&button.getMessage().getString().equals("Detected Content")){button.onPress(new net.minecraft.client.input.MouseButtonEvent(0,0,new net.minecraft.client.input.MouseButtonInfo(0,0)));clicked=true;break;}
+                if(!clicked)throw new AssertionError("Missing detected tab");stage=13;return;
+            }
+            if(stage==13){
+                if(!(client.gui.screen() instanceof AdminScreen screen))return;
+                var field=AdminScreen.class.getDeclaredField("detectedData");field.setAccessible(true);var page=(com.zycu.guishop.admin.DetectedContent.Page)field.get(screen);
+                if(page==null||!page.ready())return;if(page.sources().isEmpty())throw new AssertionError("Detected source packet empty");
                 stage=1;ticks=100;return;
             }
             if(stage==1&&ticks>125){
@@ -46,6 +66,6 @@ public final class StandaloneFontTest implements ClientModInitializer {
         if(WorkbenchTheme.font().width("iii")>=WorkbenchTheme.font().width("WWW"))throw new AssertionError("Workbench renders missing glyphs instead of proportional font");
     }
     private void finish(Minecraft client,boolean passed,String message)throws Exception{
-        stage=4;Files.createDirectories(report.getParent());Files.writeString(report,AdminDocument.JSON.toJson(Map.of("passed",passed,"message",message,"fullFabricApiInstalled",FabricLoader.getInstance().isModLoaded("fabric-api"))));System.out.println("[Standalone font] "+message);client.stop();
+        stage=4;Files.createDirectories(report.getParent());Files.writeString(report,AdminDocument.JSON.toJson(Map.of("passed",passed,"message",message,"networkSmoke",Boolean.getBoolean("guishop.networkSmoke"),"fullFabricApiInstalled",FabricLoader.getInstance().isModLoaded("fabric-api"))));System.out.println("[Standalone font] "+message);client.stop();
     }
 }

@@ -1,10 +1,10 @@
 # ClassicGUIShop Wiki
 
-Documentation for **1.4.0 Alpha 1**, targeting Minecraft **26.3** with Java **25+** and Fabric Loader **0.19.5** recommended.
+Documentation for **1.4.0**. One universal JAR supports Minecraft **26.3, 26.2, 26.1.2, 1.21.11, 1.20.6, 1.20.4 and 1.20.1**. See Installation for Java requirements.
 
 Player shops use vanilla chest menus and require no client mod. Administrators optionally install ClassicGUIShop on their matching Fabric client and press F8 for the new workbench. All editor access requires `guishop.admin` on the server, defaulting to OP level 2 or higher when unassigned.
 
-The workbench includes a shop builder and simulator, server settings, exact permission levels, transaction records, configuration history, and backup restoration through drafts. Automatic shop population and old administrator editing commands remain removed; explicit detected-content import is available. Fresh shops are configured explicitly.
+The workbench includes a shop builder and simulator, server settings, exact permission levels, transaction records, configuration history, and backup restoration through drafts. Fresh installations use Full Vanilla Normal. Modded content is imported explicitly at zero prices. Old administrator editing commands remain removed; `/adminshop` opens the client workbench.
 
 - [Installation](Installation.md)
 - [Quick Start](Quick-Start.md)
