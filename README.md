@@ -2,7 +2,7 @@
 
 A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.3 Beta 1** puts ease of use first: labeled navigation, category-only Bulk Adjust, explicit Update/Cancel popups, clear Save changes/Discard changes controls, live search and creative-style scrollbars. New preset price defaults live together under Presets. Player commands, balances and existing listing prices retain their behavior.
+**1.4.4 Beta 1** corrects the built-in vanilla preset prices using Minecraft 26.3 recipes, discounted merchant trades and item conversions. Batch brewing, reusable containers, Fortune drops and book combinations are included. Unavoidable multiplication outputs are buy-only. The existing interface, player commands and saved shop prices are preserved.
 
 Ordinary players use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`**. Every editor request checks `guishop.admin` through an installed Fabric Permissions API provider, falling back to OP level 2 when unassigned. Ordinary clients need no permission library.
 
@@ -23,7 +23,7 @@ Edits remain in a detached draft until **Save changes**. The server validates pr
 
 Non-OP clients receive a separate popup: **Ask the Server Owner for permission to use the Adminshop tools**.
 
-Fresh installations start ready to play with Full Vanilla Normal: the vanilla catalog, exact book/potion variants, 30% default sell returns and recipe/map safety caps. Modded content is imported explicitly at zero prices. A persistent setup marker makes first-start initialization resumable and prevents repopulating an intentionally emptied shop. Existing shops and legacy configurations keep their saved categories, prices and balances. `/ident` and legacy administrator editing subcommands remain removed; `/adminshop` opens the client UI.
+Fresh installations start ready to play with Full Vanilla Normal: the vanilla catalog, exact book/potion variants, 30% target sell returns and vanilla conversion safety caps. Modded content is imported explicitly at zero prices. A persistent setup marker makes first-start initialization resumable and prevents repopulating an intentionally emptied shop. Existing shops and legacy configurations keep their saved categories, prices and balances. `/ident` and legacy administrator editing subcommands remain removed; `/adminshop` opens the client UI.
 
 Adding an existing item keeps the selected category and creates a separate listing with zero prices. Add held item captures exact component variants. The editor rejects cross-listing prices that let an identical item sell for more than its cheapest enabled buy price. Held sales use an enabled matching listing that the player can access.
 
@@ -34,7 +34,7 @@ Custom folder controls remain removed; enchanted books have automatic folders pe
 Use Minecraft **26.3**, Java **25+**, and Fabric Loader **0.19.5+**. This Beta targets 26.3 specifically; the previous compatibility JARs remain separate builds.
 
 1. Stop the server and back up `config/guishop/` before updating.
-2. Replace the old server JAR with `ClassicGUIShop-v1.4.3-beta.1.jar`, then start the server.
+2. Replace the old server JAR with `ClassicGUIShop-v1.4.4-beta.1.jar`, then start the server.
 3. For administrators, install that same JAR on a matching Fabric client and press F8 in-game. Rebind it under Controls if needed.
 
 The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching Minecraft 26.3.
@@ -58,7 +58,7 @@ Item mods still need their usual client dependencies. Datapack custom models req
 /worth <item-or-listing-id> [amount]
 ```
 
-Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells matching items across the player inventory. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. 1.4.3 Beta uses editor protocol v7. Install the matching administrator JAR for this UI; older protocol versions are rejected.
+Left-click buys one; right-click sells one; shift-left buys 64 ordinary items; shift-right sells matching items across the player inventory. The `/shop enchant` compatibility shortcut retains one-book purchases; books in ordinary categories use ordinary item quantities. Buy and Sell permissions are checked on each transaction. `/shop buy` and `/shop sell` remain compatibility aliases for the same unified menu. `/shop balance` remains a compatibility alias. `/adminshop` launches the client editor; its legacy editing subcommands remain absent. Update both server and administrator client together. 1.4.4 Beta uses editor protocol v7. Install the matching administrator JAR for this UI; older protocol versions are rejected.
 
 Trusted integrations can run this only through the server console or authenticated RCON:
 
@@ -123,7 +123,7 @@ Preset JSON is saved to `config/guishop/presets` on the server; exports also cre
 
 A disposable first-install fixture can be verified with `.github/scripts/verify_starter_shop.py <server-dir> --java-home <jdk-dir> --output-dir <new-output-dir> --disposable`. It checks the ready-to-play Normal catalog, 30% target returns, restart bytes, preserved customized prices and an intentionally empty shop. It preserves every edited fixture file in a backup and rejects an existing shop at entry.
 
-This is **1.4.3-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
+This is **1.4.4-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
 
 ### Optional permission compatibility and variant folders
 
@@ -132,3 +132,9 @@ ClassicGUIShop bundles and requires no permission manager. An independently inst
 Full Vanilla presets and fresh installations now include a dedicated Potions category. Each potion family contains its regular, extended, strong, splash and lingering variants as applicable, each with its own existing final buy/sell values and original components. Extended and strong preset names are labeled for clarity. Modded registered families retain their namespace; custom unregistered potions appear under Custom Potions. Existing saved shops keep their categories and prices, with the same automatic potion folders wherever their potions are listed. Loading a full preset creates the dedicated category after review and Save changes.
 
 Combat uses Tipped Arrows > arrow type > available levels, including extended and strong variants. Existing shops receive the same automatic folders without modifying stored item components or prices. Fresh/full presets keep every tipped-arrow listing in Combat.
+
+## Vanilla preset safety
+
+The built-in Normal, Hard, Easy and Basics presets now use the shipped 26.3 recipe and merchant definitions plus verified item interactions. The sell targets are upper limits: safe final sell prices can be lower, or zero where no positive price can close a repeatable loop. Potion buy prices follow their exact brewing components and three-bottle batches, rather than display-name guesses. Modded items, custom components and modified datapack mechanics remain the administrator's responsibility. Ordinary world resource farming and game duplication bugs are not certified by this audit.
+
+Fresh installations receive the corrected Vanilla Normal preset. Existing shops are never silently repriced. To replace an existing shop with an updated built-in preset, use the existing Presets controls: Preview preset, Load into editor, review the resulting categories, then Save changes. Loading replaces the draft catalog, including custom categories; preserve the existing shop or export its preset first if those need to be kept. See [Economy and Pricing](wiki/Economy-and-Pricing.md) for the audit method and research sources.

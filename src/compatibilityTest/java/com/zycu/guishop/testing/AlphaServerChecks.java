@@ -153,6 +153,7 @@ public final class AlphaServerChecks {
             CombinedShopChecks.run(player);
             AccountChecks.run(player);
             ModesPresetChecks.run(player);
+            VanillaEconomyChecks.run(player);
             BetaChecks.run(player);
             Beta2Checks.run(player);
             Beta4Checks.run(player);

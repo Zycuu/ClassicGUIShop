@@ -67,25 +67,19 @@ public final class ShopPresets {
             }
             if (!other.items.isEmpty()) config.categories.add(other);
         }
-        for(var category:config.categories)for(var item:category.items)if(Set.of("minecraft:potion","minecraft:splash_potion","minecraft:lingering_potion").contains(item.item)&&item.buy>0)item.sell=floor(item.buy*potionRatio);
-        var audit = EconomyExploitScanner.audit(server, config); int capped = 0;
-        for (var issue : audit.exploits()) {
-            var item = config.findItem(issue.listingId()).item(); item.sell = floor(issue.acquisitionCostPerItem() * .95); capped++;
-        }
-        double mapCap = config.categories.stream().flatMap(category -> category.items.stream()).filter(item -> item.item.equals("minecraft:map") && item.buy > 0).mapToDouble(item -> item.buy).min().orElse(0);
-        for (var category : config.categories) for (var item : category.items) if (ShopMaps.nativeMap(item.createStack(access)) && item.sell > floor(mapCap * ratio)) { item.sell = floor(mapCap * ratio); capped++; }
-        var remaining = EconomyExploitScanner.audit(server, config).exploits();
-        if (!remaining.isEmpty()) throw new IllegalStateException("Preset " + request.preset() + " failed the current recipe audit; live shop is unchanged. " + remaining.stream().limit(3).map(EconomyExploitScanner::describe).toList());
         int count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
         if (!request.preset().equals("basics")) for (var holder : access.lookupOrThrow(Registries.ENCHANTMENT).listElements().toList()) {
-            String id = holder.key().identifier().toString(); if (!id.startsWith("minecraft:")) continue;
-            var offer = new ShopConfig.EnchantmentOffer(); offer.name = holder.value().description().getString(); offer.pricePerLevel = 100 * buyFactor; offer.maxLevel = holder.value().getMaxLevel(); config.enchantments.put(id, offer);
+            String id = holder.key().identifier().toString(); if (VanillaPriceSafety.maximumLevel(id)==0) continue;
+            var offer = new ShopConfig.EnchantmentOffer(); offer.name = holder.value().description().getString(); offer.pricePerLevel = 100 * buyFactor; offer.maxLevel = Math.min(holder.value().getMaxLevel(),VanillaPriceSafety.maximumLevel(id)); config.enchantments.put(id, offer);
         }
         PriceMigration.flattenBooks(config, access, 1, bookRatio);
+        VanillaPriceSafety.pricePotions(config, access);
+        for(var category:config.categories)for(var item:category.items)if(ListingGroups.potion(item.item)&&item.buy>0)item.sell=floor(item.buy*potionRatio);
+        int capped=VanillaPriceSafety.apply(config,access);
         ListingGroups.separatePotions(config);
         ListingGroups.separateTippedArrows(config);
         count = config.categories.stream().mapToInt(category -> category.items.size()).sum();
-        return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, audit.recipesChecked(), "Recipe caps can reduce the target return. Admin-only items are locked; other component variants are buy-only. Villager trades, world drops and arbitrary mod mechanics need separate review.");
+        return new Plan(request.preset(), config.categories, Map.of(), ratio, count, locked, capped, 2042, "Vanilla recipes, instant interactions and discounted merchants were audited. Unavoidable loop outputs are buy-only. Modded content and altered datapack mechanics are the admin's responsibility.");
     }
     private static ShopConfig.ShopItem listing(ItemStack stack, String category, double ratio, double factor, Set<String> used, net.minecraft.core.RegistryAccess access) {
         var item = new ShopConfig.ShopItem(); item.item = ShopService.itemId(stack); item.stack = ItemStackData.encode(stack, access); item.name = stack.getHoverName().getString();

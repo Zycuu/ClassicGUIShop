@@ -65,7 +65,7 @@ public final class GuiShop implements ModInitializer {
             + ", restored " + versioned.restored() + ", and is preserving "
             + versioned.remainingParked() + " unavailable listing(s).");
         System.out.println("[ClassicGUIShop] Economy audit checked " + economy.recipesChecked()
-            + " recipes without changing prices, and found "
+            + " vanilla recipes plus merchant and item conversions without changing prices, and found "
             + economy.exploits().size() + " remaining pricing issue(s).");
     }
 }

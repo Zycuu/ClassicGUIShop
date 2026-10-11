@@ -2,7 +2,7 @@
 
 Beta 1 uses one active pricing system: each ordinary listing stores its final buy and sell amounts. There is no live global multiplier, book sell ratio, or automatic startup repricing. A zero buy disables purchasing; a zero sell disables sales. Exact component data determines the variant. Matching duplicates cannot sell above their cheapest enabled buy price.
 
-Use Shop Builder for individual edits. **Adjust prices** opens the current category's price sheet, or the whole shop from Home. Enter final buy and sell amounts per row, or use Set all to assign both amounts to every listing in that sheet. There are no percentage adjustments or scope switches. Done changes the draft; Cancel leaves it alone; Apply saves with a backup.
+Use Shop Builder for individual edits. **Bulk Adjust** reprices the selected category, including its automatic variant folders. Enter final buy and sell amounts, review the affected listings, then Update. Individual item editing remains in the builder. Save changes commits the draft with a backup.
 
 Economy has one default Normal/Basics preset sell return, initially 30%. It only affects new preset generation. Hard and Easy retain their explicit 10% and 95% returns. Existing listing prices and wallets are unchanged.
 
@@ -29,11 +29,25 @@ The editor treats map offers differing only in generated map ID and destination 
 
 ## Built-in and portable presets
 
-Normal uses base buy prices and the Economy default sell target, initially 30%. Hard uses 3x buys and 10% returns. Easy uses 75% base buys and 95% returns. Basics uses raw materials, ores, unstripped logs/stems and selected collectible resources with the Economy default returns. Full presets include ordinary exact vanilla book listings. Administrative/spawn items and unsupported component variants are disabled or buy-only. Recipe and map safety caps can lower the target return. No preset runs automatically at startup.
+Normal uses base buy prices and the Economy default sell target, initially 30%. Hard uses 3x buys and 10% returns. Easy uses 75% base buys and 95% returns. Basics uses raw materials, ores, unstripped logs/stems and selected collectible resources with the Economy default returns. Full presets include ordinary exact vanilla book listings. Administrative/spawn items and unsupported component variants are disabled or buy-only. Vanilla conversion safety can lower the target return or make an item buy-only. A fresh installation initializes Vanilla Normal once; an existing shop is not silently repriced or refilled.
 
 Import/export uses schema-1 JSON in the preset library. Export includes the current valid draft and retained unavailable listings for included categories. Import checks exact stack decoding, counts, prices, identities and dependencies before a review. Use reviewed draft changes categories only; Apply backs up the live shop. Missing exact content remains preserved at zero buy/sell. Its original imported JSON remains in the library. Wallets, journals, settings, permissions and modes are excluded; dependencies are not bundled.
 
-The recipe audit does not certify villager trades, world conversions, loot farms, brewing chains or arbitrary mod mechanics. Manual prices and reward payouts still need server-specific review.
+### Vanilla safety audit in 1.4.4 Beta 1
+
+The model classifies all 2,042 shipped recipes, all 391 villager and wandering-trader definitions, 1,201 block loot tables and the three tool-transformer definitions. It expands randomized merchant books and potion arrows, includes attainable positive reputation and Hero V discounts, and preserves undiscounted secondary payments. It uses maximum possible batch and Fortune outputs. Fuel, tool wear and experience are ignored when doing so produces a conservative sale limit.
+
+Purchased-item conversions include water filling, milk and mooshroom refills, dirt/mud/clay, tool transformations, copper scraping/weathering, concrete hardening, coral drying, shulker-box washing, map copies, potion brewing, piglin barter outcomes, book combining/enchanting/grinding, released fish and returned containers. Honey, lava, dragon breath and fish contents are consumed or gathered separately; retaining the shell does not invent new contents. Multi-output conversions have one total sale budget. Splitting that budget never reduces acquisition costs, which avoids inventing loops in reversible honey-block recipes.
+
+Final sells are floored to cents and capped at 95% of the conservative conversion budget. A productive closed loop can make its outputs arbitrarily cheap: no positive-cent sell price is then safe, so those outputs become buy-only. This includes emeralds and reachable merchant goods. Normal currently has 1,008 sell-enabled listings, 904 buy-only listings and 178 fully disabled listings. The full affected list is exported by the disposable-server checks. These safety caps can override the preset's target return.
+
+The generator reads the inspected 26.3 common JAR and records its SHA-256. Its coverage table refuses unknown recipe/trade/loot formats instead of silently skipping them. Native server tests validate glass crafting, actual discounted merchant offers, water filling, hoes/axes, three-bottle brewing, honey/dragon-breath remainders, composting and Fortune drops. An independent SciPy/HiGHS check verifies feasible item values for the combined modeled paths in all four presets and rejects a deliberately reintroduced positive water-bottle sell price.
+
+This covers the shipped vanilla definitions and listed interactions. Timed world resource production, arbitrary mod mechanisms, altered datapack rules, arbitrary custom components and game duplication bugs are outside the certification. Admin-authored prices and reward payouts still require server-specific review. Existing catalogs, exact item components and balances are not changed by installing this update. The existing Presets workflow can load the corrected catalogs after review; it replaces the draft's categories, so keep/export a custom shop before doing that.
+
+Minecraft's [26.3 technical notes](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3) describe data-driven brewing, tool transformations and composting. Its [water-bottle guide](https://www.minecraft.net/en-us/article/taking-inventory--water-bottle) confirms water refills, [honey-bottle guide](https://www.minecraft.net/en-us/article/taking-inventory--honey-bottle) describes the three-sugar conversion, and [hoe guide](https://www.minecraft.net/en-us/article/taking-inventory--hoe) identifies coarse-dirt conversion. The inspected game's current data and implementation determine the exact counts and rules used here; older guide text is supplementary.
+
+Developer reproduction: run `.github/scripts/build_vanilla_economy_model.py` against the 26.3 common JAR, build the separate compatibility-test JAR and run it only on a disposable server. It exports `config/guishop/vanilla-economy-test-report.json`. The optional `.github/scripts/audit_vanilla_presets.py` uses SciPy to check that export; SciPy is a developer verification dependency and is not bundled or needed to run the mod.
 
 ## Earning modes and oversight
 
