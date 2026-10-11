@@ -2,7 +2,7 @@
 
 A Fabric shop mod for Minecraft Java 26.3 with a vanilla chest interface and a persistent economy. Inspired by the original Bukkit GUIShop plugin.
 
-**1.4.7 Beta 1** fixes live Villager Trade Loop Fix updates and rebuilds usable vanilla preset prices. Saving the toggle or shop prices refreshes existing villagers and wandering traders immediately, including offers saved under 1.3.17. Payments use inventory values rather than a fixed list of trade fingerprints. Original terms, XP and stock are retained; Off restores original payments. Normal logs sell for 0.75, iron for 7.20 and gold for 28.80, with emerald sales scaling by preset. Existing saved shop prices are preserved.
+**1.4.8 Beta 1** fixes missing Adminshop text on fresh installs without full Fabric API. Fabric Resource Loader is now bundled so Minecraft loads the included admin font and translations. Shop behavior and prices are unchanged from 1.4.7 Beta 1, including live villager trade updates and usable vanilla preset prices.
 
 Ordinary players use `/shop` without installing ClassicGUIShop. Administrators install the same JAR on their client and press **F8** or run **`/adminshop`**. Every editor request checks `guishop.admin` through an installed Fabric Permissions API provider, falling back to OP level 2 when unassigned. Ordinary clients need no permission library.
 
@@ -38,6 +38,8 @@ Use Minecraft **26.3**, Java **25+**, and Fabric Loader **0.19.5+**. This Beta t
 3. For administrators, install that same JAR on a matching Fabric client and press F8 in-game. Rebind it under Controls if needed.
 
 The required Fabric API modules are bundled. A separate Fabric API download is unnecessary for this mod. If other mods require the full API, use a build matching Minecraft 26.3.
+
+The standalone client font regression check runs with only those bundled modules: `gradle -PstandaloneFontTest=<absolute-report-path.json> runClient`. It verifies the admin font resources, readable glyphs, and rendering after a resource reload in an isolated client directory. The test code is excluded from release JARs.
 
 Item mods still need their usual client dependencies. Datapack custom models require their matching resource pack on the administrator's client for correct previews.
 
@@ -125,7 +127,7 @@ Preset JSON is saved to `config/guishop/presets` on the server; exports also cre
 
 A disposable first-install fixture can be verified with `.github/scripts/verify_starter_shop.py <server-dir> --java-home <jdk-dir> --output-dir <new-output-dir> --disposable`. It checks the ready-to-play Normal catalog, 30% target returns, restart bytes, preserved customized prices and an intentionally empty shop. It preserves every edited fixture file in a backup and rejects an existing shop at entry.
 
-This is **1.4.7-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
+This is **1.4.8-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
 
 ### Optional permission compatibility and variant folders
 

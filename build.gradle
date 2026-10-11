@@ -35,6 +35,8 @@ dependencies {
     implementation include('net.fabricmc.fabric-api:fabric-networking-api-v1:6.3.8+fcdff87f5d')
     implementation include('net.fabricmc.fabric-api:fabric-lifecycle-events-v1:4.1.9+ffef5f675d')
     implementation include('net.fabricmc.fabric-api:fabric-key-mapping-api-v1:2.0.8+3434d6d95d')
+    // The bundled admin font and translations need mod assets registered even without full Fabric API.
+    implementation include('net.fabricmc.fabric-api:fabric-resource-loader-v1:3.0.4+fcdff87f5d')
     // Optional server integration. Providers bundle/install this API; ordinary clients do not need it.
     compileOnly 'me.lucko:fabric-permissions-api:0.7.0'
     // Optional integration fixtures are runtime-only and never bundled or published.
@@ -90,7 +92,7 @@ tasks.register('vanillaAuditJar', Jar) {
 }
 
 // Opt-in desktop integration harness. Neither its classes nor its metadata enter the release JAR.
-if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') || project.hasProperty('beta7UiTest') || project.hasProperty('beta8UiTest')) {
+if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') || project.hasProperty('beta7UiTest') || project.hasProperty('beta8UiTest') || project.hasProperty('standaloneFontTest')) {
     sourceSets {
         clientTest {
             compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
@@ -105,6 +107,10 @@ if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') ||
             client {
                 source sourceSets.clientTest
                 programArgs '--width', '1320', '--height', '772'
+                if(project.hasProperty('standaloneFontTest')) {
+                    runDir '../clients/standalone-font'
+                    vmArg "-Dguishop.fontReport=${project.property('standaloneFontTest')}"
+                }
                 if(project.hasProperty('beta8UiTest')) {
                     runDir '../clients/beta8-ui'
                     programArgs '--username','ShopUiBeta8'
@@ -123,9 +129,10 @@ if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') ||
     if (project.hasProperty("betaReviewOnly")) loom.runs.client.vmArg "-Dguishop.betaReviewOnly=true"
     tasks.named('runClient') { dependsOn tasks.named('clientTestClasses') }
     tasks.named('processClientTestResources') {
-        inputs.property 'test_entrypoint', project.hasProperty('beta8UiTest') ? 'com.zycu.guishop.client.Beta8UiTest' : project.hasProperty('beta7UiTest') ? 'com.zycu.guishop.client.Beta7UiTest' : project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest'
+        def entrypoint = project.hasProperty('standaloneFontTest') ? 'com.zycu.guishop.client.StandaloneFontTest' : project.hasProperty('beta8UiTest') ? 'com.zycu.guishop.client.Beta8UiTest' : project.hasProperty('beta7UiTest') ? 'com.zycu.guishop.client.Beta7UiTest' : project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest'
+        inputs.property 'test_entrypoint', entrypoint
         filesMatching('fabric.mod.json') {
-            expand(test_entrypoint: project.hasProperty('beta8UiTest') ? 'com.zycu.guishop.client.Beta8UiTest' : project.hasProperty('beta7UiTest') ? 'com.zycu.guishop.client.Beta7UiTest' : project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest')
+            expand(test_entrypoint: entrypoint)
         }
     }
     if (project.hasProperty('playerUiTest')) {
