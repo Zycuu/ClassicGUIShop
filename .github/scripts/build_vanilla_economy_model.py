@@ -257,7 +257,7 @@ for name in ['copper_block','cut_copper','cut_copper_slab','cut_copper_stairs','
         for other in stages:
             if 'loot_table/blocks/'+other in data:rule('weather/'+stage+'/'+other,'interaction',[ingredient('minecraft:'+stage)],'minecraft:'+other)
 
-for raw in sorted(k[18:] for k in data if k.startswith('loot_table/blocks/') and 'copper' in k):
+for raw in sorted(k[18:] for k in data if k.startswith('loot_table/blocks/') and ('copper' in k or k.endswith('lightning_rod'))):
     clean=raw.removeprefix('waxed_');base=re.sub(r'^(exposed_|weathered_|oxidized_)','',clean)
     if base=='copper':base='copper_block'
     if raw!=clean:rule('unwax/'+raw,'interaction',[ingredient('minecraft:'+raw)],'minecraft:'+clean)
@@ -314,10 +314,54 @@ def loot_count(mods):
             elif formula=='uniform_bonus_count':count+=level*p['bonusMultiplier']
             elif formula=='binomial_with_bonus_count':count+=level+p['extra']
             else:raise ValueError(('unknown loot bonus',formula))
+        elif typ=='enchanted_count_increase':
+            level=enchants[mod['enchantment'].split(':')[1]]['max_level']
+            count+=math.floor(maximum(mod['count'])*level+.5)
+            if mod.get('limit',0)>0:count=min(count,mod['limit'])
         elif typ=='limit_count':count=min(count,mod['limit'].get('max',count))
         elif typ in ('explosion_decay','copy_components','copy_state'):pass
         else:raise ValueError(('unknown block loot modifier',typ))
     return count
+
+# Summoning consumes nine ingots in a copper block and one pumpkin head, but
+# produces BOTH a chest and a golem. Killing and statue conversion are distinct
+# alternatives, so their paired outputs must never be combined into one event.
+# Read the actual maximum death recovery, including vanilla Looting, from data.
+golem_loot=data['loot_table/entities/copper_golem']
+assert len(golem_loot['pools'])==1 and len(golem_loot['pools'][0]['entries'])==1
+golem_pool=golem_loot['pools'][0]
+golem_drops=list(loot_entries(golem_pool['entries'][0],tuple(modifiers(golem_loot.get('modifier')))+tuple(modifiers(golem_pool.get('modifier')))))
+assert len(golem_drops)==1 and golem_drops[0][0]=='minecraft:copper_ingot'
+recovered=loot_count(golem_drops[0][1])*maximum(golem_pool.get('rolls',1))
+assert recovered==6,('Copper golem salvage changed; re-audit the native behavior',recovered)
+heads=ingredient(['minecraft:carved_pumpkin','minecraft:jack_o_lantern'])
+spawn_blocks=tag('block','#minecraft:copper')
+assert len(spawn_blocks)==8,('Copper golem spawn blocks changed; re-audit native summoning',spawn_blocks)
+for source_id in spawn_blocks:
+    source=source_id.split(':')[1]
+    chest=source.removesuffix('_block')+'_chest' if source.endswith('_block') else source+'_chest'
+    inputs=[ingredient('minecraft:'+source),heads]
+    outcomes=[('golem_death','minecraft:copper_ingot',recovered)]
+    # A harvested statue can be scraped before sale without another consumed
+    # material. Each reachable stage is an alternative, not four statues.
+    outcomes.extend(('golem_statue_'+phase,'minecraft:'+phase+'copper_golem_statue',1)
+                    for phase in ['', 'exposed_', 'weathered_', 'oxidized_'])
+    for kind,other,count in outcomes:
+        rule('summon/'+source+'/'+kind+'/chest',kind,inputs,'minecraft:'+chest)
+        rules[-1]['share']=.5
+        rule('summon/'+source+'/'+kind+'/other',kind,inputs,other,count)
+        rules[-1]['share']=.5
+    # Recovery is useful as crafting material even when its sell price is low.
+    # Repeating summons spends only 9 - 6 fresh ingots per chest. This amortized
+    # bound closes the recycle loop without splitting acquisition costs across
+    # unrelated outputs or inventing free copper. Extra wax/oxidation setup
+    # can only raise spending, so omitting it remains conservative.
+    rule('summon/'+source+'/net-copper-chest','golem_recycle',
+         [ingredient('minecraft:copper_ingot',9-recovered),heads],'minecraft:'+chest)
+rule('revive/copper_golem_statue/salvage','interaction',
+     [ingredient('minecraft:copper_golem_statue')],'minecraft:copper_ingot',recovered)
+coverage.append({'source':'interaction/copper_golem',
+                 'status':'native summon chest plus alternative death/statue; maximum Looting recovery and repeated recycling'})
 
 for name, loot in sorted((k[18:],v) for k,v in data.items() if k.startswith('loot_table/blocks/')):
     pools=loot.get('pools',[]);share=max(1,len(pools))

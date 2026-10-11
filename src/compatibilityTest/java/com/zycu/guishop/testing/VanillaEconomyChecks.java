@@ -61,6 +61,7 @@ public final class VanillaEconomyChecks {
                 var water=draft.categories.stream().flatMap(c->c.items.stream()).filter(i->"minecraft:potion|potion=minecraft:water".equals(VanillaPriceSafety.key(i.createStack(access)))).findFirst().orElseThrow();
                 check(water.buy==find(draft,"minecraft:glass_bottle").buy,"Plain water buy is empty-bottle price, independent of translated names");
                 check(water.sell==0,"Filled water cannot monetize glass multiplication");
+                copperPaths(draft,bounds);
             }
             reports.put(preset,Map.of("items",plan.items(),"sellEnabled",positive,"buyOnly",disabled,"corrected",plan.capped(),"review",review,"listings",rows,"bounds",bounds));
         }
@@ -95,6 +96,25 @@ public final class VanillaEconomyChecks {
     }
     private static ShopConfig.ShopItem listing(ItemStack stack,String id,double buy,double sell,ServerPlayer viewer){var item=new ShopConfig.ShopItem();item.item=ShopService.itemId(stack);item.listingId=id;item.name=stack.getHoverName().getString();item.stack=ItemStackData.encode(stack,viewer.registryAccess());item.buy=buy;item.sell=sell;item.manualPrice=true;return item;}
     private static ShopConfig.ShopItem find(ShopConfig config,String id){return config.categories.stream().flatMap(c->c.items.stream()).filter(i->i.item.equals(id)).findFirst().orElseThrow();}
+    private static void copperPaths(ShopConfig draft,Map<String,VanillaPriceSafety.Bound> bounds){
+        double rodCost=bounds.get("minecraft:lightning_rod").cost();
+        for(String phase:List.of("","exposed_","weathered_","oxidized_"))
+            check(find(draft,"minecraft:"+phase+"lightning_rod").sell<=rodCost*.95+.000001,"Rod oxidation cannot increase resale: "+phase);
+        double headCost=Math.min(bounds.get("minecraft:carved_pumpkin").cost(),bounds.get("minecraft:jack_o_lantern").cost());
+        double copperCost=bounds.get("minecraft:copper_ingot").cost();
+        double copperSell=find(draft,"minecraft:copper_ingot").sell;
+        double statueSell=find(draft,"minecraft:oxidized_copper_golem_statue").sell;
+        for(String body:List.of("copper_block","exposed_copper","weathered_copper","oxidized_copper","waxed_copper_block","waxed_exposed_copper","waxed_weathered_copper","waxed_oxidized_copper")){
+            String chest=body.endsWith("_block")?body.substring(0,body.length()-6)+"_chest":body+"_chest";
+            double chestSell=find(draft,"minecraft:"+chest).sell;
+            double inputCost=bounds.get("minecraft:"+body).cost()+headCost;
+            check(chestSell+6*copperSell<=inputCost+.000001,"Chest plus maximum death copper shares one budget: "+body);
+            for(String phase:List.of("","exposed_","weathered_","oxidized_"))
+                check(chestSell+find(draft,"minecraft:"+phase+"copper_golem_statue").sell<=inputCost+.000001,"Chest plus any scraped statue shares one budget: "+body+" "+phase);
+            check(chestSell<=3*copperCost+headCost+.000001,"Recycling six death ingots cannot profit: "+body);
+        }
+        check(find(draft,"minecraft:copper_ingot").sell>0&&statueSell>0,"Copper resource and statue selling retain safe positive income");
+    }
     private static void nativeMechanics(ServerPlayer viewer) throws Exception {
         ServerLevel level=viewer.level();var access=viewer.registryAccess();
         var glass=new ArrayList<>(Collections.nCopies(9,ItemStack.EMPTY));glass.set(0,new ItemStack(Items.GLASS));glass.set(2,new ItemStack(Items.GLASS));glass.set(4,new ItemStack(Items.GLASS));

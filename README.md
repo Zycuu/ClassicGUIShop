@@ -123,7 +123,7 @@ Preset JSON is saved to `config/guishop/presets` on the server; exports also cre
 
 A disposable first-install fixture can be verified with `.github/scripts/verify_starter_shop.py <server-dir> --java-home <jdk-dir> --output-dir <new-output-dir> --disposable`. It checks the ready-to-play Normal catalog, 30% target returns, restart bytes, preserved customized prices and an intentionally empty shop. It preserves every edited fixture file in a backup and rejects an existing shop at entry.
 
-This is **1.4.4-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
+This is **1.4.5-beta.1**, not a final release. Further test updates will use the agreed 1.4.x Beta series. Final 1.4.0 and any future 2.0.0 milestone still require Zycu's release approval.
 
 ### Optional permission compatibility and variant folders
 
@@ -136,5 +136,7 @@ Combat uses Tipped Arrows > arrow type > available levels, including extended an
 ## Vanilla preset safety
 
 The built-in Normal, Hard, Easy and Basics presets now use the shipped 26.3 recipe and merchant definitions plus verified item interactions. The sell targets are upper limits: safe final sell prices can be lower, or zero where no positive price can close a repeatable loop. Potion buy prices follow their exact brewing components and three-bottle batches, rather than display-name guesses. Modded items, custom components and modified datapack mechanics remain the administrator's responsibility. Ordinary world resource farming and game duplication bugs are not certified by this audit.
+
+The preset constraints also cover all lightning rod oxidation, wax and scrape variants. Copper golem summoning budgets include the chest together with either recovered copper or a statue, including the repeated reuse of death copper to make more chests. These corrections are generated into the preset; there is no additional price modifier during trades or new editor interface.
 
 Fresh installations receive the corrected Vanilla Normal preset. Existing shops are never silently repriced. To replace an existing shop with an updated built-in preset, use the existing Presets controls: Preview preset, Load into editor, review the resulting categories, then Save changes. Loading replaces the draft catalog, including custom categories; preserve the existing shop or export its preset first if those need to be kept. See [Economy and Pricing](wiki/Economy-and-Pricing.md) for the audit method and research sources.
