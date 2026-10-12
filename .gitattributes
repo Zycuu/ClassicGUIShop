@@ -1,0 +1,4 @@
+# Keep historical source backups byte-for-byte, including their original line endings.
+/docs/archive/pre-release-cleanup/** -text whitespace=cr-at-eol
+/docs/archive/PORTING_NOTES.md -text whitespace=cr-at-eol
+/docs/changelog/legacy/** -text whitespace=cr-at-eol

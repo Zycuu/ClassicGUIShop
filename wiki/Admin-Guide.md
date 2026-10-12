@@ -1,82 +1,50 @@
-# Admin Guide
+# Adminshop operator guide
 
-Install ClassicGUIShop on the server and on the administrator's matching Fabric client. Press **F8** or run **`/adminshop`** in-game. The command has no editing subcommands. An administrator without the matching client mod receives installation guidance. Update server and admin client together; older editor protocols cannot apply drafts. The key can be rebound in Controls. The server requires OP level 2 or higher for every request; client installation grants no access.
+## Authorization and client protocol
 
-Without sufficient OP permission, a separate popup says:
+Install the same universal JAR on the server and matching administrator client. Open `/adminshop` or F8, which is rebindable in Controls. The server checks `guishop.admin` on requests, saves, and asynchronous responses. An explicit permission-provider decision wins; unassigned administration falls back to OP level 2.
 
-> Ask the Server Owner for permission to use the Adminshop tools
+Unauthorized clients receive: **Ask the Server Owner for permission to use the Adminshop tools**. Authorized users without the matching client mod receive installation guidance. Old editor protocols cannot apply drafts to 1.4.0.
 
-## Appearance and navigation
+## Draft and commit semantics
 
-The client editor uses a compact navigation rail on the left. Hover or keyboard-focus an icon to see its tab name; the current tab is also named above the content. Slate panels are approximately 92% opaque, with solid text fields for readability. Rounded buttons show hover, focus and disabled states. Teal highlights the selected tab and Apply; gold marks unapplied changes. Status messages have their own footer line, with the full message available on hover.
+The client edits a detached `AdminDocument`. **Save changes** submits the full draft with its revision. Server validation checks amounts, category/listing identities, exact data, permissions, and cross-listing resale conflicts before writing a backup and committing configuration.
 
-Categories and listings use their actual in-game item icons, including modded models and component variants. The editor font is scoped to Adminshop screens; the player's shop and other Minecraft screens retain their vanilla font. The creative item picker, move dialog, permission popup and journal details share the editor styling.
+- **Discard changes** restores the editor snapshot.
+- **Reload shop** fetches current server state after confirmation and discards the local draft.
+- A concurrent save makes earlier drafts stale. The server rejects the stale draft rather than overwriting another administrator's work.
+- External JSON changes require a restart to load the edited files before further GUI saves.
+- Balance changes and account resets are immediate confirmed server operations, not shop-draft edits.
+- Preset file import/export writes to the library separately; loading that preset into the live shop still requires Save changes.
+
+Do not treat a click on Save changes as a successful commit until the server acknowledges it. On disk errors, preserve the draft and resolve the reported failure before retrying.
 
 ## Shop Builder
 
-Create categories, choose exact item appearances as icons, and edit their names and tooltip descriptions. Category buttons retain their selected model but show only the shop name and optional category description, excluding the item's original lore and specialized help text. This affects decorative buttons only; real listings and delivered stacks retain their exact components. Their order controls the player menu. Use Move earlier/later or drag to reorder.
+Create/select a category to edit its name, tooltip description, icon, and order. Exact category icons retain their rendered model while replacing native item help/lore with the shop's own tooltip. Delivered items are not modified by icon styling.
 
-Select a category before adding listings. **Select item** opens a creative-style inventory with vanilla creative groups and detected mod/pack tabs. Compact icon tabs sit directly above the grid, with full names on hover and arrows for additional tabs. Each tab remembers its search. Its nine-column, five-row grid uses a draggable vanilla scrollbar; the mouse wheel moves one row at a time. Search matches localized names, item IDs and detected definition paths in the selected tab. Click to toggle several selections across tabs, use Select shown for the visible rows or Clear picks to reset them, then Add selected to add the batch to the chosen category. Cancel adds nothing. Exact component variants retain their models and item data. Vanilla tabs are immediately available while detected tabs load in the background; the status indicates partial results. **Add held item** captures the server's exact held stack, including components. New listings start with buy and sell prices of zero, so they stay unavailable until you configure prices. Set either side to zero to disable that side. The editor rejects a sell price higher than that listing's enabled buy price.
+**+ Add items** opens the creative style browser: vanilla groups and detected source tabs, per-tab searches, nine columns, five visible rows, and a draggable scrollbar. Select multiple items, then **Add selected**. **Select shown** selects visible rows only. Cancel adds nothing.
 
-Select a listing to edit its name, description, and prices. Move it through the destination chooser or drag it onto a category. Removing a category removes its listings from the draft, with the previous live configuration backed up on Apply.
+**+ Add held item** captures the server-held exact stack. New listings start at Buy 0 / Sell 0. Adding an item already listed elsewhere creates a separate zero-priced listing in the selected category.
 
-Adding an item already sold elsewhere creates a separate listing in your current category with prices zero. It does not move or select the original listing. Use Add held item to capture named, modeled, enchanted, or other component variants. Prices across identical stacks cannot enable selling above their cheapest enabled buy price.
+Click a listing to edit its display name, description, and final buy/sell values. Zero disables that side. **Move listing...** chooses another category. Removing a category also removes its listings from the draft; committing creates a backup of the prior live catalog.
 
-The simulator always previews the draft's unified chest layout. Navigate categories, enchanted-book levels and pages; hover listings for both prices. In the live shop left-click buys and right-click sells, with no mode switch. The simulator makes no trades and does not simulate a specific player's permissions or balance. **Arrange mode** includes disabled listings and lets you drag listings and categories without entering them on mouse-down. **Exit arrange mode** returns to the player layout. Drop onto another listing to reorder, a category to move, or an empty content slot to place last. Enchantment previews remain selected when toggling arrangement.
+**Bulk Adjust** changes every listing in the selected category to one specified buy value and one specified sell value, including automatic variants. **Update category** edits the draft. Cancel/Escape does not change the category. An unavailable imported item cannot be enabled by a bulk operation before its dependencies are installed.
 
-Original item lore is hidden only on menu copies. Purchases use the original exact template, and the server reasserts authoritative inventory and cursor contents after shop clicks to clear vanilla chest predictions. Vanilla explorer maps need saved world data and a destination, supplied on purchase before charging. Existing working maps retain their map ID. Native map initialization and map-ID matching apply only to known vanilla map types. Mod subclasses keep their exact components and identities; use Add held item for context-dependent mod items, whose initialization rules cannot be inferred from the registry. Missing saved map data is also refused. Clonable-map sell prices cannot exceed the cheapest enabled empty-map buy price, including empty-map variants.
+## Arrangement and simulator
 
-Transactions opens a searchable player list showing current balances and online status. Select a name to view only that player's history, matched by UUID. Refresh updates the current balance; Players returns to the selector. Dates use hh:mm:ss AM/PM (DD/MMM/YY) in the client timezone. The header shows its current abbreviation, such as EDT/EST, and the footer includes the zone ID. Historical timestamps respect daylight saving; hover a date for its full local and UTC timestamps. Searches accept either local or UTC dates, including the original ISO UTC form. Totals use the live server currency rather than unapplied draft settings. Transaction rows no longer open details; hover for unclipped source, quantity, total and notes. The recent-history window remains unchanged.
+**Arrange mode** enables placement operations; **Exit arrange mode** returns to normal navigation. Drag categories/listings to reorder, onto a category to move, or onto an empty content slot to place last.
 
-Set balance opens a popup with the selected player's current balance and an editable new amount. Reset uses a red button and a separate confirmation stating the player name, current server default, and that their transaction history will be cleared. These actions apply immediately on the server, outside Apply/Discard. Cancelling changes nothing. A balance changed since the popup opened, or a default changed before reset, is rejected; refresh and review again. Values are rounded to cents, must be non-negative and finite, and cannot exceed 1 trillion.
+The simulator navigates the same generated category and variant layout as the player shop, including pages and both prices. It never buys or sells and does not simulate a particular player's permissions or balance. Disabled listings remain accessible to administrators for editing.
 
-Reset restores the current starting balance and advances only that UUID's active-history generation. The selected player's visible history becomes empty, including old records outside the recent window. Original journals stay untouched as recovery archives, configuration history stays available, and other players are unaffected. Resets are audited separately in `account-audit.jsonl`; Set balance appears in the player's history. Reward replay receipts are preserved, so reset cannot make an old vote/store reference pay again.
+## Settings and permissions
 
-Account operations first write durable recovery intent, then persist the balance and its audit, and only then acknowledge completion. An interrupted operation is recovered before further balance mutations. Disk failures report an error and leave a pending operation; fix disk space/permissions and retry or restart. Back up `account-operations.json`, `account-audit.jsonl`, `balances.json`, and transaction journals together. The existing balance-file format is preserved.
+Settings contains General, Economy, Messages, and Enchantments/Potions. Registered book/potion catalogs show source and variant information; prices are edited in Shop Builder. Preset generation defaults live in the Presets tab, reached through **Preset price defaults** from Economy.
 
-## Detected Content
+The Permissions tab edits fallback roles and displays nodes. Configure explicit provider rules in the separately installed permission manager. Installing ClassicGUIShop does not install or configure LuckPerms. See [Permissions](Permissions.md).
 
-Open the tab to inspect the server's loaded content. Choose **Vanilla Minecraft**, a mod namespace, or a named **Pack:** row. Search names or IDs and select an item to import it. **Import source** imports a namespace; **Import pack** gathers all detected variants from that datapack into one category, including variants from multiple namespaces. Select **All sources** and **Import all** to collect the entire detected list into one category. Whole imports include every page and ignore the search filter. Repeat imports reuse the same category and skip exact stacks already there. New listings have **buy 0, sell 0, manual pricing enabled**. Review them in Shop Builder using Arrange mode, set prices deliberately, then Apply. Detection and import do not change the live shop before Apply.
+## History, imports, and modes
 
-Repeat imports skip exact variants already in that source category and preserve their prices. Cancel stops further batches while keeping items already added in the draft. Discard removes the unapplied import. Apply is unavailable while a bulk import is running.
+Change History lists successful configuration commits with actor, local timestamp, and summary. Select a change to **Load backup into the editor**, review the previous configuration, then Save changes to restore it. Restoration creates another backup and does not roll back player balances or transactions.
 
-Detection includes non-Minecraft registered items and static item entries from custom loot tables, retaining exact components, models, names, and lore. Only unconditional set_components, set_name, and set_lore modifiers are reconstructed. Random, contextual, referenced, or unsupported modifiers are skipped and reported rather than producing incomplete variants. Use Add held item for those items or for variants created by commands, functions, or other systems. Resource pack textures alone do not define importable items.
-
-Resource reading runs off the tick thread. Codec work is divided across ticks; scans are bounded to 4,000 files, 256 KB per file, 16 MB of source data and catalog data, and 10,000 items. Results are paginated. Rescan rebuilds the catalog; a datapack reload invalidates it. Very large or unsupported packs may require held-item import.
-
-## Settings and Access
-
-Settings has General, Economy, Messages, and Enchantments/Potions. Economy contains the default return for new Normal/Basics presets. The registered book/potion lists show sources and variants with default returns for new Normal presets. Actual listing prices are edited in the Shop Builder. Enchantment folders group exact book levels automatically; no custom folder controls are added.
-
-Use the Shop Builder's Adjust prices button for a plain buy/sell price sheet of the current category, or the whole shop from Home. Edit rows individually or Set all amounts. Done updates the draft; Cancel drops the sheet edits; Apply saves. No percentage adjustment or live modifier is applied.
-
-Access controls player command, transaction, and category requirements using vanilla command levels 0 to 4. Adminshop stays fixed at level 2 or higher.
-
-## Apply, Discard, Reload
-
-All edits stay in a local draft until Apply. The server validates the complete document and writes a backup first. Apply updates the live configuration without changing existing balances.
-
-Discard restores the opened snapshot. Reload fetches current server state and discards the draft after confirmation. A concurrent administrator's Apply causes an older draft to be rejected and preserved for review. Manual file changes require a server restart before further editing.
-
-## Transactions and Changes
-
-Select a player for current balance and transaction history. Rows are read-only, wrap to fit, and use normal hover tooltips for full details. Local 12-hour timestamps show the timezone; searches accept both local and UTC dates. Gains/debits use the server currency. Modes show their saved prefix name and readable activity. This recent player view reads the latest 30 daily files, up to the last 2 MB each.
-
-Trending opens from the player selector. Purchased and Sold are separate top-20 lists by unit quantity over 24 hours, 7 days or 30 days. Click an item for its players, then a player for matching archived transactions. It reads complete daily journals on a worker. Player history resets do not remove this evidence; malformed lines show an incomplete-data warning.
-
-Changes lists successful configuration applies. Open an entry and load its previous configuration into a draft. Review the draft and Apply to restore it. This restores configuration, not player balances or transaction history. Every restore Apply creates another backup.
-
-Backups are under `config/guishop/backups/`; daily journals are under `config/guishop/transactions/`. No automatic deletion is enabled.
-
-## Presets and Shop Modes
-
-Presets and Shop Modes have their own navigation tabs. Presets generates a server-audited preview, then Use preset draft confirms replacing all draft categories and listings, including modded content. The live shop remains unchanged until Apply. Normal targets 30%, Hard 10% with triple buying costs, Easy 95% with 75% buying costs, and Basics targets 30% for raw resources. Full presets include ordinary exact vanilla book variants at natural levels; Basics omits them. Locked entries and recipe caps appear in the review. Keep the old shop backup and review every enabled price.
-
-Shop Modes has five independent switches, all off initially. Choose a mode to edit its amount, minute timing, prefix name/color and safeguards. Cash Mobs and Advancement Hunter open searchable payout editors using the server's detected IDs. Zero disables a payout. Use defaults clears only the draft payout overrides after confirmation. Refresh detected IDs reloads current server definitions; saved unavailable overrides are preserved and shown. All mode edits require Apply. Each active mode can run alongside the others.
-
-Warrior's same-address check can block legitimate players sharing a connection. Allow debt is an explicit opt-in; switching it off prevents additional debt but preserves existing debt for repayment. Passive income counts AFK online time. Full behavior and preset limitations are described in [Economy and Pricing](Economy-and-Pricing.md).
-
-
-Import / export presets opens the server library. Export current draft validates the unapplied draft and writes data-only JSON to the server and a uniquely named client copy under config/guishop/presets. Import a local JSON path, review dependencies and unavailable variants, then Use reviewed draft and Apply. Missing variants keep their raw data with both prices disabled. Accounts, journals, permissions, currency and earning modes are never imported. Original imported files remain in the library.
-
-Mishap Charge defaults off at 50 currency units. Survival/adventure deaths are charged once and journaled with the saved prefix. Funds clamp at zero unless its own Allow debt setting is enabled. It can stack with Warrior victim deductions.
+Detailed workflows: [Detected Content](Imports-Mods-and-Data-Packs.md), [Presets](Presets.md), [Shop Modes](Shop-Modes.md), and [Transactions and account controls](Transactions.md).

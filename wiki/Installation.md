@@ -1,21 +1,42 @@
 # Installation
 
-Version **1.4.0** uses one universal JAR for Minecraft **26.3, 26.2, 26.1.2, 1.21.11, 1.20.6, 1.20.4 and 1.20.1**. Fabric Loader **0.19.5+** is required. Use Java **25+** for 26.x, **21+** for 1.21.11/1.20.6, or **17+** for 1.20.4/1.20.1. Unlisted Minecraft releases are not declared supported.
+## Runtime matrix
 
-1. Stop the server and preserve a backup of `config/guishop/`.
-2. Install `ClassicGUIShop-v1.4.0.jar` in the Fabric server's mods directory, replacing the previous active ClassicGUIShop JAR.
-3. Start the server and open `/shop`.
-4. Administrators install the same JAR in their matching Fabric client, then press F8 or run `/adminshop` in-game with `guishop.admin` permission (default OP level 2 or higher). 1.4.0 uses editor protocol v7 on both sides.
+Install **one** `ClassicGUIShop-v1.4.0.jar` with **Fabric Loader 0.19.5+**.
 
-Ordinary players do not need the mod or Fabric on their client. The required Fabric API modules are bundled. If another mod requires the full Fabric API, use its matching Minecraft build.
+| Exact Minecraft release | Minimum Java |
+| --- | --- |
+| 26.3 | 25 |
+| 26.2 | 25 |
+| 26.1.2 | 25 |
+| 1.21.11 | 21 |
+| 1.20.6 | 21 |
+| 1.20.4 | 17 |
+| 1.20.1 | 17 |
 
-Existing configured listings, balances, and offers are retained. Legacy `folders.json` files are ignored and left untouched; listings appear directly in their parent category. Fresh shops start ready to play with Full Vanilla Normal and a 30% target sell return. Blank shop is available in Presets for a custom build. Legacy `shop.json` source files are preserved in the Beta migration backup.
+Unlisted patch releases are not declared supported. The universal JAR contains version-specific implementations; Fabric Loader selects the matching implementation and bundled API modules. Do not install the internal JARs independently or leave multiple ClassicGUIShop releases in `mods/`.
 
-After using balance controls or external rewards, include `account-operations.json`, `account-audit.jsonl`, balances and journals in backups. The operation ledger retains replay protection and active-history generations. Preserve it when upgrading or restarting; do not remove it as part of a history cleanup. Rolling back to a version without this ledger requires restoring a consistent account backup and disabling external reward delivery until the integration is reviewed.
+## Dedicated server
 
-Unavailable exact listings remain preserved in `versioned-listings.json` for restoration when their items become available. Exact item data formats still differ between versions. Incompatible variants remain parked rather than losing their data. This does not make Minecraft world downgrades safe.
+1. Stop the server. Preserve the previous JAR and the complete `config/guishop/` directory.
+2. Replace the active ClassicGUIShop JAR in the Fabric server's `mods/` directory with the universal JAR.
+3. Start with the Java version required above and inspect the server log for configuration or dependency failures.
+4. Join and run `/shop`; use `/bal` to confirm the economy is available.
 
-Alpha 10 migrates written account ledgers to v2 for mode cooldowns and paired credit/deduction recovery, and adds `mode-progress.json`. All earning modes default off. Preserve a full pre-update data backup; Alpha 9 refuses a v2 ledger, so reverting only the JAR is insufficient. Restore the matching stopped-server account backup for rollback and review external rewards delivered since that backup.
+A fresh configuration initializes Full Vanilla Normal once. Installing or restarting does not overwrite an existing catalog or intentionally empty shop.
 
+## Clients and singleplayer
 
-Beta 1 converts legacy effective prices once and moves available book offers to ordinary exact listings. Original settings, shops, book definitions and parked metadata are backed up together under backups/beta-price-migration-*. Seconds convert exactly to minute fields. There is no live multiplier or startup repricing. Preserve the prior JAR and entire stopped-server config/guishop backup before upgrading; restore both together for rollback. Beta retains account ledger v2 and existing receipt/history/progress data.
+Ordinary multiplayer clients need neither ClassicGUIShop nor Fabric for its vanilla shop menus. Other item mods retain their normal client/server requirements.
+
+An administrator needs the same universal JAR on a Fabric client matching the server's Minecraft release. Open `/adminshop` or press F8. Authorization is server-side; client installation grants no privileges. Both ends must support editor protocol v7.
+
+For singleplayer, install the JAR in the instance's `mods/` directory. The integrated server runs the economy. Administration requires command permissions; enabling cheats grants the usual operator capability in that world.
+
+## Dependencies and resources
+
+The required Fabric API modules are bundled. A separate full Fabric API is unnecessary for this mod, but other installed mods may require it. Use the full API build matching Minecraft when needed.
+
+Adminshop's Inter font and translations are bundled. Custom datapack item models need their corresponding resource pack on the administrator's client. Item-mod previews need the item mod and its usual dependencies.
+
+See [Upgrading](Upgrading.md) before migrating a live server, and [Troubleshooting](Troubleshooting.md) for startup, permissions, and missing-content failures.

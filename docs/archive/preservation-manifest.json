@@ -1,0 +1,172 @@
+[
+  {
+    "source": "README.md",
+    "archive": "docs/archive/pre-release-cleanup/README.md",
+    "sha256": "6bd6a1af483cb6df226aab6b86288782d1d07bbe769105d3e0a0c6722103dfcf"
+  },
+  {
+    "source": "PORTING_NOTES.md",
+    "archive": "docs/archive/pre-release-cleanup/PORTING_NOTES.md",
+    "sha256": "963aca9873184252e85bc134e8455a39aa12addfaefe15abe081a069b952854d"
+  },
+  {
+    "source": "wiki/_Sidebar.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/_Sidebar.md",
+    "sha256": "44dcd8bf0ed26b03d111f151669d6355d2d2dac8b70bf12071a37aa7aef0834c"
+  },
+  {
+    "source": "wiki/Admin-Guide.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Admin-Guide.md",
+    "sha256": "8e098be63e6dd52f21e846a096f4017c89626502a64bc20ef55d107050f7536f"
+  },
+  {
+    "source": "wiki/Command-Reference.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Command-Reference.md",
+    "sha256": "25fa518f755c5c7e656407f8b0a7e5c0ad1b14c949c88c8ff097f09edac88f6a"
+  },
+  {
+    "source": "wiki/Configuration-Files.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Configuration-Files.md",
+    "sha256": "cb710bffbab83a8755848f553b67cff0ee69a6ee03ecce89fd9c1f78b737c585"
+  },
+  {
+    "source": "wiki/Economy-and-Pricing.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Economy-and-Pricing.md",
+    "sha256": "6964be0e828fa0a5ce965b0d074b366f8988ceaa837d72e7cd9966a68dd4dc30"
+  },
+  {
+    "source": "wiki/Home.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Home.md",
+    "sha256": "4f1ea2c4a6fa109528a5501e636d4ab2ad50124cfc59be21e23b08a4e511f786"
+  },
+  {
+    "source": "wiki/Imports-Mods-and-Data-Packs.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Imports-Mods-and-Data-Packs.md",
+    "sha256": "47a99f3aae679c9258597cf12c3a32ca4c3f115c2f2e9575b2f80c916b1e792e"
+  },
+  {
+    "source": "wiki/Installation.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Installation.md",
+    "sha256": "7284ae6dbcac41887315898a4d1fd43fab82efee84389ffef431a14903ddc547"
+  },
+  {
+    "source": "wiki/Permissions.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Permissions.md",
+    "sha256": "aafded4bfe254e5ecf589d30fec654173df305ba558676745947ed6a5e5f09f1"
+  },
+  {
+    "source": "wiki/Player-Guide.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Player-Guide.md",
+    "sha256": "3035a885b33d24188a4236caa4ea2da760a95bf660a50c0603656730ffe16c0f"
+  },
+  {
+    "source": "wiki/Public-Release-Checklist.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Public-Release-Checklist.md",
+    "sha256": "f1a1a07edd3a657b7ad22a169d44673b5ccb22897cc213747080ea28ad1700e8"
+  },
+  {
+    "source": "wiki/Quick-Start.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Quick-Start.md",
+    "sha256": "80cdcdb86eef164af497b61c752cdd5cdf9a5cf147f71121158200eceb8e5707"
+  },
+  {
+    "source": "wiki/Shop-Folders.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Shop-Folders.md",
+    "sha256": "b80de5e5bc4a8108642395132cc4b188b46c12ef58ea376f97e849593eb30c13"
+  },
+  {
+    "source": "wiki/Troubleshooting.md",
+    "archive": "docs/archive/pre-release-cleanup/wiki/Troubleshooting.md",
+    "sha256": "3c98afd7ec62d4659e1b676b4ba1407469029e09b4e01280660a1e28a4db7719"
+  },
+  {
+    "source": "CHANGELOG_0.3.0.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_0.3.0.md",
+    "sha256": "84bacccc714c6d232a76858bf81c70162289fcae0b333f5c2d1f548876cd020f"
+  },
+  {
+    "source": "CHANGELOG_0.4.0.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_0.4.0.md",
+    "sha256": "0f5c26e6d669b45d9b5f8c747b933a30c5269dd5e180ac166dcb08b79042d981"
+  },
+  {
+    "source": "CHANGELOG_0.5.0.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_0.5.0.md",
+    "sha256": "58d85f3954b621e20c04fc9d3f84e4d265aa60e8e1431db9b8c6b30069783fd8"
+  },
+  {
+    "source": "CHANGELOG_1.0.0.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.0.0.md",
+    "sha256": "59c13e955a7050e6a225e9f7f5f0643dbb10158d6da5ea4e02ba18a1ff1c5420"
+  },
+  {
+    "source": "CHANGELOG_1.1.0.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.1.0.md",
+    "sha256": "07de6c1e176282837687ceee3115122d4f0d7b7e7a0b0a46e10cca8a174e6711"
+  },
+  {
+    "source": "CHANGELOG_1.1.1.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.1.1.md",
+    "sha256": "be81c6979242920950acccb9d9478c28b314fd390bcabcc47f7a7d59242ffb97"
+  },
+  {
+    "source": "CHANGELOG_1.2.0.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.0.md",
+    "sha256": "367a1270f950357571e292690cdda08cc3ee7fb29f50d9d592635f1dc166fd54"
+  },
+  {
+    "source": "CHANGELOG_1.2.1.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.1.md",
+    "sha256": "2be51c3b461fb888eb9cd53c89593be694c3fc107ecce8f08ed97e11dca3f488"
+  },
+  {
+    "source": "CHANGELOG_1.2.2.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.2.md",
+    "sha256": "16179491aa2f183c7f7004e7609c5f7db1e5eb2e1f3158568cf304818cfd7d4e"
+  },
+  {
+    "source": "CHANGELOG_1.2.3.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.3.md",
+    "sha256": "47313b73a36bd567d5c6892bbe4a6f69313937cd96c4c1cafeae6126c06f60df"
+  },
+  {
+    "source": "CHANGELOG_1.2.4.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.4.md",
+    "sha256": "3dca682f4aa5232fb4130a1ec84b5d11850be1fc2c1d4b5c89e546fad82d55b9"
+  },
+  {
+    "source": "CHANGELOG_1.2.5.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.5.md",
+    "sha256": "044aa90836bf7d4b236ec748900506e081ab9668c4a66d72b440a2ecd7c018c0"
+  },
+  {
+    "source": "CHANGELOG_1.2.6.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.6.md",
+    "sha256": "9e93122606e1c942685134398a6702009b0018c04f959ee6eb4baa6f1aa74415"
+  },
+  {
+    "source": "CHANGELOG_1.2.7.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.7.md",
+    "sha256": "ebc997d7867b9feb5dd67aa399554b18faa6940f6f2eedac37298fe20a593494"
+  },
+  {
+    "source": "CHANGELOG_1.2.8.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.8.md",
+    "sha256": "29aae9ee4f2815cec113ea435f85a89b1608ad37639920ce2573af1e081d6d81"
+  },
+  {
+    "source": "CHANGELOG_1.2.9.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.2.9.md",
+    "sha256": "52dcb578f0bc2b3ead8551f577535a10aa367b5a341e4447cb33068ed64e5454"
+  },
+  {
+    "source": "CHANGELOG_1.3.0.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.3.0.md",
+    "sha256": "ee9609f7b8d44089bd55ec07f01bce147432fcc08c6017f4475e5ba788a534c0"
+  },
+  {
+    "source": "CHANGELOG_1.3.16.md",
+    "archive": "docs/changelog/legacy/CHANGELOG_1.3.16.md",
+    "sha256": "923d4484ad42ef0c582758bba9238ef2eb7c915a2d7d50f651d4eeec6041781c"
+  }
+]

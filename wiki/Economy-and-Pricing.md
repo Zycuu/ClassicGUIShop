@@ -1,88 +1,57 @@
-# Economy and Pricing
+# Economy and pricing
 
-Beta 1 uses one active pricing system: each ordinary listing stores its final buy and sell amounts. There is no live global multiplier, book sell ratio, or automatic startup repricing. A zero buy disables purchasing; a zero sell disables sales. Exact component data determines the variant. Matching duplicates cannot sell above their cheapest enabled buy price.
+## Price authority
 
-Use Shop Builder for individual edits. **Bulk Adjust** reprices the selected category, including its automatic variant folders. Enter final buy and sell amounts, review the affected listings, then Update. Individual item editing remains in the builder. Save changes commits the draft with a backup.
+Each ordinary listing stores its final per-item buy/sell amounts. Buy 0 disables buying; Sell 0 disables selling. There is no live global multiplier, continuous preset ratio, or automatic startup repricing.
 
-Economy has one default Normal/Basics preset sell return, initially 30%. It only affects new preset generation. Hard and Easy retain their explicit 10% and 95% returns. Existing listing prices and wallets are unchanged.
+Edit one item in Shop Builder, or use **Bulk Adjust** to assign the same two amounts to every listing in the selected category. Both operations edit the draft; Save changes is the commit boundary.
 
-## Book and potion variants
+Preset ratios are generation defaults, configured in Presets. They do not overwrite manual listing prices or balances. Normal/Basics ordinary returns default to 30%; Hard uses 3x base buys/10% targets, and Easy uses 75% base buys/95% targets. Safety caps may lower individual returns. See [Presets](Presets.md).
 
-Settings / Enchantments/Potions shows detected source counts and store listing counts. Its buttons show registered enchanted book levels or normal/splash/lingering potions, with a default sell return for new Normal presets. Actual prices are edited in the Shop Builder. The standalone scaling and custom-level generation controls have been removed.
+## Exact matching and resale validation
 
-Enchanted books automatically appear in one folder per enchantment inside their category. Every exact listed level remains available, including levels above vanilla. Combined-enchantment books get their own group. This grouping changes presentation only; component data and final prices remain intact. Other mods still own anvil/application rules. New mod/pack imports remain at 0 buy / 0 sell until explicitly priced, and stay visible in the normal builder.
+The stack identity includes native item components or typed NBT. Identical variants in different listings cannot enable selling above their cheapest enabled buy price. Listing IDs are independent identifiers; adding a duplicate does not merge or move the old listing.
 
-## Selling damaged or enchanted equipment
+Map economic matching ignores only the generated vanilla map ID/destination where appropriate. Clonable-map sales are capped by the cheapest enabled empty-map purchase price, including in live command-sale paths. Map generation completes before payment; invalid data or absent destinations fails without charging.
 
-Damaged command sales default on, and enchanted equipment command sales default off. Both switches are in Economy. `/sellhand` and `/worth` share the same quote:
+## Damaged and enchanted equipment command sales
+
+`/worth` and `/sellhand` share this generic calculation when their Economy switches permit it:
 
 ```text
-(base item sell value + eligible single-enchantment book sell values) x remaining durability
+(base item sell value + eligible exact single-enchantment book sell values)
+    * remaining durability fraction
 ```
 
-Derived values are floored to cents. Enabled accessible exact book listings must match the actual enchantment ID and level. Unpriced enchantments add zero. `/worth` shows final buy/sell values in one chat line. An exact explicitly priced damaged/enchanted variant takes priority with no second discount or enchantment bonus; an exact zero sell listing cannot fall through to generic valuation. Only damage and ordinary enchantment components are relaxed for generic matching. Custom names, lore, trims, mod IDs and all other components must still match.
+Derived values floor to cents. An explicitly priced exact variant takes priority without another damage reduction or enchantment bonus. An exact zero-sell listing does not fall through to generic valuation.
 
-`/sellhand all` consumes inventory copies of the held exact variant. `/worth all` totals all eligible inventory items and reports excluded quantities. Native shop clicks continue to match their exact listing, so they do not unexpectedly consume generic enchanted equipment. Standard modded durability/enchantments use the same rule; proprietary energy or custom wear systems require explicit variants rather than guesses.
+Eligible enchantment bonuses require accessible enabled book listings matching the exact enchantment ID and level. Unpriced enchantments contribute zero. Generic matching relaxes only damage and ordinary enchantment data: custom names, lore, trims, potion contents, mod IDs, and other components still must match.
 
-The editor treats map offers differing only in generated map ID and destination as overlapping for cross-listing price validation. It also rejects clonable-map sell prices above the cheapest enabled empty-map buy price, because each additional vanilla map copy consumes one empty map. The live GUI and held/inventory sales enforce this guard even for manually edited files. It does not replace the broader recipe or mod economy audit. Map generation happens before payment; failed destination searches or missing saved map data do not charge money.
+Damaged command sales default on; enchanted equipment command sales default off. Native shop clicks retain exact matching. `/sellhand all` sells copies of the held exact variant; `/worth all` totals all eligible inventory items. Standard modded durability/enchantment components can use the same rule; proprietary energy/wear is not inferred.
 
+## Villager Trade Loop Fix
 
-## Built-in and portable presets
+`economy.villagerTradeLoopFix` defaults true. Eligible vanilla-item offers on villagers and wandering traders receive payments derived from audited inventory values and actual shop cash-out, including enabled equipment bonuses.
 
-Normal uses base buy prices and the Economy default sell target, initially 30%. Hard uses 3x buys and 10% returns. Easy uses 75% base buys and 95% returns. Basics uses raw materials, ores, unstripped logs/stems and selected collectible resources with the Economy default returns. Full presets include exact vanilla book and potion listings. Administrative/spawn items and unavailable content stay disabled. Every purchasable vanilla listing also has a positive sell price; safety limits can reduce its target return. Protected preset prices require Villager Trade Loop Fix On. Turning Off retains these prices and restores original merchant terms, leaving native trade loops unprotected. A fresh installation initializes Vanilla Normal once; an existing shop is not silently repriced or refilled.
+- Saving the toggle, relevant prices, or sale settings closes stale merchant menus and refreshes loaded merchants during the same session.
+- New and unloaded merchants receive protection when offers are generated/accessed.
+- Payment minima cannot be bypassed by discounts. Original secondary payments are credited toward the required value.
+- High emerald costs may use emerald blocks; secondary costs change only when needed for payment-slot capacity.
+- Outputs, profession, level, XP, stock, demand, and rewards are preserved.
+- Original native cost fields remain intact. Off restores original item types/quantities, including after restarting.
+- Nonvanilla entities/items and custom data, models, names, lore, or enchantments are excluded from automatic protection.
+- Inconsistent manual prices exceeding both payment slots can make an offer temporarily unavailable without destroying its original terms.
 
-Import/export uses schema-1 JSON in the preset library. Export includes the current valid draft and retained unavailable listings for included categories. Import checks exact stack decoding, counts, prices, identities and dependencies before a review. Use reviewed draft changes categories only; Apply backs up the live shop. Missing exact content remains preserved at zero buy/sell. Its original imported JSON remains in the library. Wallets, journals, settings, permissions and modes are excluded; dependencies are not bundled.
+Turning the setting off leaves shop prices and ordinary sales enabled, but native merchant loops are then unprotected. The preset safety model assumes protection is on.
 
-### Vanilla safety audit in 1.4.7 Beta 1
+## Vanilla audit scope
 
-The model classifies all 2,042 shipped recipes, all 391 villager and wandering-trader definitions, 1,201 block loot tables and the three tool-transformer definitions. It expands randomized merchant books and potion arrows, includes attainable positive reputation and Hero V discounts, and preserves undiscounted secondary payments. It uses maximum possible batch and Fortune outputs. Fuel, tool wear and experience are ignored when doing so produces a conservative sale limit.
+The price model covers audited crafting, cooking, stonecutting, brewing, returned containers, refills, ore/Fortune yields, resource blocks, copper transformations, map copies, and joint outputs such as copper golem summoning. Multi-step conversions follow the whole inventory budget rather than valuing each output independently.
 
-Purchased-item conversions include water filling, milk and mooshroom refills, dirt/mud/clay, tool transformations, copper scraping/weathering, concrete hardening, coral drying, shulker-box washing, map copies, potion brewing, piglin barter outcomes, book combining/enchanting/grinding, released fish and returned containers. Honey, lava, dragon breath and fish contents are consumed or gathered separately; retaining the shell does not invent new contents. Multi-output conversions have one total sale budget. Splitting that budget never reduces acquisition costs, which avoids inventing loops in reversible honey-block recipes.
+All purchasable vanilla listings retain positive selling values in the protected presets; administrative/unavailable entries remain disabled. Example Normal prices: logs 2.50/0.75, sticks 0.50/0.15, iron ingots 24/7.20, gold ingots 96/28.80, and emeralds 180/1.90. Emerald selling scales with the preset rather than a fixed 0.05 amount.
 
-Lightning rods participate in the oxidation, wax and scrape constraints even though their identifiers do not contain `copper`. Copper golem summoning accepts all eight shipped copper block variants and either a carved pumpkin or jack-o'-lantern. The chest shares its budget with either the maximum six Looting III death ingots or one eventual statue. Scraping the statue to another oxidation stage does not escape that budget. Death and statue outputs are separate alternatives, so the model never assumes that one golem gives both.
+Version-native ordinary recipe audits passed for all seven targets, including the older two-lead recipe correction for 1.20. Special interactions and shared constraints originate from the detailed 26.3 audit; every older world mechanic was not independently replayed.
 
-Recovered copper can be crafted into another summoning block. A repeated summon spends only three fresh ingots per chest when six are recovered, plus its consumed head. Preset chest selling also respects this lower recurring cost. This constraint closes the recycling route while preserving positive safe copper and statue sell prices.
+Ordinary resource farming, XP progression, arbitrary mod mechanisms, changed datapack rules, custom components, administrator prices/rewards, and game duplication bugs remain outside the audit. The preset is not a guarantee against every possible exploit.
 
-Final sells are floored to cents and capped at 95% of an audited whole-inventory value. Public sale limits are distinct from private inventory values used to price merchant inputs. The optional equipment bonus is accounted for in native merchant and piglin-barter outputs as base item plus book values, rather than treating enchanted gear as an ordinary material item. Book conversions include all supported levels, combining and conservative free-XP/one-lapis book enchanting. Ordinary player progression and earning XP on equipment are separate gameplay income, not a proof against every possible XP farm.
-
-With Villager Trade Loop Fix On, the vanilla-only full catalog has 2,083 listings: all 1,906 purchasable listings also have positive sell prices, while 177 administrative/unavailable listings stay fully disabled. Basics has 129 purchasable/sellable resources and 43 disabled entries. Installed content can change creative-tab counts. All four presets retain ordinary common-item income. These safe limits can reduce the preset's target return; they are generated into final prices and are not a runtime price multiplier.
-
-Normal buy/sell examples are logs 2.50/0.75, sticks 0.50/0.15, iron 24/7.20, gold 96/28.80 and copper 7/2.10. Emerald sales scale with the preset: Normal/Basics 1.90, Hard 5.70 and Easy 1.42. Corrected raw-block, nugget, Fortune-ore and copper prices prevent cheap purchased variants from forcing ordinary material sales down to pennies. Target returns are reduced where conversion safety requires it.
-
-Economy / Villager Trade Loop Fix defaults On. Saving the toggle, relevant sale settings or catalog changes closes stale trading menus, clears cached values and refreshes loaded vanilla villagers and wandering traders immediately. The existing editor footer confirms how many were refreshed and adjusted. Standard vanilla item offers receive protection even when their quantity, XP, stock or current definition differs from the shipped definition; fixed fingerprints no longer silently exclude them. New and unloaded merchants receive the same payment calculation when their offers are generated or accessed.
-
-For each offer the fix chooses the smallest safe whole primary payment that covers the output's inventory value and actual shop cash-out, crediting the original secondary payment. The ordinary payment is never lowered; discounts can still apply down to the safe minimum. Emerald costs above one stack use emerald blocks, and a secondary payment is enlarged or added only when needed to fit the value within the vanilla slots. Preset generation checks those capacities. None of the generated native offers exceeded them in 40,907 draws per preset, including equipment enchantment bonuses. Custom manual prices can exceed both slots; such an offer becomes temporarily unavailable while its original stock and costs are retained.
-
-Merchant outputs, profession, level, XP, stock, demand and rewards are preserved. Payment validation, native consumption and the unmodified client packet use the same adjusted items and quantities. Original native cost fields are never overwritten: the save codec retains them, while the network codec shows the effective payment. Off restores the original item types and quantities, including after a restart. The update path was checked with a world and villager created under the actual 1.3.17 JAR. Nonvanilla entities/items, mod enchantments and custom data, models, names or lore remain outside automatic protection.
-
-Off retains shop prices and common-item selling. It does not have a no-profit guarantee against unmodified native merchant loops. Preset previews and startup output state that merchant safety requires On. Existing saved shops are never silently repriced. Manually edited prices, additional income modes and custom mechanics remain the administrator's responsibility.
-
-The generator reads the inspected 26.3 common JAR and records its SHA-256. Its coverage table refuses unknown recipe/trade/loot formats instead of silently skipping them. Native server tests validate glass crafting, actual discounted merchant offers, water filling, hoes/axes, three-bottle brewing, honey/dragon-breath remainders, composting and Fortune drops. An independent SciPy/HiGHS check verifies feasible item values for combined modeled paths in all four presets and rejects deliberately overpriced planks crafted from a purchased log.
-
-A second audit uses native recipe assembly, complete remainder and loot vectors, actual merchant offers and sale quotations, then maximizes profit with inventory conservation. It exports actual merchant payments separately for each preset, with positive reputation and Hero V discounts. It independently checks 2,042 loaded recipes and 391 merchant definitions, both summoning heads, all eight copper bodies and statue revival variants. Normal, Hard, Easy and Basics each have zero maximum profit in their modeled nonfarming paths with protection On. Both methods detect the intentionally overpriced plank control. The original rod and golem examples were also replayed through real shop purchases and held-item sales. This audit does not reuse the generator's extracted rule model.
-
-This covers the shipped vanilla definitions and listed interactions. Timed world resource production, arbitrary mod mechanisms, altered datapack rules, arbitrary custom components and game duplication bugs are outside the certification. Admin-authored prices and reward payouts still require server-specific review. Existing catalogs, exact item components and balances are not changed by installing this update. The existing Presets workflow can load the corrected catalogs after review; it replaces the draft's categories, so keep/export a custom shop before doing that.
-
-Minecraft's [26.3 technical notes](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3) describe data-driven brewing, tool transformations and composting. Its [water-bottle guide](https://www.minecraft.net/en-us/article/taking-inventory--water-bottle) confirms water refills, [honey-bottle guide](https://www.minecraft.net/en-us/article/taking-inventory--honey-bottle) describes the three-sugar conversion, and [hoe guide](https://www.minecraft.net/en-us/article/taking-inventory--hoe) identifies coarse-dirt conversion. The inspected game's current data and implementation determine the exact counts and rules used here; older guide text is supplementary.
-
-The [official Copper Age notes](https://feedback.minecraft.net/hc/en-us/articles/39966147272589-Minecraft-Java-Edition-1-21-9-The-Copper-Age) document lightning rod oxidation, both golem heads and statue scraping/revival. The [official copper golem guide](https://www.minecraft.net/en-us/article/copper-golem) confirms that summoning produces a chest and a golem together. The current shipped loot table and native 26.3 tests supply the salvage counts used by this preset correction.
-
-Developer reproduction: `.github/scripts/build_vanilla_economy_model.py` extracts the exhaustive rules from the inspected 26.3 common JAR. `gradle build compatibilityTestJar vanillaAuditJar` builds two separate test addons, neither included in the regular mod. Run compatibility tests only in a disposable server to obtain `config/guishop/vanilla-economy-test-report.json`, then check it with `.github/scripts/audit_vanilla_presets.py`.
-
-For the second method, install only the native audit addon alongside the regular mod and Fabric API in a disposable vanilla loopback server. `.github/scripts/run_disposable_vanilla_audit.py <server> --java-home <jdk> --output <new-facts.json> --disposable` exports native mechanics, all four preset prices and their separate merchant payments. Add `--native-trades` to export unmodified native payments and capacity facts without saving that setting. This Off dataset is input to generation, not a zero-profit certification. `.github/scripts/audit_native_preset_flow.py <protected-facts.json> <new-report.json>` checks full inventory flow and rejects positive profit, while requiring its deliberately unsafe plank-price control to find profit.
-
-`.github/scripts/build_vanilla_preset_values.py <model.json> <unmodified-native-facts.json> --output <values.json>` generates the version-2 joint sale limits and private inventory values. It preserves meaningful log/stick returns, corrects purchased material inputs, bounds complete enchanted cash-outs and checks native payment-slot capacities. Rebuild the mod and rerun both audits after changing the resource. The former fixed trade profile and its generator are retained as historical source evidence; runtime no longer reads that profile. SciPy/HiGHS is used only by developer scripts; no optimizer is bundled or needed to run the mod. Ordinary farming and modified mod/datapack mechanics remain outside these proofs.
-
-## Earning modes and oversight
-
-Modes remain independently off by default. All intervals, cooldowns and minimum-online durations are expressed in minutes; fractions must resolve to whole seconds. The old five-second mob cooldown becomes 1/12 minute, passive defaults to 10 minutes, and Warrior defaults to a 60-minute pair cooldown and 10 minutes online. Each mode has an editable plain prefix name and Minecraft color. Stored payout labels and activities describe playing intervals, killed entities/players, victim deductions and completed advancements. Old records use honest fallbacks when names or durations were never recorded.
-
-Passive progress pauses offline/disabled and checkpoints once per minute; abrupt shutdown can lose uncheckpointed partial progress. Owed intervals use durable receipts. Mob rewards require player kill credit and a living mob/creature type; boats, projectiles, armor stands and other display objects are excluded. Vanilla suggestions are 2 to 50 (villagers/traders 0). Default reward override 0 uses those suggestions; explicit per-type rewards and positive overrides are preserved. Add detected mobs uses the same reward editor, with non-vanilla types initially off unless assigned a reward. Quick farming explicitly bypasses cooldown. Advancement rewards remain once per player and advancement, including across resets/revoke/regrant. Warrior uses an unordered player pair, minimum session time, same-address protection and optional victim debt. Existing debt remains until repaid or reset. The account ledger stays v2 and is not automatically pruned.
-
-Transactions wrap and display local 12-hour time, timezone, currency and debit signs. Trending separately ranks the top 20 purchased and sold exact variants by unit quantity over 24 hours, 7 days or 30 days. Click an item for players, then a player for matching archived transactions. It reads full daily files on a worker; player-history resets do not erase this evidence. Malformed journal lines produce a visible incomplete-data warning.
-
-Public `/econ bal <name>` and `/econ leaderboard` respect one Show operator balances publicly setting, default off. Offline OP UUIDs are covered, and hidden operators are removed before the top-five limit. `/bal` is self-only. Administrators with `guishop.admin` (default OP 2) can inspect hidden balances through `/econ bal`; an empty leaderboard has a clear message.
-
-## Migration
-
-Beta converts effective legacy prices once, with original bytes in `backups/beta-price-migration-*`. Book definitions become ordinary listings; unavailable old definitions stay archived until their registry returns. `enchantments.json` is a migration archive, not an active pricing editor. Preserve the prior JAR and complete stopped-server data backup before updating. Restore both together for rollback; restoring only the JAR or prices after later transactions is unsafe.
+Fork maintainers can inspect the [technical audit record](https://github.com/Zycuu/ClassicGUIShop/blob/main/docs/development/VANILLA_ECONOMY_AUDIT.md), generators, and independent native-flow verifier. Do not weaken price constraints without rerunning the deliberately unsafe control cases.

@@ -1,142 +1,44 @@
-# Player Guide
+# Player guide
 
-This guide covers normal player use.
-
-## Opening the shop
-
-```text
-/shop
-```
-
-Opens the unified shop. Listing tooltips show both Buy and Sell prices.
-
-```text
-/shop buy
-```
-
-Compatibility alias for the same unified shop.
-
-```text
-/shop sell
-```
-
-Compatibility alias for the same unified shop.
-
-```text
-/shop enchant
-```
-
-Opens the enchanted book selector. Choose an enchantment, then buy or sell its exact level.
+Player commands and the vanilla chest shop do not require ClassicGUIShop on the client. Permission defaults can be restricted by the server owner.
 
 ## Shop controls
 
-Inside normal shop item pages:
+Run `/shop`, select a category, and navigate its pages or variant folders.
 
-```text
-Left click          Buy 1
-Right click         Sell 1
-Shift + left click  Buy 64 ordinary items, or 1 enchanted book
-Shift + right click Sell all matching items
-```
+| Input | Action |
+| --- | --- |
+| Left-click listing | Buy one |
+| Right-click listing | Sell one matching item |
+| Shift-left-click listing | Buy 64 on ordinary category pages |
+| Shift-right-click listing | Sell matching inventory items |
 
-Items must match the listing's original components. A renamed, enchanted, trimmed, potion, or custom-component item may not match a normal base item listing. Generic map listings accept their generated map identity and destination without discarding other components. Shop prices and help text appear only in the shop, while delivered items retain their original lore and native tooltip behavior. A side with price zero is disabled.
+The `/shop enchant` compatibility selector keeps one-book purchases; books listed on ordinary category pages follow ordinary item quantities. `/shop buy` and `/shop sell` open the same unified menu.
 
-Vanilla explorer maps receive a destination and saved data before purchase. If none can be found nearby in the current dimension, the purchase is refused without payment. Ordinary empty maps retain normal right-click behavior. Broken placeholder maps purchased before Alpha 8 need replacement; they are not retroactively repaired.
+A price of zero disables that transaction side. Prices and shop help text appear on menu copies; delivered stacks retain their native item data and tooltips. Potions and tipped arrows show their actual effects and duration above prices.
 
-## Balance
+## Exact item matching
 
-```text
-/bal
-```
+Names, lore, enchantments, trims, potion contents, and custom data distinguish variants. A renamed sword does not automatically match a plain sword listing. Shop clicks use exact listing matching; generic damaged/enchanted equipment valuation is a separate command-sale option.
 
-Shows your balance.
+Generated vanilla maps keep native map data. Explorer-map purchases prepare a destination before charging; absent destinations or invalid saved data fail without payment. Empty maps retain normal item-use behavior.
 
-```text
-/shop balance
-```
+## Accounts and payments
 
-Compatibility alias for balance.
+- `/bal` shows your balance; `/shop balance` is an alias.
+- `/shop pay <player> <amount>` pays a known player. The amount must be at least 0.01, self-payment is rejected, and offline payments depend on server settings.
+- `/econ bal <player>` looks up a known online/offline account, subject to operator privacy.
+- `/econ leaderboard` lists the five richest publicly eligible accounts.
 
-## Paying another player
+## Sales and quotes
 
-```text
-/shop pay <player> <amount>
-```
+- `/sellhand` sells the held stack.
+- `/sellhand <amount>` sells up to that amount from the held stack.
+- `/sellhand all` sells inventory copies of the held exact variant.
+- `/worth` quotes the held stack on one line.
+- `/worth all` totals every eligible inventory item, not only the held type.
+- `/worth "minecraft:stone" 16` quotes a configured identifier and amount. Namespaced/component listing IDs need quotes; completion inserts them.
 
-Example:
+When enabled, command sales value remaining durability and priced enchantments. Unknown enchantments add no bonus; an explicit exact listing takes precedence. See [Economy and Pricing](Economy-and-Pricing.md).
 
-```text
-/shop pay Zycu 250
-```
-
-Rules:
-
-- Amount must be at least `0.01`.
-- You cannot pay yourself.
-- Offline payments depend on the server configuration.
-- The recipient must be known to the server.
-
-## Selling the held item
-
-```text
-/sellhand
-```
-
-Sells the current held stack.
-
-```text
-/sellhand <amount>
-```
-
-Sells up to the requested amount from the held stack.
-
-```text
-/sellhand all
-```
-
-Sells all exact matching items in your inventory.
-
-## Checking item value
-
-```text
-/worth
-```
-
-Shows value for the held stack.
-
-```text
-/worth all
-```
-
-Shows value for every exact matching item in your inventory.
-
-```text
-/worth <item-or-listing-id> [amount]
-```
-
-Shows value for a configured item or exact listing ID.
-
-## Enchanted books
-
-Players can buy enchanted books through:
-
-```text
-/shop enchant
-```
-
-Players can sell enchanted books through:
-
-```text
-/shop sell
-```
-
-Then open **Enchanted Books**, select the matching enchantment level, and right-click it. Buying and selling use the same screen.
-
-`/sellhand`, `/sellhand <amount>`, and `/sellhand all` also recognize exact single-enchantment books that match enabled enchantment offers.
-
-## Creative mode protection
-
-Shop transactions are blocked in Creative mode unless the server allows Creative transactions or grants the player the Creative bypass permission.
-
-
-Beta 1 adds `/econ bal <player>` and `/econ leaderboard`, with operator accounts hidden publicly by default. `/worth` and `/sellhand` can value damaged and enchanted equipment when the server enables those options. An exact listing takes priority; unpriced enchantments add no value. `/worth all` totals all eligible inventory items; `/sellhand all` sells copies of the held exact variant.
+Creative transactions are blocked by default unless allowed globally or authorized by `guishop.creative.bypass`.

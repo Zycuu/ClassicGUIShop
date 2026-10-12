@@ -1,134 +1,117 @@
-# Configuration Files
+# Configuration schema and persistence
 
-ClassicGUIShop stores data under:
+All server configuration/economy data is under `config/guishop/`. Stop the server and preserve the complete directory before editing JSON or restoring data. Adminshop is the supported in-game configuration writer; manual file changes require restart.
 
-```text
-config/guishop/
-```
+## Persistence files
 
-## File overview
+| Path | Role |
+| --- | --- |
+| `settings.json` | General/economy/chat settings, fallback permissions, and earning modes |
+| `shops.json` | Ordered categories and exact ordinary listings |
+| `enchantments.json` | Legacy enchantment migration archive, not active price editing |
+| `versioned-listings.json` | Parked unavailable/incompatible exact listings |
+| `default-shop-setup.json` | Resumable first-install marker; prevents repopulating an intentionally empty shop |
+| `balances.json` | UUID-to-balance records |
+| `players.json` | Known names/UUIDs for lookups and payments |
+| `account-operations.json` | Durable pending operations, reward receipts, history generations, and mode safeguards |
+| `account-audit.jsonl` | Account/reset recovery audit |
+| `mode-progress.json` | Passive interval progress and captured pending rewards |
+| `transactions/YYYY-MM-DD.jsonl` | Completed UTC daily journal records |
+| `backups/<id>/` | Previous configuration bytes and detached before/after documents |
+| `presets/` | Portable preset library; excludes server accounts/global settings |
+| `folders.json` | Retired data, preserved but ignored |
 
-```text
-settings.json
-shops.json
-enchantments.json
-versioned-listings.json
-balances.json
-players.json
-account-operations.json
-account-audit.jsonl
-mode-progress.json
-```
+Journal files, backups, reward receipts, and mode ledgers are not automatically pruned. Treat account data as one consistency unit. See [Transactions](Transactions.md) and [Upgrading](Upgrading.md).
 
-## `settings.json`
+## Active settings fields
 
-Stores global settings such as:
+The generated `_about` and `_notes` fields document files but are not behavior switches. `pricingSchema: 1` denotes stored final prices after migration. Old `general.priceMultiplier` and `catalog` fields are retired and omitted from new schema-1 saves.
 
-- Shop Modes switches, payout overrides, minute timing, prefix names/colors and PvP safeguards (`modes`)
-- Starting balance
-- Currency symbol
-- Damaged and enchanted equipment command-sale switches
-- Shop title (`general.shopTitle`)
-- Public operator balance visibility
-- Pricing schema marker; live global multipliers and ratios have been retired
-- Creative transaction behavior
-- Offline payment behavior
-- Chat prefix and message colors
-- Permission defaults
+| JSON field | Fresh default | Meaning |
+| --- | --- | --- |
+| `general.shopTitle` | `ClassicGUIShop` | Root player menu title |
+| `general.allowCreativeTransactions` | `false` | Global Creative transaction allowance |
+| `general.allowOfflinePayments` | `true` | `/shop pay` to known offline players |
+| `economy.currencySymbol` | `$` | Display prefix only; not a currency conversion |
+| `economy.startingBalance` | `500` | Balance for newly created records; does not reassign existing accounts |
+| `economy.presetSellRatio` | `0.30` | New Normal/Basics ordinary preset sell target |
+| `economy.bookSellRatio` | `0.30` | New Normal vanilla book preset target |
+| `economy.potionSellRatio` | `0.30` | New Normal vanilla potion preset target |
+| `economy.sellDamagedItems` | `true` | Generic damaged equipment command sales |
+| `economy.sellEnchantedEquipment` | `false` | Eligible book-value bonus for equipment command sales |
+| `economy.showOperatorBalances` | `false` | Include OP accounts in public lookup/leaderboard |
+| `economy.villagerTradeLoopFix` | `true` | Live eligible merchant payment protection |
+| `chat.prefix` | `[ShopGUI]` | Ordinary mod chat prefix |
+| `chat.prefixColor` | `gold` | Prefix color |
+| `chat.infoColor` | `aqua` | Informational output |
+| `chat.successColor` | `green` | Successful transactions |
+| `chat.warningColor` | `yellow` | Warnings |
+| `chat.errorColor` | `red` | Failures |
+| `chat.adminColor` | `light_purple` | Retained legacy chat metadata |
+| `permissionDefaults` | Node-to-level map | Unassigned fallback levels 0 through 4 |
+| `modes` | All switches off | Fields documented in [Shop Modes](Shop-Modes.md) |
+
+Ratio JSON uses fractions (0 to 1); the Presets GUI displays percentages. Hard/Easy use fixed preset-specific targets. None of these defaults continuously changes an existing listing's stored price.
 
 ## `shops.json`
 
-Stores categories and item listings.
+`categories` is an ordered array. Category fields include `id`, `name`, `description`, `icon`, optional exact `iconStack`, optional `detectedSource`, and ordered `items`.
 
-Listings include:
+Each listing contains `item`, `listingId`, `name`, `description`, `buy`, `sell`, optional serialized `stack`, legacy `manualPrice`/`pricingModelVersion`, and unavailable-import state where applicable. `listingId` identifies an independent listing; `#` separates exact component identities and `@` suffixes distinguish repeated listings.
 
-- Category ID
-- Item ID
-- Exact listing ID
-- Display name and tooltip description (`description`)
-- Buy price
-- Sell price
-- Manual price status
-- Serialized ItemStack data when needed
+- Buy/sell values are final per-item amounts. Zero disables that side.
+- Stack data preserves native components or typed legacy NBT; do not construct component hashes manually.
+- `iconStack` must decode to the category's base `icon` ID when changed.
+- Exact identity, price conflicts, and item decoding are validated server-side.
+- Legacy pricing flags do not enable automatic startup repricing.
 
-Do not manually edit exact stack data unless you know the Minecraft component format.
+Use Add held item for complex variants. Unavailable templates may remain preserved without decoding into a substituted plain item. Installing dependencies makes them eligible for review/restoration; it does not make cross-version world downgrades safe.
 
-`listingId` identifies one listing, separately from its exact stack. Repeated stacks can use an `@` suffix for independent listings; component variants retain their `#` hash. The optional category field `iconStack` stores an exact icon template alongside its base `icon` ID. It preserves custom models, colors and other rendering data; decorative category buttons use only the shop's own name and description for their tooltip. Changing an exact icon requires a decodable stack whose base ID matches `icon`, so its item mod must be installed. Existing unavailable mod icon templates can remain unchanged. The optional category field `detectedSource` keeps repeated imports in the same source category after saving or restarting. Datapack imports use a pack identity rather than splitting categories by namespace; Import all uses the shared all_detected identity. Imported stacks keep their complete components and manual zero prices until an administrator enables trading.
+Example plain-item category object within the `categories` array, not a complete replacement configuration:
 
-## `enchantments.json`
-
-Migration archive for unavailable old enchantment definitions. Active books are exact ordinary listings in `shops.json`, including levels above vanilla. Available legacy offers are converted once. Preserve this archive with the matching settings during rollback.
-
-## `presets/`
-
-Versioned schema-1 JSON with categories, exact variant data, final prices and dependency metadata. It excludes accounts, history, permissions and global server settings. Exports include valid unapplied draft edits; imports are reviewed before Use reviewed draft and Apply.
-
-## `folders.json`
-
-Retired legacy data. The mod does not create, load, or update this file. Existing files are left untouched and copied into editor backups. Listings now appear directly in their parent categories in `shops.json`.
-
-## `versioned-listings.json`
-
-Stores listings that exist in the shop config but are unavailable in the current Minecraft version or current mod set.
-
-Example use case:
-
-1. A configured mod item becomes unavailable after a mod change.
-2. ClassicGUIShop parks its listing here.
-3. The required item mod returns.
-4. ClassicGUIShop restores the listing automatically.
-
-The Beta targets Minecraft 26.3 specifically; this storage does not grant older runtime compatibility.
-
-This file preserves data. It is not a trash can.
-
-## `balances.json`
-
-Stores player balances.
-
-Alpha 9 keeps the existing UUID-to-balance format. Back up this file together with `account-operations.json` and `transactions/` while the server is stopped.
-
-## `account-operations.json` and `account-audit.jsonl`
-
-The operation ledger stores external reward receipts, active transaction-history generations and any pending account operation. It prevents a repeated source/reference pair from paying twice, including after a reset or restart. Pending operations recover before another balance mutation. Do not manually remove receipts or pending state.
-
-Reset advances one player's active history generation and writes a separate account audit record. Previous daily journal files remain available as recovery archives, but their older records no longer appear in that player's transaction view. Other players' histories remain visible. Set balance and rewards appear in the player's active history.
-
-Preserve the ledger, audit and daily journals with the balances backup. Restoring only part of this account data can lose replay protection or produce inconsistent balances and history. Older releases do not understand these safeguards; stop external reward delivery before rolling back and review a consistent backup.
-
-## `mode-progress.json`
-
-Stores passive online progress, interval sequences and captured pending payouts. It never awards offline catch-up. Back it up with the account ledger and balances. Alpha 10 writes ledger v2; prior v1 receipts and history generations are preserved. Older server builds reject v2, so use the matching full account backup when rolling back.
-
-## `players.json`
-
-Stores known player names and UUIDs for payments and external rewards.
-
-## Backups and migration
-
-Older combined `shop.json` files are migrated into the newer separated file layout. The old file is retained as:
-
-```text
-shop.json.migrated-backup
+```json
+{
+  "id": "building_blocks",
+  "name": "Building Blocks",
+  "icon": "minecraft:bricks",
+  "description": "Construction materials",
+  "items": [
+    {
+      "item": "minecraft:stone",
+      "listingId": "minecraft:stone",
+      "name": "Stone",
+      "description": "",
+      "buy": 2.0,
+      "sell": 0.6
+    }
+  ]
+}
 ```
 
-Before major updates, back up:
+These illustrative prices are not a preset recommendation. Omitting `stack` uses the base item template. Export/capture exact books, potions, maps, and custom components instead of hand-building their data.
 
-```text
-config/guishop/
-```
+## Editor validation bounds
 
-## Editor backups and transaction records
+These limits describe `AdminEditorService.validate`, not an endorsement of bypassing the editor with manual JSON.
 
-Each Apply saves the previous configuration and detached before/after documents under `backups/<id>/`. Changes can load a previous document into a draft, with Apply required to restore it. Balances and journal history are not rolled back.
+| Field/collection | Maximum |
+| --- | --- |
+| Categories | 250 |
+| Listings across all categories | 10,000 |
+| Category name | 80 Java characters |
+| Listing name | 120 Java characters |
+| Category/listing description | 160 Java characters |
+| Item/listing ID | 200 Java characters |
+| Serialized exact stack or icon | 32,000 Java characters |
+| Currency prefix | 32 Java characters |
+| Shop title / ordinary chat prefix | 64 Java characters |
+| Permission defaults | 2,000 entries; node length 160; levels 0 through 4 |
+| Server price/starting-balance validation | Finite 0 through 1 trillion |
 
-Successful transactions and configuration applies are appended to UTC daily `transactions/YYYY-MM-DD.jsonl` files. Full journals and backups are retained without automatic deletion.
+The client Bulk Adjust dialog limits entered prices to 1 billion. The assembled editor document has a separate size bound, so reaching each collection limit at once is not guaranteed. IDs must remain unique, and enabling selling above the same exact variant's cheapest enabled buy price is rejected. Mode and portable-preset limits are documented separately.
 
-## Manual editing tips
+## Backup and failure handling
 
-- Stop the server before editing JSON.
-- Back up the file first.
-- Use a JSON validator if editing by hand.
-- Use Adminshop for in-game configuration edits. `/adminshop` opens the workbench; `/shopreward` is the trusted external reward command. Other legacy administrator commands remain removed.
-- Avoid editing serialized stack data manually.
-- Restart the server after safe manual edits.
+Configuration saves use checked writes and prior-byte backups. A failed parse refuses startup; a failed editor save is not acknowledged as success. A stale revision or external file edit rejects the draft.
+
+Configuration restoration affects shop/settings state, not player account rollback. Financial recovery requires consistent balances, account ledgers, mode progress, and journals. The historical `beta-price-migration-*` backup name remains in 1.4.0.

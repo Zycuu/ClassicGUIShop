@@ -1,7 +1,17 @@
-# Retired Shop Folders
+# Automatic variant folders and retired data
 
-Folders were removed in 1.4.0 Alpha 2. Shop Builder and the vanilla player shop use categories only. Listings previously assigned to folders appear directly in their parent category, with their prices and exact item data retained.
+1.4.0 supports administrator-managed categories and automatically generated variant folders. It does not restore legacy user-created nested folder editing.
 
-Existing `config/guishop/folders.json` files are ignored and left untouched. Apply includes a byte-for-byte copy in the configuration backup. Fresh installations do not create the file.
+| Listing family | Player/simulator organization |
+| --- | --- |
+| Enchanted books | Category → enchantment → exact listed levels |
+| Potions | Category → effect family → regular/extended/strong and delivery variants |
+| Tipped arrows | Combat → Tipped Arrows → effect family → exact variants |
 
-Create, name, order, and choose icons for categories through Shop Builder. Move listings directly between categories with the destination chooser or drag and drop.
+Full/fresh presets provide Enchanted Books and Potions categories, and place the Tipped Arrows folder between regular and spectral arrows in Combat. Existing saved shops keep their categories and prices; the automatic grouping is presentation only.
+
+Combined-enchantment books and custom unregistered potion variants use their corresponding special groups. Registered modded families retain namespace identity. Tooltips preserve native effect/strength/duration above the final buy/sell lines.
+
+The old `config/guishop/folders.json` file is ignored and left untouched, with its bytes included in configuration backups. Fresh installs do not create it. Earlier manual folder assignments no longer drive the layout; listings remain in their saved parent category.
+
+Use Shop Builder for category ordering and item movement. Changes to layout do not rewrite the item's native component template.

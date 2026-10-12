@@ -1,0 +1,106 @@
+{
+  "version": "1.4.0",
+  "artifact": "ClassicGUIShop-v1.4.0.jar",
+  "bytes": 9094175,
+  "sha256": "d4165c0ea36db87e62d97fc74aa187420a927a26a07f97a31f3d2e7b26add1d9",
+  "singleInstallableJar": true,
+  "fabricLoaderMinimum": "0.19.5",
+  "versions": [
+    {
+      "minecraft": "26.3",
+      "minimumJava": 25,
+      "purchaseSalePairs": 1952,
+      "enchantmentPotionVariants": 312,
+      "serverPass": true,
+      "clientConnectionShopAdminshopDetectionPass": true,
+      "bundledFontAndResourceReloadPass": true,
+      "recipePresetAuditPass": true,
+      "permissionApiGrantDenyPass": true,
+      "permissionApi": "0.7.0"
+    },
+    {
+      "minecraft": "26.2",
+      "minimumJava": 25,
+      "purchaseSalePairs": 1847,
+      "enchantmentPotionVariants": 312,
+      "serverPass": true,
+      "clientConnectionShopAdminshopDetectionPass": true,
+      "bundledFontAndResourceReloadPass": true,
+      "recipePresetAuditPass": true,
+      "permissionApiGrantDenyPass": true,
+      "permissionApi": "0.7.0"
+    },
+    {
+      "minecraft": "26.1.2",
+      "minimumJava": 25,
+      "purchaseSalePairs": 1816,
+      "enchantmentPotionVariants": 312,
+      "serverPass": true,
+      "clientConnectionShopAdminshopDetectionPass": true,
+      "bundledFontAndResourceReloadPass": true,
+      "recipePresetAuditPass": true,
+      "permissionApiGrantDenyPass": true,
+      "permissionApi": "0.7.0"
+    },
+    {
+      "minecraft": "1.21.11",
+      "minimumJava": 21,
+      "purchaseSalePairs": 1815,
+      "enchantmentPotionVariants": 312,
+      "serverPass": true,
+      "clientConnectionShopAdminshopDetectionPass": true,
+      "bundledFontAndResourceReloadPass": true,
+      "recipePresetAuditPass": true,
+      "permissionApiGrantDenyPass": true,
+      "permissionApi": "0.6.1"
+    },
+    {
+      "minecraft": "1.20.6",
+      "minimumJava": 21,
+      "purchaseSalePairs": 1637,
+      "enchantmentPotionVariants": 309,
+      "serverPass": true,
+      "clientConnectionShopAdminshopDetectionPass": true,
+      "bundledFontAndResourceReloadPass": true,
+      "recipePresetAuditPass": true,
+      "permissionApiGrantDenyPass": true,
+      "permissionApi": "0.3.1"
+    },
+    {
+      "minecraft": "1.20.4",
+      "minimumJava": 17,
+      "purchaseSalePairs": 1595,
+      "enchantmentPotionVariants": 285,
+      "serverPass": true,
+      "clientConnectionShopAdminshopDetectionPass": true,
+      "bundledFontAndResourceReloadPass": true,
+      "recipePresetAuditPass": true,
+      "permissionApiGrantDenyPass": true,
+      "permissionApi": "0.3.1"
+    },
+    {
+      "minecraft": "1.20.1",
+      "minimumJava": 17,
+      "purchaseSalePairs": 1538,
+      "enchantmentPotionVariants": 285,
+      "serverPass": true,
+      "clientConnectionShopAdminshopDetectionPass": true,
+      "bundledFontAndResourceReloadPass": true,
+      "recipePresetAuditPass": true,
+      "permissionApiGrantDenyPass": true,
+      "permissionApi": "0.3.1"
+    }
+  ],
+  "purchaseSalePairsTotal": 12200,
+  "fullFabricApiCoexistenceTested": [
+    "1.20.1",
+    "26.3"
+  ],
+  "nativeRecipeAuditScope": "Version-native ordinary recipe JSON and actual release generated prices. Shared special recipes, world interactions and protected merchant constraints reuse the detailed 26.3 audit. This is not a native replay of every older mechanic. Modded and modified datapack economics are excluded.",
+  "finalPackagingDelta": "Only PortablePresets class differs from exhaustive tested candidate, to record the actual running Minecraft version on preset exports; byte comparisons verified all other release entries unchanged.",
+  "liveUserWorldsModified": false,
+  "published": false,
+  "sourceCommit": "32bf1a7",
+  "sourceArchive": "ClassicGUIShop-v1.4.0-source.zip",
+  "sourceArchiveSha256": "1e78032b904b160f9b2977b89835485796d6eb24a7d661ff278409b53827b149"
+}

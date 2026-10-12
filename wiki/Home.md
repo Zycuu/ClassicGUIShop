@@ -1,23 +1,30 @@
-# ClassicGUIShop Wiki
+# ClassicGUIShop technical wiki
 
-Documentation for **1.4.0**. One universal JAR supports Minecraft **26.3, 26.2, 26.1.2, 1.21.11, 1.20.6, 1.20.4 and 1.20.1**. See Installation for Java requirements.
+This wiki documents **1.4.0** for server operators and contributors. One universal Fabric JAR supports the exact Minecraft releases listed in [Installation](Installation.md).
 
-Player shops use vanilla chest menus and require no client mod. Administrators optionally install ClassicGUIShop on their matching Fabric client and press F8 for the new workbench. All editor access requires `guishop.admin` on the server, defaulting to OP level 2 or higher when unassigned.
+The shop and economy execute on the server. Ordinary player commands and chest menus work without a modded client. Adminshop requires the matching client JAR and server authorization through `guishop.admin`, with OP level 2 as the unassigned fallback.
 
-The workbench includes a shop builder and simulator, server settings, exact permission levels, transaction records, configuration history, and backup restoration through drafts. Fresh installations use Full Vanilla Normal. Modded content is imported explicitly at zero prices. Old administrator editing commands remain removed; `/adminshop` opens the client workbench.
+## Operations
 
-- [Installation](Installation.md)
+- [Installation and runtime matrix](Installation.md)
 - [Quick Start](Quick-Start.md)
-- [Player Guide](Player-Guide.md)
+- [Upgrade and rollback procedure](Upgrading.md)
+- [Player interaction and exact matching](Player-Guide.md)
 - [Command Reference](Command-Reference.md)
-- [Admin Guide](Admin-Guide.md)
-- [Configuration](Configuration-Files.md)
-- [Permissions](Permissions.md)
-- [Economy and Pricing](Economy-and-Pricing.md)
-- [Retired Folder Data](Shop-Folders.md)
-- [Items, Mods, and Data Packs](Imports-Mods-and-Data-Packs.md)
+- [Adminshop workflows and commit semantics](Admin-Guide.md)
+- [Configuration schema and persistence files](Configuration-Files.md)
+- [Permission nodes and provider precedence](Permissions.md)
+- [Pricing, valuation, and merchant protection](Economy-and-Pricing.md)
+- [Preset generation and portable files](Presets.md)
+- [Shop Modes and reward controls](Shop-Modes.md)
+- [Transactions, Trending, and account recovery](Transactions.md)
+- [Detected content and import limits](Imports-Mods-and-Data-Packs.md)
+- [Automatic variant folders and retired folder data](Shop-Folders.md)
 - [Troubleshooting](Troubleshooting.md)
-- [Release Checklist](Public-Release-Checklist.md)
 
+## Development
 
-Beta 1 adds unified stored prices, book/potion variants, portable preset import/export, damage/enchantment command valuation, public balance privacy and full-journal Trending. Modes use minutes and editable prefixes. See [Economy and Pricing](Economy-and-Pricing.md) for migration and safeguards.
+- [Architecture, builds, adapters, and networking](Developer-Guide.md)
+- [Release verification and publication checklist](Public-Release-Checklist.md)
+
+The repository's `wiki/` directory is the version-controlled source for these pages. Historical notes remain in `docs/archive/`, and prior changelogs remain in `docs/changelog/legacy/`.
