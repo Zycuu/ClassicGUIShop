@@ -42,6 +42,7 @@ tasks.register('prepareTargetSources', Exec) {
     inputs.file('.github/scripts/prepare_target_sources.py')
     inputs.file('.github/scripts/adapt_120_client.py')
     inputs.file('.github/scripts/adapt_nbt.py')
+    inputs.file('.github/scripts/adapt_121.py')
     outputs.dir(layout.buildDirectory.dir('generated'))
     commandLine 'python', '.github/scripts/prepare_target_sources.py', targetMinecraft
 }
@@ -77,17 +78,20 @@ processResources {
     inputs.property "minecraft_range", targetMinecraft
     inputs.property "java_version", targetProfile.java
     inputs.property "permissions_api", targetProfile.permissionsApi
+    inputs.property "loader_minimum", targetProfile.loaderMinimum
+    inputs.property "legacy_lead_recipe", targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21.1', '1.21.4']
     filesMatching("fabric.mod.json") {
         expand(
             "version": project.version,
             "minecraft_range": targetMinecraft,
             "java_version": targetProfile.java,
+            "loader_minimum": targetProfile.loaderMinimum,
             "permissions_api": targetProfile.permissionsApi
         )
     }
-    // Leads yield two for four string plus slime on the supported 1.20 releases.
+    // These releases yield two leads for four string plus slime.
     // Keep the economic witness consistent with that native recipe.
-    if (targetMinecraft.startsWith('1.20.')) {
+    if (targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21.1', '1.21.4']) {
         filesMatching('guishop/vanilla-preset-values-26.3.json') {
             filter { line ->
                 def data = new groovy.json.JsonSlurper().parseText(line)
@@ -142,6 +146,21 @@ sourceSets {
 }
 
 dependencies { compatibilityTestCompileOnly 'net.luckperms:api:5.5' }
+
+tasks.named('processReleaseTestResources') {
+    if (targetMinecraft.startsWith('1.20.')) {
+        eachFile { details -> details.path = details.path.replace('/advancement/', '/advancements/') }
+        if (targetMinecraft in ['1.20.1', '1.20.4']) {
+            filesMatching('data/**/*.json') {
+                filter { line ->
+                    def data = new groovy.json.JsonSlurper().parseText(line)
+                    if (data.display?.icon?.id) data.display.icon.item = data.display.icon.remove('id')
+                    groovy.json.JsonOutput.toJson(data)
+                }
+            }
+        }
+    }
+}
 
 tasks.register('compatibilityTestJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
@@ -206,11 +225,13 @@ if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') ||
     }
     if (project.hasProperty("betaReviewOnly")) loom.runs.client.vmArg "-Dguishop.betaReviewOnly=true"
     tasks.named('runClient') { dependsOn tasks.named('clientTestClasses') }
+    if (project.hasProperty('clientTestJava')) tasks.named('runClient') { executable = project.property('clientTestJava').toString() }
     tasks.named('processClientTestResources') {
         def entrypoint = project.hasProperty('standaloneFontTest') ? 'com.zycu.guishop.client.StandaloneFontTest' : project.hasProperty('beta8UiTest') ? 'com.zycu.guishop.client.Beta8UiTest' : project.hasProperty('beta7UiTest') ? 'com.zycu.guishop.client.Beta7UiTest' : project.hasProperty('playerUiTest') ? 'com.zycu.guishop.clienttest.PlayerShopUiTest' : 'com.zycu.guishop.client.AlphaUiTest'
         inputs.property 'test_entrypoint', entrypoint
+        inputs.property 'loader_minimum', targetProfile.loaderMinimum
         filesMatching('fabric.mod.json') {
-            expand(test_entrypoint: entrypoint)
+            expand(test_entrypoint: entrypoint, loader_minimum: targetProfile.loaderMinimum)
         }
     }
     if (project.hasProperty('playerUiTest')) {

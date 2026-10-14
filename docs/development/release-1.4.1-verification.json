@@ -1,0 +1,249 @@
+{
+  "version": "1.4.1",
+  "artifact": "ClassicGUIShop-v1.4.1.jar",
+  "bytes": 11700171,
+  "sha256": "63d950bcaf6497124b2feb29526f21b96409df1334690d363be830111740d5c8",
+  "singleInstallableJar": true,
+  "versions": [
+    {
+      "minecraft": "26.3",
+      "minimumJava": 25,
+      "loaderMinimum": "0.19.3",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1952,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.7.0"
+    },
+    {
+      "minecraft": "26.2",
+      "minimumJava": 25,
+      "loaderMinimum": "0.18.4",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1847,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.7.0"
+    },
+    {
+      "minecraft": "26.1.2",
+      "minimumJava": 25,
+      "loaderMinimum": "0.18.4",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1816,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.7.0"
+    },
+    {
+      "minecraft": "1.21.11",
+      "minimumJava": 21,
+      "loaderMinimum": "0.17.3",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1815,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.6.1"
+    },
+    {
+      "minecraft": "1.21.4",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.9",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1692,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.3.3"
+    },
+    {
+      "minecraft": "1.21.1",
+      "minimumJava": 21,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1640,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.3.1"
+    },
+    {
+      "minecraft": "1.20.6",
+      "minimumJava": 21,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1637,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.3.1"
+    },
+    {
+      "minecraft": "1.20.4",
+      "minimumJava": 17,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1595,
+      "enchantmentPotionVariants": 285,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.3.1"
+    },
+    {
+      "minecraft": "1.20.1",
+      "minimumJava": 17,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1538,
+      "enchantmentPotionVariants": 285,
+      "minimumLoaderConnectedClientPass": true,
+      "editorAndDetectedContentPass": true,
+      "advancementCatalogAndSavedOverrideFilterPass": true,
+      "fontAndResourceReloadPass": true,
+      "advancementRecipeAndTechnicalOverrideDenied": true,
+      "hiddenModdedAndOrdinaryVanillaPayouts": {
+        "hidden": 123,
+        "ordinary": 25,
+        "journalEntries": 2
+      },
+      "permissionApiCompileTarget": "0.3.1"
+    }
+  ],
+  "totalMinimumAndCurrentLoaderPurchaseSalePairs": 31064,
+  "additionalCompatibilityRuns": [
+    {
+      "minecraft": "1.20.1",
+      "loader": "0.18.4",
+      "fullFabricApi": true,
+      "permissionApi": "0.3.1",
+      "purchaseSalePairs": 1538,
+      "passed": true
+    },
+    {
+      "minecraft": "1.21.4",
+      "loader": "0.16.9",
+      "fullFabricApi": false,
+      "permissionApi": "0.3.3",
+      "purchaseSalePairs": 1692,
+      "passed": true
+    },
+    {
+      "minecraft": "1.21.1",
+      "loader": "0.15.11",
+      "fullFabricApi": false,
+      "permissionApi": "0.3.1",
+      "purchaseSalePairs": 1640,
+      "passed": true
+    }
+  ],
+  "totalPurchaseSalePairs": 35934,
+  "nativeRecipeAudits": [
+    {
+      "minecraft": "1.21.1",
+      "nativeRecipeCount": 1290,
+      "presetResults": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "scope": "Actual release generated prices and version-native ordinary recipes. Shared world, special-recipe and protected merchant constraints reuse the verified 26.3 audit; this does not claim an independent native replay of those mechanics on older versions."
+    },
+    {
+      "minecraft": "1.21.4",
+      "nativeRecipeCount": 1370,
+      "presetResults": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "scope": "Actual release generated prices and version-native ordinary recipes. Shared world, special-recipe and protected merchant constraints reuse the verified 26.3 audit; this does not claim an independent native replay of those mechanics on older versions."
+    }
+  ],
+  "issue27": "Shared eligibility gate before discovery and payment lookup; no-display technical entries and recipes/ paths excluded. Existing overrides retained without editor rows. Genuine display.hidden challenges and one-time payouts preserved.",
+  "candidateComparison": "Initial minimum-Loader server runs used candidate1; final candidate2 differs only in AdminScreen help-text class for every target, byte comparison verified. All Loader 0.19.5 runs, connected servers, full-API and optional permission runs used candidate2.",
+  "connectedClientScope": "Actual minimum-Loader clients in development mappings, matching Java 17/21/25, connected to servers running the universal distribution. Includes shop/Adminshop, detection, advancement catalog and editor preservation, and font resource reload.",
+  "liveUserWorldsModified": false,
+  "published": false,
+  "sourceBaseCommit": "14eee639439a18e3ca3314474a090644ba32556d"
+}

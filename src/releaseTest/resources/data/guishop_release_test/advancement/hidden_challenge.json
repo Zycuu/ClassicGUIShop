@@ -1,0 +1,1 @@
+{"parent":"minecraft:story/root","criteria":{"test":{"trigger":"minecraft:impossible"}},"display":{"icon":{"id":"minecraft:diamond"},"title":"Hidden challenge fixture","description":"A genuine hidden advancement remains eligible","frame":"challenge","hidden":true,"show_toast":false,"announce_to_chat":false}}

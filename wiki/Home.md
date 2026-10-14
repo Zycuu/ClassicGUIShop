@@ -1,6 +1,6 @@
 # ClassicGUIShop technical wiki
 
-This wiki documents **1.4.0** for server operators and contributors. One universal Fabric JAR supports the exact Minecraft releases listed in [Installation](Installation.md).
+This wiki documents **1.4.1** for server operators and contributors. One universal Fabric JAR supports the exact Minecraft releases listed in [Installation](Installation.md).
 
 The shop and economy execute on the server. Ordinary player commands and chest menus work without a modded client. Adminshop requires the matching client JAR and server authorization through `guishop.admin`, with OP level 2 as the unassigned fallback.
 

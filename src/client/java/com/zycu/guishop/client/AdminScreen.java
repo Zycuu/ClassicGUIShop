@@ -340,7 +340,7 @@ public final class AdminScreen extends WorkbenchScreen {
         String help = switch (modeSection) {
             case "Passive Income" -> "Survival/adventure play earns income. AFK counts; offline time and disabled periods do not.";
             case "Cash Mobs" -> "Living mobs only. 0 uses vanilla rewards of 2 to 50. Added mobs use your default override. Quick farming bypasses cooldowns.";
-            case "Advancement Hunter" -> "One reward per advancement. Vanilla: Task 25, Goal 100, Challenge 500. Hidden entries pay 0.";
+            case "Advancement Hunter" -> "One reward per advancement. Vanilla: Task 25, Goal 100, Challenge 500. Recipe unlocks and internal entries are excluded.";
             case "Mishap Charge" -> "Each survival/adventure death is charged once. Debt is optional. Warrior deductions apply separately.";
             default -> "Repeat pairs, self kills and creative/spectator players do not pay. Same-address blocking includes shared connections.";
         };

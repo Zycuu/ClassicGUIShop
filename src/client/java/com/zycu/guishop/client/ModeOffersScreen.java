@@ -26,7 +26,7 @@ final class ModeOffersScreen extends WorkbenchScreen {
         this.parent=parent;this.config=config;this.advancements=advancements;
         var entries=new LinkedHashMap<String,ShopModes.Offer>();
         for(var offer:advancements?content.advancements():content.entities())entries.put(offer.id(),offer);
-        if(advancements)for(var id:prices().keySet())entries.putIfAbsent(id,new ShopModes.Offer(id,"Unavailable content",0));
+        // Entries absent from the eligible catalog stay preserved below, without reviving hidden recipes.
         this.catalog=entries.values().stream().sorted(Comparator.comparing(ShopModes.Offer::name,String.CASE_INSENSITIVE_ORDER).thenComparing(ShopModes.Offer::id)).toList();
         for(var entry:prices().entrySet()) {
             if(entries.containsKey(entry.getKey())){amounts.put(entry.getKey(),Double.toString(entry.getValue()));added.add(entry.getKey());}

@@ -29,12 +29,43 @@ public final class ReleaseSmoke implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server->{if(ran||server.getTickCount()<4)return;ran=true;try{run(server);}catch(Throwable error){error.printStackTrace();System.out.println("[Release smoke] FAIL: "+error);}});
     }
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
+    private static void award(ServerPlayer player, net.minecraft.advancements.AdvancementHolder advancement) {
+        var criteria=new ArrayList<String>();
+        player.getAdvancements().getOrStartProgress(advancement).getRemainingCriteria().forEach(criteria::add);
+        for(var criterion:criteria)player.getAdvancements().award(advancement,criterion);
+    }
+    private static void advancementRewards(net.minecraft.server.MinecraftServer server,ServerPlayer player) {
+        var nativeRecipe=server.getAdvancements().get(Identifier.parse("minecraft:recipes/building_blocks/oak_planks"));
+        var visibleRecipe=server.getAdvancements().get(Identifier.parse("guishop_release_test:recipes/visible_recipe"));
+        var technical=server.getAdvancements().get(Identifier.parse("guishop_release_test:technical"));
+        var hidden=server.getAdvancements().get(Identifier.parse("guishop_release_test:hidden_challenge"));
+        var ordinary=server.getAdvancements().get(Identifier.parse("minecraft:story/mine_stone"));
+        check(nativeRecipe!=null&&visibleRecipe!=null&&technical!=null&&hidden!=null&&ordinary!=null,"Advancement fixtures loaded");
+        check(!ShopModes.rewardAdvancement(nativeRecipe)&&!ShopModes.rewardAdvancement(visibleRecipe)&&!ShopModes.rewardAdvancement(technical),"Recipe and internal advancements excluded");
+        check(ShopModes.rewardAdvancement(hidden)&&ShopModes.rewardAdvancement(ordinary),"Hidden challenges and genuine advancements eligible");
+        var prior=GuiShop.CONFIG.modes;
+        try {
+            var modes=new ShopModesConfig();modes.advancementsEnabled=true;GuiShop.CONFIG.modes=modes;
+            modes.advancementPrices.put("minecraft:recipes/building_blocks/oak_planks",500.0);
+            modes.advancementPrices.put("guishop_release_test:recipes/visible_recipe",500.0);
+            modes.advancementPrices.put("guishop_release_test:technical",500.0);
+            modes.advancementPrices.put("guishop_release_test:hidden_challenge",123.0);
+            modes.advancementPrices.put("minecraft:story/mine_stone",25.0);
+            GuiShop.ECONOMY.setBalance(player.getUUID(),1000);
+            award(player,nativeRecipe);award(player,visibleRecipe);award(player,technical);
+            check(GuiShop.ECONOMY.balance(player.getUUID())==1000,"Saved recipe/internal overrides cannot pay");
+            award(player,hidden);check(GuiShop.ECONOMY.balance(player.getUUID())==1123,"Hidden modded challenge pays configured reward");
+            award(player,ordinary);check(GuiShop.ECONOMY.balance(player.getUUID())==1148,"Visible vanilla advancement pays reward");
+            ShopModes.advancement(player,hidden);check(GuiShop.ECONOMY.balance(player.getUUID())==1148,"Completed advancement does not pay twice");
+        } finally {GuiShop.CONFIG.modes=prior;}
+    }
     private void run(net.minecraft.server.MinecraftServer server)throws Exception{
         var level=server.overworld();level.getChunk(0,0);
         var player=new ServerPlayer(server,level,new GameProfile(UUID.fromString("a34bf098-dc2f-4e33-9cc2-d129238fdb68"),"ReleaseTest"),ClientInformation.createDefault());
         player.setPos(8,128,8);
         player.connection=new ServerGamePacketListenerImpl(server,new Connection(PacketFlow.SERVERBOUND),player,CommonListenerCookie.createInitial(player.getGameProfile(),false));
         check(!AdminEditorService.allowed(player),"Unprivileged player cannot access Adminshop");
+        advancementRewards(server,player);
         var generator=com.zycu.guishop.admin.ShopPresets.class.getDeclaredMethod("generate",net.minecraft.server.MinecraftServer.class,com.zycu.guishop.admin.ShopPresets.Request.class);generator.setAccessible(true);
         var nativePrices=new java.util.LinkedHashMap<String,Object>();
         for(String preset:List.of("normal","hard","easy","basics")){

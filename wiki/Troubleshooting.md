@@ -2,13 +2,13 @@
 
 ## Startup or dependency failure
 
-Verify the exact Minecraft release, Java minimum, Fabric Loader 0.19.5+, and one active universal JAR. Remove duplicate active installations through your normal deployment process after preserving backups. Other mods/full Fabric API must match Minecraft.
+Verify the exact Minecraft release, Java minimum, the [per-version Fabric Loader minimum](Installation.md), and one active universal JAR. Remove duplicate active installations through your normal deployment process after preserving backups. Other mods/full Fabric API must match Minecraft.
 
 A configuration parse failure deliberately refuses startup. Stop the server, preserve the invalid bytes, inspect the named file/error, and repair or restore a consistent backup. Do not delete the configuration directory to make the failure disappear.
 
 ## F8 or `/adminshop` does not open
 
-Use the same 1.4.0 JAR on the matching administrator client and server. Check the Controls keybind. Old editor protocols cannot open/apply the current draft format. Confirm `guishop.admin`; explicit provider denial applies even to operators.
+Use the same 1.4.1 JAR on the matching administrator client and server. Check the Controls keybind. Old editor protocols cannot open/apply the current draft format. Confirm `guishop.admin`; explicit provider denial applies even to operators.
 
 ## Shop is empty
 

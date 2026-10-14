@@ -1,5 +1,5 @@
 name: Build ClassicGUIShop
-run-name: ClassicGUIShop 1.4.0 - ${{ github.event_name }} - ${{ github.sha }}
+run-name: ClassicGUIShop 1.4.1 - ${{ github.event_name }} - ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        minecraft: ["26.3", "26.2", "26.1.2", "1.21.11", "1.20.6", "1.20.4", "1.20.1"]
+        minecraft: ["26.3", "26.2", "26.1.2", "1.21.11", "1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.20.1"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -62,11 +62,11 @@ jobs:
               destination.mkdir(parents=True)
               for jar in directory.glob('*.jar'): shutil.copy2(jar, destination / jar.name)
           PY
-          python .github/scripts/package_universal.py release/ClassicGUIShop-v1.4.0.jar
-          sha256sum release/ClassicGUIShop-v1.4.0.jar > release/ClassicGUIShop-v1.4.0.jar.sha256
+          python .github/scripts/package_universal.py release/ClassicGUIShop-v1.4.1.jar
+          sha256sum release/ClassicGUIShop-v1.4.1.jar > release/ClassicGUIShop-v1.4.1.jar.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: ClassicGUIShop-1.4.0
+          name: ClassicGUIShop-1.4.1
           path: release/*
 
   runtime:
@@ -75,11 +75,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        minecraft: ["26.3", "26.2", "26.1.2", "1.21.11", "1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.20.1"]
+        loader: ["minimum", "0.19.5"]
         include:
           - { minecraft: "26.3", java: "25", remap: false }
           - { minecraft: "26.2", java: "25", remap: false }
           - { minecraft: "26.1.2", java: "25", remap: false }
           - { minecraft: "1.21.11", java: "21", remap: true }
+          - { minecraft: "1.21.4", java: "21", remap: true }
+          - { minecraft: "1.21.1", java: "21", remap: true }
           - { minecraft: "1.20.6", java: "21", remap: true }
           - { minecraft: "1.20.4", java: "17", remap: true }
           - { minecraft: "1.20.1", java: "17", remap: true }
@@ -94,7 +98,7 @@ jobs:
           python-version: "3.12"
       - uses: actions/download-artifact@v4
         with:
-          name: ClassicGUIShop-1.4.0
+          name: ClassicGUIShop-1.4.1
           path: release
       - uses: actions/download-artifact@v4
         with:
@@ -104,15 +108,19 @@ jobs:
         env:
           TARGET: ${{ matrix.minecraft }}
           REMAP: ${{ matrix.remap }}
+          LOADER: ${{ matrix.loader }}
         run: |
           classifier=release-test-dev
           if [ "$REMAP" = "true" ]; then classifier=release-test; fi
-          python .github/scripts/setup_fabric_server.py "$TARGET" server release/ClassicGUIShop-v1.4.0.jar 0.19.5 false "tests/ClassicGUIShop-mc$TARGET-v1.4.0-$classifier.jar"
+          if [ "$LOADER" = "minimum" ]; then
+            LOADER=$(python -c 'import json, os; print(json.load(open("ports/targets.json"))[os.environ["TARGET"]]["loaderMinimum"])')
+          fi
+          python .github/scripts/setup_fabric_server.py "$TARGET" server release/ClassicGUIShop-v1.4.1.jar "$LOADER" false "tests/ClassicGUIShop-mc$TARGET-v1.4.1-$classifier.jar"
           printf 'server-ip=127.0.0.1\nserver-port=25589\nonline-mode=false\nview-distance=2\nsimulation-distance=2\nlevel-name=release-test-world\n' > server/server.properties
       - name: Test native purchases, sales, variants and live villagers
         run: python .github/scripts/run_release_smoke.py server results/report.json --disposable
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: runtime-${{ matrix.minecraft }}
+          name: runtime-${{ matrix.minecraft }}-${{ matrix.loader }}
           path: results/*

@@ -11,7 +11,7 @@
 | `ports/targets.json` | Exact runtime/build profiles, Java/API versions and remapping selection |
 | `ports/` | Version adapters and lossless legacy NBT helpers |
 | `.github/scripts/prepare_target_sources.py` | Generates target-specific source under `build/<version>/generated/` |
-| `.github/scripts/adapt_120_client.py`, `adapt_nbt.py` | Older rendering/input and item-data compatibility |
+| `.github/scripts/adapt_120_client.py`, `adapt_nbt.py`, `adapt_121.py` | Older rendering/input and item-data compatibility |
 | `src/compatibilityTest/`, `src/vanillaAudit/`, `src/releaseTest/`, `src/clientTest/` | Separate opt-in verification addons; excluded from distribution |
 | `wiki/`, `docs/` | Current reference, build/audit records, historical notes |
 
@@ -23,9 +23,9 @@ Use JDK 25, Gradle 9.6.0, and Python 3.10+. The project does not ship a Gradle w
 
 `gradle -PtargetMinecraft=<exact-version> build` selects the profile, Java release target, remapping plugin, module versions, and output directory. 26.x uses unobfuscated APIs; the listed 1.x profiles use official Mojang mappings/remapping. Older item formats use lossless typed NBT adapters instead of discarding components.
 
-Build all seven entries in `ports/targets.json`, then run `python .github/scripts/package_universal.py <new-output.jar>`. The script validates each child mod ID, exact Minecraft dependency, version, and exclusion of test classes. It opens the destination exclusively and refuses to overwrite an existing artifact.
+Build all nine entries in `ports/targets.json`, then run `python .github/scripts/package_universal.py <new-output.jar>`. The script validates each child mod ID, exact Minecraft dependency, version, and exclusion of test classes. It opens the destination exclusively and refuses to overwrite an existing artifact.
 
-The outer distribution has mod ID `classicguishop`; nested implementations use `guishop` and version `1.4.0+mc<target>`. Loader selects the matching implementation. The packager currently names/validates 1.4.0 explicitly; a fork changing the release number must update `gradle.properties`, the packager, and workflow artifact names together.
+The outer distribution has mod ID `classicguishop`; nested implementations use `guishop` and version `1.4.1+mc<target>`. Loader selects the matching implementation. The packager reads `mod_version` from `gradle.properties` and checks nested Loader floors against the selected profile. A fork changing the release number must also update workflow artifact names. `loader_version` is the build/development dependency; `loaderMinimum` in each profile controls runtime metadata.
 
 See [the complete build procedure](https://github.com/Zycuu/ClassicGUIShop/blob/main/docs/development/BUILDING.md) and [test commands](https://github.com/Zycuu/ClassicGUIShop/blob/main/docs/development/TESTING.md).
 
@@ -36,6 +36,8 @@ See [the complete build procedure](https://github.com/Zycuu/ClassicGUIShop/blob/
 `SaleValuation` is shared by worth/held sales. Exact configured variants take precedence over generic damage/enchantment quotation. `ShopMaps` applies native map initialization and economic identity normalization without stripping unrelated components.
 
 `AccountOperations` persists intent/receipts before mutation, and `TransactionJournal`/`Trending` supply history. Extending reward sources must preserve idempotent references and recovery ordering. Resetting GUI history is not deletion of archived evidence or reward receipts.
+
+`ShopModes.rewardAdvancement` is the shared discovery/payout eligibility boundary. Reject recipe and technical definitions before looking up saved price overrides. Do not reject `display.hidden` challenges or classify only by trigger type. `ModeOffersScreen` preserves excluded/missing overrides without synthesizing reward rows for them.
 
 `TradeLoopProtection` and merchant mixins derive effective payments while preserving native cost fields for reversible persistence. The native network and payment-consumption paths must agree. Review model scope before extending protection to arbitrary modded offers.
 

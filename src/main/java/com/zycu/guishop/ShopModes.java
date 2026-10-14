@@ -114,6 +114,7 @@ public final class ShopModes {
     }
     public static void advancement(ServerPlayer player, AdvancementHolder advancement) {
         if (state == null || GuiShop.CONFIG == null || !GuiShop.CONFIG.modes.advancementsEnabled || !eligible(player)) return;
+        if (!rewardAdvancement(advancement)) return;
         String id = advancement.id().toString();
         if (!player.getAdvancements().getOrStartProgress(advancement).isDone()) return;
         var config = GuiShop.CONFIG.modes;
@@ -125,10 +126,13 @@ public final class ShopModes {
         } catch (Exception error) { report(error); }
     }
     private static double suggested(AdvancementHolder value) {
-        if (value.value().display().isEmpty()) return 0;
+        if (!rewardAdvancement(value)) return 0;
         if (!value.id().getNamespace().equals("minecraft")) return GuiShop.CONFIG.modes.advancementDefault;
-        // Recipes and invisible roots have no vanilla payout; explicitly priced entries can opt in.
         return value.value().display().map(display -> switch (display.type()) { case TASK -> 25.0; case GOAL -> 100.0; case CHALLENGE -> 500.0; }).orElse(0.0);
+    }
+    /** Display presence identifies player-facing content; hidden challenges still have a display. */
+    public static boolean rewardAdvancement(AdvancementHolder value) {
+        return value.value().display().isPresent() && !value.id().getPath().startsWith("recipes/");
     }
     public static Catalog catalog(ServerPlayer player) {
         if (!AdminEditorService.allowed(player)) throw new SecurityException(AdminEditorService.DENIED);
@@ -143,7 +147,7 @@ public final class ShopModes {
             }catch(Exception error){System.err.println("[ClassicGUIShop] Could not classify detected mob "+id+": "+error.getMessage());}
             if(entities.size()>=10000)break;
         }
-        var advancements = player.level().getServer().getAdvancements().getAllAdvancements().stream().sorted(Comparator.comparing(value -> value.id().toString())).limit(10000)
+        var advancements = player.level().getServer().getAdvancements().getAllAdvancements().stream().filter(ShopModes::rewardAdvancement).sorted(Comparator.comparing(value -> value.id().toString())).limit(10000)
             .map(value -> new Offer(value.id().toString(), value.value().name().map(Component::getString).orElse(value.id().toString()), suggested(value))).toList();
         return new Catalog(entities, advancements);
     }

@@ -32,6 +32,21 @@ public final class StandaloneFontTest implements ClientModInitializer {
                 client.gui.setScreen(new AdminNoticeScreen("Ask the Server Owner for permission to use the Adminshop tools",client.gui.screen()));
                 stage=1;ticks=100;return;
             }
+            if(stage==14){
+                if(!(client.gui.screen() instanceof AdminScreen screen))return;
+                var field=AdminScreen.class.getDeclaredField("modeCatalog");field.setAccessible(true);
+                var catalog=(com.zycu.guishop.ShopModes.Catalog)field.get(screen);if(catalog==null)return;
+                if(catalog.advancements().isEmpty()||catalog.advancements().stream().anyMatch(entry->entry.id().contains(":recipes/")))throw new AssertionError("Advancement catalog includes recipe unlocks or is empty");
+                var draftField=AdminScreen.class.getDeclaredField("draft");draftField.setAccessible(true);
+                var document=(AdminDocument)draftField.get(screen);String recipe="minecraft:recipes/building_blocks/oak_planks";
+                document.config.modes.advancementPrices.put(recipe,500.0);
+                var rewards=new ModeOffersScreen(screen,document.config.modes,catalog,true);
+                var offers=ModeOffersScreen.class.getDeclaredField("catalog");offers.setAccessible(true);
+                for(var entry:(java.util.List<?>)offers.get(rewards))if(((com.zycu.guishop.ShopModes.Offer)entry).id().equals(recipe))throw new AssertionError("Saved override revived recipe in rewards editor");
+                var preserved=ModeOffersScreen.class.getDeclaredField("preserved");preserved.setAccessible(true);
+                if(!((java.util.Map<?,?>)preserved.get(rewards)).containsKey(recipe))throw new AssertionError("Excluded override was not preserved");
+                client.gui.setScreen(rewards);stage=1;ticks=100;return;
+            }
             if(stage==10){if(client.player==null)return;client.gui.setScreen(null);client.getConnection().sendCommand("shop");stage=11;return;}
             if(stage==11){if(!(client.player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu))return;client.player.closeContainer();client.getConnection().sendCommand("adminshop");stage=12;ticks=100;return;}
             if(stage==12){
@@ -46,7 +61,8 @@ public final class StandaloneFontTest implements ClientModInitializer {
                 if(!(client.gui.screen() instanceof AdminScreen screen))return;
                 var field=AdminScreen.class.getDeclaredField("detectedData");field.setAccessible(true);var page=(com.zycu.guishop.admin.DetectedContent.Page)field.get(screen);
                 if(page==null||!page.ready())return;if(page.sources().isEmpty())throw new AssertionError("Detected source packet empty");
-                stage=1;ticks=100;return;
+                if(!AdminShopClient.request("mode_catalog","",""))return;
+                stage=14;return;
             }
             if(stage==1&&ticks>125){
                 Screenshot.grab(client.gameDirectory,"before-reload-"+report.getFileName()+".png",client.gameRenderer.mainRenderTarget(),1,message->{});

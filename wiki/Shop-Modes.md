@@ -32,7 +32,7 @@ Intervals, cooldowns, and minimum online durations are in minutes. Fractional mi
 
 **Cash Mobs:** requires player kill credit for an eligible living mob/creature. Objects, projectiles, boats, armor stands, and decorations are excluded. **Add detected mobs** uses the same reward menu. Spawner farming and quick-farming/cooldown behavior are explicit settings; administrators must balance renewable farms.
 
-**Advancement Hunter:** rewards detected advancements once per player/advancement, including across history resets or revoke/regrant. Vanilla suggestions reflect advancement type; nonvanilla defaults use the configured amount. Saved missing overrides remain preserved.
+**Advancement Hunter:** rewards detected advancements once per player/advancement, including across history resets or revoke/regrant. Vanilla suggestions reflect advancement type; nonvanilla defaults use the configured amount. Only player-facing definitions with display data qualify. Recipe paths (`recipes/`) and definitions without display data are excluded from both discovery and payment, even with an old positive override. Hidden-until-earned challenges still qualify. Missing/excluded overrides remain preserved in the file but are not reintroduced into the editor list.
 
 **Warrior:** applies unordered player-pair cooldowns, minimum session time, and `blockSameAddress: true` by default. The same-address rule can affect legitimate players sharing a connection. Optional `allowNegativeBalance` permits victim debt; disabling new debt does not erase existing debt, which future credits repay.
 

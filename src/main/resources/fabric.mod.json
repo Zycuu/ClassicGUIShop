@@ -16,7 +16,7 @@
     {"config": "guishop.client.mixins.json", "environment": "client"}
   ],
   "depends": {
-    "fabricloader": ">=0.19.5",
+    "fabricloader": ">=${loader_minimum}",
     "minecraft": "${minecraft_range}",
     "java": ">=${java_version}"
   },

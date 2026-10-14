@@ -5,5 +5,5 @@
   "name": "ClassicGUIShop disposable Alpha UI test",
   "environment": "client",
   "entrypoints": {"client": ["${test_entrypoint}"]},
-  "depends": {"fabricloader": ">=0.19.5", "fabric-lifecycle-events-v1": "*"}
+  "depends": {"fabricloader": ">=${loader_minimum}", "fabric-lifecycle-events-v1": "*"}
 }

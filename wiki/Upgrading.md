@@ -1,5 +1,11 @@
 # Upgrading and rollback
 
+## Upgrade from 1.4.0 to 1.4.1
+
+Back up the complete stopped-server configuration and replace the universal JAR on the server and administrator clients. No new price, balance, or account migration is introduced. Categories, stored prices, and balances stay intact.
+
+1.4.1 adds Minecraft 1.21.1/1.21.4 and lowers Loader requirements per target; see [Installation](Installation.md). Advancement Hunter ignores recipe/internal definitions even if they have saved positive overrides. Those overrides are retained without paying or appearing as unavailable reward rows. Genuine hidden challenges remain eligible. Existing reward receipts remain intact; the update does not claw back past rewards.
+
 ## Upgrade from 1.3.17
 
 1. Stop external reward delivery and stop the Minecraft server.

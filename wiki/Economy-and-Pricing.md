@@ -50,7 +50,7 @@ The price model covers audited crafting, cooking, stonecutting, brewing, returne
 
 All purchasable vanilla listings retain positive selling values in the protected presets; administrative/unavailable entries remain disabled. Example Normal prices: logs 2.50/0.75, sticks 0.50/0.15, iron ingots 24/7.20, gold ingots 96/28.80, and emeralds 180/1.90. Emerald selling scales with the preset rather than a fixed 0.05 amount.
 
-Version-native ordinary recipe audits passed for all seven targets, including the older two-lead recipe correction for 1.20. Special interactions and shared constraints originate from the detailed 26.3 audit; every older world mechanic was not independently replayed.
+Version-native ordinary recipe audits cover all nine targets, including the older two-lead recipe correction for 1.20/1.21.1/1.21.4 and the 1.21.4 transmutation recipes. Special interactions and shared constraints originate from the detailed 26.3 audit; every older world mechanic was not independently replayed.
 
 Ordinary resource farming, XP progression, arbitrary mod mechanisms, changed datapack rules, custom components, administrator prices/rewards, and game duplication bugs remain outside the audit. The preset is not a guarantee against every possible exploit.
 

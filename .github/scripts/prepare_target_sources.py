@@ -3,6 +3,7 @@ from pathlib import Path
 import sys,re
 from adapt_120_client import adapt_client
 from adapt_nbt import adapt_nbt
+from adapt_121 import adapt_121
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = sys.argv[1]
@@ -118,6 +119,9 @@ def adapt(text, relative):
             if relative.name=='ReleaseSmoke.java':
                 text=text.replace(',ClientInformation.createDefault()', '')
                 text=text.replace(',CommonListenerCookie.createInitial(player.getGameProfile())', '')
+                text=text.replace('server.getAdvancements().get(', 'server.getAdvancements().getAdvancement(')
+    if TARGET in ('1.21.1','1.21.4'):
+        text = adapt_121(text,relative,TARGET)
     override = ROOT/'ports'/TARGET/relative
     if TARGET in ('1.20.4','1.20.1') and (ROOT/'ports/shared-nbt-overrides'/relative).exists():
         text=(ROOT/'ports/shared-nbt-overrides'/relative).read_text(encoding='utf-8')
@@ -133,7 +137,7 @@ for environment in ('main','client','compatibilityTest','vanillaAudit','clientTe
         destination=output/relative
         destination.parent.mkdir(parents=True,exist_ok=True)
         destination.write_text(adapt(path.read_text(encoding='utf-8'),relative),encoding='utf-8')
-if TARGET.startswith('1.20.'):
+if TARGET.startswith('1.20.') or TARGET == '1.21.1':
     for path in (ROOT/'ports/shared-1.20').rglob('*.java'):
         destination=ROOT/'build'/TARGET/'generated/main'/path.relative_to(ROOT/'ports/shared-1.20')
         destination.parent.mkdir(parents=True,exist_ok=True)
@@ -151,7 +155,7 @@ for path in (ROOT/'ports'/TARGET).rglob('*.java'):
     destination=ROOT/'build'/TARGET/'generated'/environment/relative
     destination.parent.mkdir(parents=True,exist_ok=True)
     destination.write_text(path.read_text(encoding='utf-8'),encoding='utf-8')
-if TARGET.startswith('1.20.'):
+if TARGET.startswith('1.20.') or TARGET in ('1.21.1','1.21.4'):
     for path in (ROOT/'ports/shared-client-1.20').rglob('*.java'):
         destination=ROOT/'build'/TARGET/'generated/client'/path.relative_to(ROOT/'ports/shared-client-1.20')
         destination.parent.mkdir(parents=True,exist_ok=True)

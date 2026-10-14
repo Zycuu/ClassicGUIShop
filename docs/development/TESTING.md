@@ -44,10 +44,16 @@ python .github/scripts/audit_native_preset_flow.py <protected-facts.json> <new-r
 
 `--native-trades` exports unprotected native-payment facts for generation without treating them as a zero-profit certification. Both audit methods must detect deliberately overpriced planks as a positive-profit control before a protected-preset result is trusted. SciPy/HiGHS is only a developer dependency, not bundled runtime software.
 
-Special interactions/shared constraints originate from 26.3. Ordinary version-native recipe checks cover all seven targets, including old lead recipes. Do not describe these checks as independently replaying every older world interaction.
+Special interactions/shared constraints originate from 26.3. The 1.4.0 record covers seven targets; 1.4.1 extends version-native ordinary recipe checks to 1.21.1 and 1.21.4, including their old lead recipes and 1.21.4 transmutation recipes. Do not describe these checks as independently replaying every older world interaction.
 
 ## Persistence and account checks
 
 Verify stopped-server migration/rollback, unchanged manual prices, empty-shop restart persistence, exact unavailable data, stale requests, rejected external edits, permission revocation, backups, and account recovery after write failure. Test reward retries across restart/history reset and passive/PvP receipt/debt behavior.
 
 The 1.4.0 preserved release summary is [release-1.4.0-verification.json](release-1.4.0-verification.json). Re-run affected checks after code, mapping, economic resource, migration, or protocol changes; documentation-only restructuring does not require altering or rebuilding the tested game artifact.
+
+## 1.4.1 compatibility regression
+
+CI runs all nine Minecraft targets with both their declared `loaderMinimum` and Loader 0.19.5. Release test fixtures cover vanilla recipe unlocks, a modded recipe with display data, a technical advancement, a genuine hidden modded challenge, positive saved overrides, normal rewards, and duplicate payout prevention. The fixture addon is excluded from the installable JAR.
+
+Connected client tests also inspect the received advancement catalog and verify that an excluded saved override is retained without returning to the rewards list. Run the font/network harness with `-Ploader_version=<minimum>` and `-PclientTestJava=<matching-java-executable>` to validate the minimum runtime rather than only the build JDK.

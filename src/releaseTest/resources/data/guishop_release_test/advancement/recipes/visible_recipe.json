@@ -1,0 +1,1 @@
+{"parent":"minecraft:story/root","criteria":{"test":{"trigger":"minecraft:impossible"}},"display":{"icon":{"id":"minecraft:crafting_table"},"title":"Recipe fixture","description":"Must never earn money","show_toast":false,"announce_to_chat":false}}

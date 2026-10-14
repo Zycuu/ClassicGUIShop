@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1
+
+- Added Minecraft 1.21.1 and 1.21.4 to the universal Fabric JAR.
+- Expanded Fabric Loader compatibility with version-specific minimums, including Loader 0.15.11 for Minecraft 1.20.1/1.20.4/1.20.6/1.21.1.
+- Fixed [#27](https://github.com/Zycuu/ClassicGUIShop/issues/27): Advancement Hunter no longer lists or rewards internal recipe unlocks. Existing positive overrides cannot bypass the filter.
+- Preserved genuine hidden advancement rewards and saved overrides for unavailable content, without showing excluded entries as unavailable rows.
+- Retained native item data, shop configuration, prices, and account receipts.
+- Extended build/runtime verification to minimum and current Loader versions and added advancement payout regression fixtures.
+
 ## 1.4.0
 
 Changes since 1.3.17. Earlier version notes are preserved in the [historical changelog index](docs/changelog/README.md).

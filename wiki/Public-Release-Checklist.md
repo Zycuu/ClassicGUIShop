@@ -1,5 +1,13 @@
 # Release verification and publication
 
+## 1.4.1 preparation record
+
+The nine exact Minecraft targets passed server purchase/sale and advancement regression checks at their declared minimum Loader versions and on Loader 0.19.5. Connected clients passed shop/Adminshop, detected content, advancement catalog/editor filtering, and bundled font reload checks at each minimum. The client harness uses development mappings; server checks use the universal distribution.
+
+Minecraft 1.20.1 also passed on Loader 0.18.4 with full Fabric API and the optional permissions API. Both added Minecraft versions passed optional permission grant/deny checks and version-native recipe pricing audits with unsafe-price controls.
+
+See the [1.4.1 verification summary](https://github.com/Zycuu/ClassicGUIShop/blob/main/docs/development/release-1.4.1-verification.json). These checks cover the installed vanilla/fixture content. They do not certify every third-party modpack or independently replay all older special world mechanics.
+
 ## 1.4.0 preparation record
 
 Local release verification covered all seven declared targets using one universal JAR: dedicated server purchase/sale pairs, exact book/potion variants, connected client shop/Adminshop/detection, bundled font rendering/resource reload, version-native ordinary recipe constraints, and optional permission API grant/deny behavior.
