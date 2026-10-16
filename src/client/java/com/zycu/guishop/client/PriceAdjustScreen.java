@@ -30,7 +30,7 @@ final class PriceAdjustScreen extends WorkbenchScreen {
     private final Map<BulkListings.Entry, Pick> catalog = new LinkedHashMap<>();
     private final List<Tab> tabs = new ArrayList<>();
     private final Map<String, String> searches = new LinkedHashMap<>();
-    private List<Pick> values = List.of();
+    private List<Pick> tabValues = List.of(), values = List.of();
     private String categoryId, query = "", buy = "", sell = "", message = "", error = "";
     private int tabPage, topRow;
     private boolean initialized, scrollDragging;
@@ -67,7 +67,7 @@ final class PriceAdjustScreen extends WorkbenchScreen {
         remove = button("Remove selected", 432, 279, 136, this::confirmRemove);
         selectAll = button("Select all", 80, 311, 156, () -> {
             boolean deselect = allSelected();
-            for (var pick : values) {
+            for (var pick : tabValues) {
                 if (deselect) selection.remove(pick.entry());
                 else selection.add(pick.entry());
             }
@@ -90,8 +90,8 @@ final class PriceAdjustScreen extends WorkbenchScreen {
     private static String searchable(String value) { return value.toLowerCase(Locale.ROOT).replace('_', ' ').replace('-', ' '); }
     private void filter(boolean reset) {
         String[] words = searchable(query).trim().split("\\s+");
-        values = catalog.values().stream().filter(pick -> categoryId.isBlank() || pick.entry().category().id.equals(categoryId))
-            .filter(pick -> { for (String word : words) if (!pick.search().contains(word)) return false; return true; }).toList();
+        tabValues = catalog.values().stream().filter(pick -> categoryId.isBlank() || pick.entry().category().id.equals(categoryId)).toList();
+        values = tabValues.stream().filter(pick -> { for (String word : words) if (!pick.search().contains(word)) return false; return true; }).toList();
         topRow = reset ? 0 : Math.min(topRow, maxRow()); hovered = null; updateButtons();
     }
     private void chooseTab(Tab tab) {
@@ -100,11 +100,11 @@ final class PriceAdjustScreen extends WorkbenchScreen {
         filter(true); rebuildWidgets();
     }
     private int maxRow() { return Math.max(0, (values.size() + COLUMNS - 1) / COLUMNS - ROWS); }
-    private boolean allSelected() { return !values.isEmpty() && values.stream().allMatch(pick -> selection.contains(pick.entry())); }
+    private boolean allSelected() { return !tabValues.isEmpty() && tabValues.stream().allMatch(pick -> selection.contains(pick.entry())); }
     private void updateButtons() {
         if (setPrices == null) return;
         setPrices.active = remove.active = clearPicks.active = !selection.isEmpty();
-        selectAll.active = !values.isEmpty();
+        selectAll.active = !tabValues.isEmpty();
         selectAll.setMessage(Component.literal(allSelected() ? "Deselect all" : "Select all"));
     }
     private static Double amount(String value) {
