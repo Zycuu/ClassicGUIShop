@@ -98,7 +98,17 @@ public final class AdminScreen extends WorkbenchScreen {
         if (width > 0) rebuildWidgets();
     }
     public void status(String value){status=value;}
-    void bulkUpdated(ShopConfig.Category category){for(var item:category.items){String prefix=item.listingId+":";errors.keySet().removeIf(v->v.startsWith(prefix));invalidInputs.keySet().removeIf(v->v.startsWith(prefix));}status="Updated "+category.items.size()+" items in "+category.name+". Save changes when ready.";}
+    void bulkUpdated(List<com.zycu.guishop.admin.BulkListings.Entry> entries, boolean removed) {
+        for (var entry : entries) {
+            String prefix = entry.item().listingId + ":";
+            errors.keySet().removeIf(key -> key.startsWith(prefix));
+            invalidInputs.keySet().removeIf(key -> key.startsWith(prefix));
+            if (removed && entry.item().listingId.equals(selectedItem)) selectedItem = null;
+        }
+        if (removed) { cancelDrag(); enchantId = null; enchantPreview = false; }
+        previewPage = 0;
+        status = (removed ? "Removed " : "Updated ") + entries.size() + " listings in the draft. Save changes when ready.";
+    }
     private String statusText(){return errors.isEmpty()?status:errors.values().iterator().next();}
     public void restore(com.zycu.guishop.admin.AdminEditorService.RestoreDraft restored) {
         baseline = AdminDocument.JSON.toJson(restored.live()); draft = restored.previous().copy(); draft.permissions=restored.live().permissions; revision = restored.revision();
@@ -360,7 +370,7 @@ public final class AdminScreen extends WorkbenchScreen {
             rebuildWidgets();
         });
         button("Back",397,76,55,this::up).active=category()!=null;
-        button("Bulk Adjust",344,107,108,()->minecraft.gui.setScreen(new PriceAdjustScreen(this,draft.config,categoryId,selectedItem))).active=category()!=null&&!category().items.isEmpty();
+        button("Bulk Adjust",344,107,108,()->minecraft.gui.setScreen(new PriceAdjustScreen(this,draft.config,categoryId))).active=draft.config.categories.stream().anyMatch(value->!value.items.isEmpty());
         search = field("Search listings", 166, 107, 172, query, value -> query = value);
         search.setHint(Component.literal("Search by name or item ID..."));
         search.setResponder(value -> { query = value; previewPage = 0; });

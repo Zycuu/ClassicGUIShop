@@ -114,4 +114,4 @@ The client Bulk Adjust dialog limits entered prices to 1 billion. The assembled 
 
 Configuration saves use checked writes and prior-byte backups. A failed parse refuses startup; a failed editor save is not acknowledged as success. A stale revision or external file edit rejects the draft.
 
-Configuration restoration affects shop/settings state, not player account rollback. Financial recovery requires consistent balances, account ledgers, mode progress, and journals. The historical `beta-price-migration-*` backup name remains in 1.4.0.
+Configuration restoration affects shop/settings state, not player account rollback. Financial recovery requires consistent balances, account ledgers, mode progress, and journals. The historical `beta-price-migration-*` backup name remains in 1.4.x.

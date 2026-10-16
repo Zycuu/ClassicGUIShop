@@ -8,7 +8,7 @@ A configuration parse failure deliberately refuses startup. Stop the server, pre
 
 ## F8 or `/adminshop` does not open
 
-Use the same 1.4.1 JAR on the matching administrator client and server. Check the Controls keybind. Old editor protocols cannot open/apply the current draft format. Confirm `guishop.admin`; explicit provider denial applies even to operators.
+Use the same 1.4.2 JAR on the matching administrator client and server. Check the Controls keybind. Old editor protocols cannot open/apply the current draft format. Confirm `guishop.admin`; explicit provider denial applies even to operators.
 
 ## Shop is empty
 
@@ -24,7 +24,7 @@ Import warnings identify unsupported/contextual definitions. Use Add held item f
 
 ## Missing text or incorrect icons
 
-1.4.0 bundles the Adminshop font/resource-loader modules. Ensure server/client use the complete universal JAR, inspect resource-pack conflicts, and test a resource reload. Do not replace the global Minecraft font to repair an editor-only resource issue.
+ClassicGUIShop bundles the Adminshop font/resource-loader modules. Ensure server/client use the complete universal JAR, inspect resource-pack conflicts, and test a resource reload. Do not replace the global Minecraft font to repair an editor-only resource issue.
 
 Modded icons require their normal client dependencies; custom models need the associated resource pack. Category tooltips intentionally contain only shop/category text. Purchased items retain native lore and data.
 

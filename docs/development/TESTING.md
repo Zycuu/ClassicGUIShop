@@ -57,3 +57,13 @@ The 1.4.0 preserved release summary is [release-1.4.0-verification.json](release
 CI runs all nine Minecraft targets with both their declared `loaderMinimum` and Loader 0.19.5. Release test fixtures cover vanilla recipe unlocks, a modded recipe with display data, a technical advancement, a genuine hidden modded challenge, positive saved overrides, normal rewards, and duplicate payout prevention. The fixture addon is excluded from the installable JAR.
 
 Connected client tests also inspect the received advancement catalog and verify that an excluded saved override is retained without returning to the rewards list. Run the font/network harness with `-Ploader_version=<minimum>` and `-PclientTestJava=<matching-java-executable>` to validate the minimum runtime rather than only the build JDK.
+
+## 1.4.2 bulk listing regression
+
+`BulkListingChecks` runs inside the separate release addon. It verifies exact variants across categories, duplicate selection handling, partial prices, disabled selling, finite/size bounds, unavailable-content rejection, stale selection atomicity, category preservation, detached-draft isolation and serialization after removal.
+
+Add `-PbulkSmoke=true -PnetworkSmoke=true` to the connected font harness for the Bulk Adjust interaction fixture. It exercises category tabs, scrollbar movement, search retention, offscreen Select matches, price editing, invalid input, removal confirmation cancellation/acceptance and sibling-variant preservation. Test clients remain visible so the operator can watch. Use only the isolated test account and owned server fixture.
+
+CI compiles every exact profile and runs native purchase/sale, advancement and bulk selection checks on both its minimum Loader and Loader 0.19.5. Client checks use the matching Java runtime, not only the development JDK.
+
+Add `-PbulkCommitSmoke=true` to exercise confirmed removal and repricing of real starter-shop listings followed by Save changes, server revision acknowledgement and a refreshed snapshot. This mutates the disposable server catalog, so never run it against a live server.

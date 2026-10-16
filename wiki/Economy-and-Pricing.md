@@ -4,7 +4,7 @@
 
 Each ordinary listing stores its final per-item buy/sell amounts. Buy 0 disables buying; Sell 0 disables selling. There is no live global multiplier, continuous preset ratio, or automatic startup repricing.
 
-Edit one item in Shop Builder, or use **Bulk Adjust** to assign the same two amounts to every listing in the selected category. Both operations edit the draft; Save changes is the commit boundary.
+Edit one item in Shop Builder, or use **Bulk Adjust** to set buy and/or sell amounts on selected listings across category tabs, or remove those listings with confirmation. Both operations edit the draft; Save changes is the commit boundary.
 
 Preset ratios are generation defaults, configured in Presets. They do not overwrite manual listing prices or balances. Normal/Basics ordinary returns default to 30%; Hard uses 3x base buys/10% targets, and Easy uses 75% base buys/95% targets. Safety caps may lower individual returns. See [Presets](Presets.md).
 
@@ -50,7 +50,7 @@ The price model covers audited crafting, cooking, stonecutting, brewing, returne
 
 All purchasable vanilla listings retain positive selling values in the protected presets; administrative/unavailable entries remain disabled. Example Normal prices: logs 2.50/0.75, sticks 0.50/0.15, iron ingots 24/7.20, gold ingots 96/28.80, and emeralds 180/1.90. Emerald selling scales with the preset rather than a fixed 0.05 amount.
 
-Version-native ordinary recipe audits cover all nine targets, including the older two-lead recipe correction for 1.20/1.21.1/1.21.4 and the 1.21.4 transmutation recipes. Special interactions and shared constraints originate from the detailed 26.3 audit; every older world mechanic was not independently replayed.
+Version-native ordinary recipe audits cover all 23 targets, including the older two-lead recipe correction through 1.21.5 and version-native transmutation recipes. Special interactions and shared constraints originate from the detailed 26.3 audit; every older world mechanic was not independently replayed.
 
 Ordinary resource farming, XP progression, arbitrary mod mechanisms, changed datapack rules, custom components, administrator prices/rewards, and game duplication bugs remain outside the audit. The preset is not a guarantee against every possible exploit.
 

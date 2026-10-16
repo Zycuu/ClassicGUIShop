@@ -1,5 +1,14 @@
 # Upgrading and rollback
 
+## Upgrade from 1.4.1 to 1.4.2
+
+Back up the complete stopped-server configuration and preserve the previous JAR. Replace the server and administrator client JARs together. The saved configuration schema and editor protocol remain unchanged. Existing listings, manual prices, accounts and transaction histories are preserved.
+
+Bulk Adjust now opens a listing selection browser instead of assigning prices to an entire category immediately. Choose exact listings across category tabs, then set prices or confirm removal from the draft. Save changes remains the server commit boundary. An empty category is retained after its final listing is removed.
+
+The universal JAR now includes the intermediate stable Minecraft releases missing from 1.4.1, from 1.20.1 through 26.3. Check [Installation](Installation.md) for each exact release and runtime minimum. Mod compatibility does not make Minecraft world downgrades safe; use backed-up, version-appropriate worlds for version changes.
+
+
 ## Upgrade from 1.4.0 to 1.4.1
 
 Back up the complete stopped-server configuration and replace the universal JAR on the server and administrator clients. No new price, balance, or account migration is introduced. Categories, stored prices, and balances stay intact.

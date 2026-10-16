@@ -1,5 +1,14 @@
 # Release verification and publication
 
+## 1.4.2 preparation record
+
+All 23 exact targets passed native server suites at minimum Loader versions and on Loader 0.19.5. The 55 successful native runs, including optional permissions/full-API and final packaging checks, exercised 94,019 purchase/sale pairs. Connected minimum-Loader clients passed Bulk Adjust, shop/Adminshop, detected content, advancement filtering and font/resource reload checks without full Fabric API.
+
+Fifteen clients also confirmed bulk deletion/repricing through Save changes and a refreshed authoritative server snapshot. Saved configuration and recovery backups were inspected; Java 17/21/25 examples retained identical edited shop files across server restart. All 23 version-native recipe audits passed Normal/Hard/Easy/Basics and detected the deliberately unsafe price control.
+
+See the [1.4.2 verification summary](https://github.com/Zycuu/ClassicGUIShop/blob/main/docs/development/release-1.4.2-verification.json). API-family adapters share behavior, but every release is compiled and tested independently. These checks do not certify arbitrary third-party mechanics or independently replay every older world interaction. CI publication remains a separate step from local preparation and Zycu's manual testing.
+
+
 ## 1.4.1 preparation record
 
 The nine exact Minecraft targets passed server purchase/sale and advancement regression checks at their declared minimum Loader versions and on Loader 0.19.5. Connected clients passed shop/Adminshop, detected content, advancement catalog/editor filtering, and bundled font reload checks at each minimum. The client harness uses development mappings; server checks use the universal distribution.

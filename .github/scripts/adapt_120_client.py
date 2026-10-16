@@ -1,22 +1,26 @@
-"""Preserve the editor's logical canvas on the pre-event, PoseStack client API."""
+"""Preserve the logical canvas on pre-event clients with either graphics API."""
 import re
 
-def adapt_client(text, name):
+def adapt_client(text, name, modern_graphics=False):
     text = re.sub(r'import net\.minecraft\.client\.input\.[^;]+;', '', text)
-    text = text.replace('.pushMatrix()', '.pushPose()').replace('.popMatrix()', '.popPose()')
-    text = re.sub(r'\.pose\(\)\.translate\(([^;]+)\);', r'.pose().translate(\1, 0);', text)
-    text = re.sub(r'\.pose\(\)\.scale\(([^;]+?)\)', r'.pose().scale(\1, 1)', text)
-    text = text.replace('net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,', '')
+    if not modern_graphics:
+        text = text.replace('.pushMatrix()', '.pushPose()').replace('.popMatrix()', '.popPose()')
+        text = re.sub(r'\.pose\(\)\.translate\(([^;]+)\);', r'.pose().translate(\1, 0);', text)
+        text = re.sub(r'\.pose\(\)\.scale\(([^;]+?)\)', r'.pose().scale(\1, 1)', text)
+        text = text.replace('net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,', '')
     text = text.replace('renderContents(', 'renderWidget(').replace('setTextShadow(false);', '')
-    text = re.sub(r'\b(graphics|g)\.setTooltipForNextFrame\(', r'LegacyTooltips.queue(\1,', text)
+    if not modern_graphics:
+        text = re.sub(r'\b(graphics|g)\.setTooltipForNextFrame\(', r'LegacyTooltips.queue(\1,', text)
     text = text.replace('KeyMapping.Category.register(new ResourceLocation("guishop", "adminshop"))', '"key.categories.guishop.adminshop"')
     text = re.sub(r'protected void init\(\)\s*\{', 'protected void init() { font=WorkbenchTheme.font();', text)
     text = re.sub(r'keyPressed\((?:net\.minecraft\.client\.input\.)?KeyEvent event\)', 'keyPressed(int key, int scanCode, int modifiers)', text)
     text = text.replace('event.key()', 'key').replace('super.keyPressed(event)', 'super.keyPressed(key,scanCode,modifiers)')
-    if name in ('AdminScreen.java','IconPickerScreen.java'):
+    if name in ('AdminScreen.java','IconPickerScreen.java','PriceAdjustScreen.java'):
         text = text.replace('mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy)', 'mouseDragged(double mouseX, double mouseY, int button, double dx, double dy)')
         text = text.replace('event.x()', 'mouseX').replace('event.y()', 'mouseY').replace('super.mouseDragged(event, dx, dy)', 'super.mouseDragged(mouseX,mouseY,button,dx,dy)')
     if name == 'WorkbenchScreen.java':
+        if not modern_graphics:
+            text = text.replace('parent.render(graphics, -100, -100, delta);', 'parent.render(graphics, -100, -100, delta); if(parent!=null)graphics.flush();')
         text = text.replace('super(net.minecraft.client.Minecraft.getInstance(), WorkbenchTheme.font(), Component.literal(title));', 'super(Component.literal(title)); this.font=WorkbenchTheme.font();')
         text = re.sub(r'    private MouseButtonEvent logical\(.*?\n    }\n', '', text, flags=re.S)
         start=text.index('    @Override public boolean mouseClicked(')
@@ -35,7 +39,7 @@ def adapt_client(text, name):
         return super.mouseDragged((x-originX)/scale-contentOffsetX(),(y-originY)/scale,button,dx/scale,dy/scale);
     }
 '''+text[end:]
-        text=text.replace('graphics.pose().popPose();','graphics.pose().popPose(); LegacyTooltips.flush();')
+        if not modern_graphics: text=text.replace('graphics.pose().popPose();','graphics.pose().popPose(); LegacyTooltips.flush();')
         text=text.replace('    protected abstract void paint(', '    public void renderBackground(GuiGraphics graphics,int x,int y,float delta) {}\n    protected abstract void paint(')
     if name == 'WorkbenchField.java':
         start=text.index('    private MouseButtonEvent inset(')

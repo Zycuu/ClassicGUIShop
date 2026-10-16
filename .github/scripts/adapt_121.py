@@ -39,6 +39,7 @@ def adapt_121(text, relative, target):
         if target == '1.21.4':
             text = text.replace('.blitSprite(', '.blitSprite(net.minecraft.client.renderer.RenderType::guiTextured,')
     if relative.name == 'StandaloneFontTest.java':
+        if target == '1.21.1': text = text.replace('client.getToastManager()', 'client.getToasts()')
         text = text.replace('org.lwjgl.glfw.GLFW.glfwHideWindow(client.getWindow().handle())', 'org.lwjgl.glfw.GLFW.glfwHideWindow(client.getWindow().getWindow())')
         text = text.replace('client.getMainRenderTarget(),1,message->{}', 'client.getMainRenderTarget(),message->{}')
         text = text.replace('button.onPress(new net.minecraft.client.input.MouseButtonEvent(0,0,new net.minecraft.client.input.MouseButtonInfo(0,0)))', 'button.onPress()')

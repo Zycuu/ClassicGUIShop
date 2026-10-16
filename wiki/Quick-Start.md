@@ -17,7 +17,7 @@
 5. Select **Save changes**. Confirm the server acknowledgment before testing the live `/shop` menu.
 6. Review Change History and the configuration backup under `config/guishop/backups/`.
 
-Use **Bulk Adjust** only when every listing in the selected category should receive the same buy and sell amounts. Use **Arrange mode** for placement, not price editing.
+Use **Bulk Adjust** to select existing listings across category tabs, then set their buy/sell amounts or remove them with confirmation. Changes stay in your draft until saved. Use **Arrange mode** for placement, not price editing.
 
 ## Import content or change presets
 

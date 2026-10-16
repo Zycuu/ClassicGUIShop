@@ -1,6 +1,6 @@
 # Automatic variant folders and retired data
 
-1.4.0 supports administrator-managed categories and automatically generated variant folders. It does not restore legacy user-created nested folder editing.
+1.4.x supports administrator-managed categories and automatically generated variant folders. It does not restore legacy user-created nested folder editing.
 
 | Listing family | Player/simulator organization |
 | --- | --- |

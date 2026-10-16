@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.2
+
+- Rebuilt Bulk Adjust around existing shop listings, with category tabs, search, a creative style scrollbar, and selections that persist across categories.
+- Added confirmed bulk removal of exact listings and variants while preserving empty categories and historical transactions.
+- Added bulk buy/sell editing for selected listings. Leave either field blank to preserve that price; use 0 to disable that side.
+- Kept all bulk changes in the editor draft until Save changes, with atomic validation and existing server safeguards.
+- Added the 14 missing intermediate stable Minecraft releases, bringing the universal Fabric JAR to 23 exact targets from 1.20.1 through 26.3.
+- Preserved per-release Fabric Loader minimums and bundled matching API modules.
+
 ## 1.4.1
 
 - Added Minecraft 1.21.1 and 1.21.4 to the universal Fabric JAR.

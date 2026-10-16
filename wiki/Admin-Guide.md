@@ -4,7 +4,7 @@
 
 Install the same universal JAR on the server and matching administrator client. Open `/adminshop` or F8, which is rebindable in Controls. The server checks `guishop.admin` on requests, saves, and asynchronous responses. An explicit permission-provider decision wins; unassigned administration falls back to OP level 2.
 
-Unauthorized clients receive: **Ask the Server Owner for permission to use the Adminshop tools**. Authorized users without the matching client mod receive installation guidance. Old editor protocols cannot apply drafts to 1.4.0.
+Unauthorized clients receive: **Ask the Server Owner for permission to use the Adminshop tools**. Authorized users without the matching client mod receive installation guidance. Old editor protocols cannot apply current drafts.
 
 ## Draft and commit semantics
 
@@ -29,7 +29,15 @@ Create/select a category to edit its name, tooltip description, icon, and order.
 
 Click a listing to edit its display name, description, and final buy/sell values. Zero disables that side. **Move listing...** chooses another category. Removing a category also removes its listings from the draft; committing creates a backup of the prior live catalog.
 
-**Bulk Adjust** changes every listing in the selected category to one specified buy value and one specified sell value, including automatic variants. **Update category** edits the draft. Cancel/Escape does not change the category. An unavailable imported item cannot be enabled by a bulk operation before its dependencies are installed.
+**Bulk Adjust** browses existing draft listings, including disabled listings and exact automatic/custom variants. It opens on the current category when one is selected; **All listings** searches the complete shop. Category tabs, per-tab searches and a creative style scrollbar support large catalogs. Picks survive tab changes, searches and tab paging.
+
+- Click a listing to select/deselect that exact listing. Other variants or copies in another category are independent.
+- **Select matches** selects every search match in the current tab, including rows outside the visible area. **Clear selection** clears picks across all tabs.
+- Enter a buy price, a sell price, or both, then **Set prices**. A blank field preserves that side; zero disables it. Both fields blank are rejected. The selected listings become manually priced.
+- **Remove selected** shows the total and category count for confirmation. Cancel preserves the listings and picks. Confirmation removes only those listings from the draft and retains empty categories.
+- **Done** or Escape returns to Shop Builder. Price changes and confirmed removals remain in the draft; **Save changes** commits them or **Discard changes** abandons them. No bulk operation edits balances, inventory or historical transactions.
+
+An unavailable imported listing cannot be enabled before its dependencies are installed. Invalid prices, stale selections and unavailable positive prices reject the whole operation before modifying any listing. The server independently validates the full saved draft, including conflicting prices for equivalent variants.
 
 ## Arrangement and simulator
 

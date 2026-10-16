@@ -58,4 +58,4 @@ With the server stopped, preserve **all** of `config/guishop/`, including balanc
 
 Do not discard receipts to tidy a history: doing so removes duplicate payout protection. Restoring balances without the corresponding ledger/journals can produce inconsistent history or replay state. Stop external reward delivery while restoring and reconcile events issued since the snapshot.
 
-The ledger stays at version 2 in 1.4.0. Older readers may reject it; use the matching complete backup when reverting versions.
+The ledger stays at version 2 in 1.4.x. Older readers may reject it; use the matching complete backup when reverting versions.

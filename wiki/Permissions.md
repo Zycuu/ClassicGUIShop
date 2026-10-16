@@ -36,11 +36,12 @@ No permission manager or permission API is bundled as a runtime requirement. Ins
 
 | Implementation family | Fabric Permissions API compile target |
 | --- | --- |
-| 26.3, 26.2, 26.1.2 | 0.7.0 |
+| 26.3, 26.2, 26.1, 26.1.1, 26.1.2 | 0.7.0 |
 | 1.21.11 | 0.6.1 |
-| 1.21.4 | 0.3.3 |
-| 1.21.1 | 0.3.1 |
-| 1.20.6, 1.20.4, 1.20.1 | 0.3.1 |
+| 1.21.9, 1.21.10 | 0.5.0 |
+| 1.21.2 through 1.21.8 | 0.3.3 |
+| 1.21, 1.21.1 | 0.3.1 |
+| 1.20.1 through 1.20.6 | 0.3.1 |
 
 These are the versioned adapters' declared API targets, not a claim that arbitrary provider JARs are interchangeable. A compatible Fabric LuckPerms provider can answer these generic checks; ClassicGUIShop does not configure it or integrate a Bukkit plugin directly. The API by itself is not a permission manager.
 

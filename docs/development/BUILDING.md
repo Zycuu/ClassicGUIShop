@@ -20,14 +20,14 @@ gradle --console=plain -PtargetMinecraft=1.20.4 build
 gradle --console=plain -PtargetMinecraft=1.20.1 build
 ```
 
-Outputs are under `build/<target>/libs/ClassicGUIShop-mc<target>-v1.4.1.jar`. Non-26.3 Java sources are generated in `build/<target>/generated/` by `prepareTargetSources`. Edit shared `src/` or the adapters, not generated output.
+Outputs are under `build/<target>/libs/ClassicGUIShop-mc<target>-v1.4.2.jar`. Non-26.3 Java sources are generated in `build/<target>/generated/` by `prepareTargetSources`. Edit shared `src/` or the adapters, not generated output.
 
 ## One installable artifact
 
 After all target builds:
 
 ```text
-python .github/scripts/package_universal.py release/ClassicGUIShop-v1.4.1.jar
+python .github/scripts/package_universal.py release/ClassicGUIShop-v1.4.2.jar
 ```
 
 The destination must not exist. The script validates child metadata and excluded test classes and packages nested implementations into one outer Fabric mod. Install/distribute only the resulting universal JAR. The target profile's bundled API modules remain within the correct implementation. Each profile declares its runtime `loaderMinimum`; packaging refuses a floor lower than any bundled module's Loader dependency. The wrapper uses the lowest selected floor. Keep the build `loader_version` separate from these runtime requirements.
@@ -42,6 +42,6 @@ Keep binary fixtures, runtime worlds, secrets, local outputs, and test addons ou
 
 ## CI
 
-`.github/workflows/build.yml` builds all nine implementations, packages the universal JAR, and runs native smoke checks on disposable loopback servers under Java 25/21/17 as appropriate. It uploads the universal artifact/checksum and diagnostic test reports separately.
+`.github/workflows/build.yml` builds all 23 implementations, packages the universal JAR, and runs native smoke checks on disposable loopback servers under Java 25/21/17 as appropriate. It uploads the universal artifact/checksum and diagnostic test reports separately.
 
 Pushes and pull requests targeting `main` trigger CI; `workflow_dispatch` allows manual execution. See [Testing](TESTING.md) and the [Developer Guide](../../wiki/Developer-Guide.md) for coverage and architecture.

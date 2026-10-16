@@ -43,6 +43,7 @@ tasks.register('prepareTargetSources', Exec) {
     inputs.file('.github/scripts/adapt_120_client.py')
     inputs.file('.github/scripts/adapt_nbt.py')
     inputs.file('.github/scripts/adapt_121.py')
+    inputs.file('.github/scripts/adapt_intermediate.py')
     outputs.dir(layout.buildDirectory.dir('generated'))
     commandLine 'python', '.github/scripts/prepare_target_sources.py', targetMinecraft
 }
@@ -79,7 +80,7 @@ processResources {
     inputs.property "java_version", targetProfile.java
     inputs.property "permissions_api", targetProfile.permissionsApi
     inputs.property "loader_minimum", targetProfile.loaderMinimum
-    inputs.property "legacy_lead_recipe", targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21.1', '1.21.4']
+    inputs.property "legacy_lead_recipe", targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21', '1.21.1', '1.21.2', '1.21.3', '1.21.4', '1.21.5']
     filesMatching("fabric.mod.json") {
         expand(
             "version": project.version,
@@ -91,7 +92,7 @@ processResources {
     }
     // These releases yield two leads for four string plus slime.
     // Keep the economic witness consistent with that native recipe.
-    if (targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21.1', '1.21.4']) {
+    if (targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21', '1.21.1', '1.21.2', '1.21.3', '1.21.4', '1.21.5']) {
         filesMatching('guishop/vanilla-preset-values-26.3.json') {
             filter { line ->
                 def data = new groovy.json.JsonSlurper().parseText(line)
@@ -150,7 +151,7 @@ dependencies { compatibilityTestCompileOnly 'net.luckperms:api:5.5' }
 tasks.named('processReleaseTestResources') {
     if (targetMinecraft.startsWith('1.20.')) {
         eachFile { details -> details.path = details.path.replace('/advancement/', '/advancements/') }
-        if (targetMinecraft in ['1.20.1', '1.20.4']) {
+        if (targetMinecraft in ['1.20.1', '1.20.2', '1.20.3', '1.20.4']) {
             filesMatching('data/**/*.json') {
                 filter { line ->
                     def data = new groovy.json.JsonSlurper().parseText(line)
@@ -206,6 +207,8 @@ if (project.hasProperty('alphaUiTest') || project.hasProperty('playerUiTest') ||
                 if(project.hasProperty('standaloneFontTest')) {
                     runDir "../clients/release-font-${targetMinecraft}"
                     vmArg "-Dguishop.fontReport=${project.property('standaloneFontTest')}"
+                    if(project.hasProperty('bulkSmoke')) vmArg '-Dguishop.bulkSmoke=true'
+                    if(project.hasProperty('bulkCommitSmoke')) vmArg '-Dguishop.bulkCommitSmoke=true'
                     if(project.hasProperty("networkSmoke")){programArgs "--username","ReleaseAdmin";vmArg "-Dguishop.networkSmoke=true"}
                 }
                 if(project.hasProperty('beta8UiTest')) {

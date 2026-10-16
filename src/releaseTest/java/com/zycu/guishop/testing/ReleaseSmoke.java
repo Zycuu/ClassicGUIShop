@@ -60,6 +60,7 @@ public final class ReleaseSmoke implements ModInitializer {
         } finally {GuiShop.CONFIG.modes=prior;}
     }
     private void run(net.minecraft.server.MinecraftServer server)throws Exception{
+        BulkListingChecks.verify();
         var level=server.overworld();level.getChunk(0,0);
         var player=new ServerPlayer(server,level,new GameProfile(UUID.fromString("a34bf098-dc2f-4e33-9cc2-d129238fdb68"),"ReleaseTest"),ClientInformation.createDefault());
         player.setPos(8,128,8);

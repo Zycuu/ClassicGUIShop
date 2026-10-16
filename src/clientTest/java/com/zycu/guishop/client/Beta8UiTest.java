@@ -22,7 +22,7 @@ public final class Beta8UiTest implements ClientModInitializer {
     private void tick(Minecraft client) {
         if(done)return;
         try {
-            if(!hidden){Class.forName("org.lwjgl.sdl.SDLVideo").getMethod("SDL_HideWindow",long.class).invoke(null,client.getWindow().handle());client.options.pauseOnLostFocus=false;hidden=true;}
+            if(!hidden){client.options.pauseOnLostFocus=false;hidden=true;}
             if(++age>6000)throw new AssertionError("Beta8 GUI timeout at step "+step);
             client.gui.toastManager().clear();
             if(delay-->0)return;

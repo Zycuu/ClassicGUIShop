@@ -1,0 +1,588 @@
+{
+  "version": "1.4.2",
+  "artifact": "ClassicGUIShop-v1.4.2.jar",
+  "bytes": 30285758,
+  "sha256": "79424e3b87499821102f53cfde26fb7b70d16affd8fc5c15c2fb9cc9f958b2d1",
+  "singleInstallableJar": true,
+  "versions": [
+    {
+      "minecraft": "26.3",
+      "minimumJava": 25,
+      "loaderMinimum": "0.19.3",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1952,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 2042,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "26.2",
+      "minimumJava": 25,
+      "loaderMinimum": "0.18.4",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1847,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1585,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "26.1.2",
+      "minimumJava": 25,
+      "loaderMinimum": "0.18.4",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1816,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1515,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "26.1.1",
+      "minimumJava": 25,
+      "loaderMinimum": "0.18.4",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1816,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1515,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "26.1",
+      "minimumJava": 25,
+      "loaderMinimum": "0.18.4",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1816,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1515,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "1.21.11",
+      "minimumJava": 21,
+      "loaderMinimum": "0.17.3",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1815,
+      "enchantmentPotionVariants": 312,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1470,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "1.21.10",
+      "minimumJava": 21,
+      "loaderMinimum": "0.17.0",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1795,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1461,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.21.9",
+      "minimumJava": 21,
+      "loaderMinimum": "0.17.0",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1795,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1461,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.21.8",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.13",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1723,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1407,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.21.7",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.13",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1723,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1407,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.21.6",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.13",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1722,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1407,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.21.5",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.10",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1703,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1373,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.21.4",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.9",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1692,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1370,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "1.21.3",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.8",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1682,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1337,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "1.21.2",
+      "minimumJava": 21,
+      "loaderMinimum": "0.16.7",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1682,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1337,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true
+    },
+    {
+      "minecraft": "1.21.1",
+      "minimumJava": 21,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1640,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1290,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.21",
+      "minimumJava": 21,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1640,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1290,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.20.6",
+      "minimumJava": 21,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1637,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1175,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.20.5",
+      "minimumJava": 21,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1637,
+      "enchantmentPotionVariants": 309,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1175,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.20.4",
+      "minimumJava": 17,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1595,
+      "enchantmentPotionVariants": 285,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1174,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.20.3",
+      "minimumJava": 17,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1595,
+      "enchantmentPotionVariants": 285,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1174,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.20.2",
+      "minimumJava": 17,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1538,
+      "enchantmentPotionVariants": 285,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1174,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    },
+    {
+      "minecraft": "1.20.1",
+      "minimumJava": 17,
+      "loaderMinimum": "0.15.11",
+      "minimumLoaderServerPass": true,
+      "loader0195ServerPass": true,
+      "purchaseSalePairsPerRun": 1538,
+      "enchantmentPotionVariants": 285,
+      "minimumLoaderConnectedClientPass": true,
+      "bulkListingBrowserPass": true,
+      "nativeRecipeCount": 1174,
+      "recipeAuditPresetProfit": {
+        "normal": -0.0,
+        "hard": -0.0,
+        "easy": -0.0,
+        "basics": -0.0
+      },
+      "unsafePriceControlDetected": true,
+      "realBulkCommitAndSnapshotRefreshPass": true,
+      "diskAndBackupVerified": true
+    }
+  ],
+  "nativeServerRuns": 55,
+  "totalPurchaseSalePairs": 94019,
+  "additionalCompatibilityRuns": [
+    {
+      "minecraft": "1.21.2",
+      "loader": "0.16.7",
+      "purchaseSalePairs": 1682,
+      "passed": true
+    },
+    {
+      "minecraft": "1.21.5",
+      "loader": "0.16.10",
+      "purchaseSalePairs": 1703,
+      "passed": true
+    },
+    {
+      "minecraft": "1.20.2",
+      "loader": "0.15.11",
+      "purchaseSalePairs": 1538,
+      "passed": true
+    },
+    {
+      "minecraft": "26.1",
+      "loader": "0.18.4",
+      "purchaseSalePairs": 1816,
+      "passed": true
+    },
+    {
+      "minecraft": "1.21.9",
+      "loader": "0.17.0",
+      "purchaseSalePairs": 1795,
+      "passed": true
+    },
+    {
+      "minecraft": "1.20.1",
+      "loader": "0.18.4",
+      "purchaseSalePairs": 1538,
+      "passed": true
+    },
+    {
+      "minecraft": "26.1.1",
+      "loader": "0.18.4",
+      "purchaseSalePairs": 1816,
+      "passed": true
+    },
+    {
+      "minecraft": "1.21.9",
+      "loader": "0.17.0",
+      "purchaseSalePairs": 1795,
+      "passed": true
+    },
+    {
+      "minecraft": "1.20.2",
+      "loader": "0.15.11",
+      "purchaseSalePairs": 1538,
+      "passed": true
+    }
+  ],
+  "bulkOperations": "Exact listing identity across categories, partial prices, zero disable, invalid/NaN bounds, unavailable imports, stale selection atomicity, preserved variants/categories and detached drafts.",
+  "realBulkCommitVersions": [
+    "26.3",
+    "1.21.10",
+    "1.21.9",
+    "1.21.8",
+    "1.21.7",
+    "1.21.6",
+    "1.21.5",
+    "1.21.1",
+    "1.21",
+    "1.20.6",
+    "1.20.5",
+    "1.20.4",
+    "1.20.3",
+    "1.20.2",
+    "1.20.1"
+  ],
+  "restartChecks": [
+    {
+      "minecraft": "26.3",
+      "passed": true,
+      "shopSha256Before": "9b3f09e79461408ee3eaaa5913d84390e4cd63ad25a409fa4324d5feabdd652d",
+      "shopSha256After": "9b3f09e79461408ee3eaaa5913d84390e4cd63ad25a409fa4324d5feabdd652d",
+      "removedListingsAbsentAfterRestart": true,
+      "pricesRetainedAfterRestart": true,
+      "propertiesRestored": true
+    },
+    {
+      "minecraft": "1.21.10",
+      "passed": true,
+      "shopSha256Before": "af9cdbd0cb8a3979864a4504fe49c4a099cce9fb979a3ccc293efed1758a1685",
+      "shopSha256After": "af9cdbd0cb8a3979864a4504fe49c4a099cce9fb979a3ccc293efed1758a1685",
+      "removedListingsAbsentAfterRestart": true,
+      "pricesRetainedAfterRestart": true,
+      "propertiesRestored": true
+    },
+    {
+      "minecraft": "1.20.1",
+      "passed": true,
+      "shopSha256Before": "f33bbf0a4b11114a8825f43749366c9f3e0085448271a73812293c4d020ac1c4",
+      "shopSha256After": "f33bbf0a4b11114a8825f43749366c9f3e0085448271a73812293c4d020ac1c4",
+      "removedListingsAbsentAfterRestart": true,
+      "pricesRetainedAfterRestart": true,
+      "propertiesRestored": true
+    }
+  ],
+  "clientScope": "Visible clients on minimum Loaders and Java 17/21/25, development mappings; connected servers use the universal distribution. Includes listing browser tabs/search/scroll/selection/removal/prices, shop/Adminshop/detection, advancement filtering and resource reload.",
+  "nativeRecipeScope": "Version-native ordinary recipe JSON with generated release prices and unsafe-price controls. Shared world interactions, special recipes and protected merchant constraints reuse the detailed 26.3 audit; this is not an independent native replay of every older world mechanic or arbitrary modpack.",
+  "candidateComparison": "Candidate1 minimum servers/client servers are byte-identical to candidate2 except the added resource-loader v0 dependency for 1.21.9/1.21.10, which were rerun. Candidate3 corrects only audit scope strings in 14 shared-family implementations; canonicalized constant pools and all instructions matched. Candidate3 also passed three native server suites and the 15 real-save clients.",
+  "liveUserWorldsModified": false,
+  "previousReleasePreserved": true,
+  "published": false,
+  "sourceBaseCommit": "65f3ac63fb83cbf6cfbf6d4531315be74e7ef22c"
+}

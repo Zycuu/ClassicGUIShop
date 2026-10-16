@@ -1,12 +1,14 @@
 """Build-time API adapters. Shared behavior stays in src; generated files stay under build."""
 from pathlib import Path
-import sys,re
+import sys,re,json
 from adapt_120_client import adapt_client
 from adapt_nbt import adapt_nbt
 from adapt_121 import adapt_121
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGET = sys.argv[1]
+RELEASE = sys.argv[1]
+PROFILE = json.loads((ROOT/'ports/targets.json').read_text())[RELEASE]
+TARGET = PROFILE.get('sourceFamily', RELEASE)
 
 def adapt(text, relative):
     if TARGET not in ('26.3', '26.2'):
@@ -64,7 +66,7 @@ def adapt(text, relative):
             text = re.sub(r'        var hidden =.*?icon.set\(DataComponents.TOOLTIP_DISPLAY, new TooltipDisplay\(false, hidden\)\);', '        icon.set(DataComponents.HIDE_ADDITIONAL_TOOLTIP, net.minecraft.util.Unit.INSTANCE);\n        for(var component:List.of(DataComponents.ENCHANTMENTS,DataComponents.STORED_ENCHANTMENTS))if(icon.has(component))icon.set(component,icon.get(component).withTooltip(false));\n        if(icon.has(DataComponents.ATTRIBUTE_MODIFIERS))icon.set(DataComponents.ATTRIBUTE_MODIFIERS,icon.get(DataComponents.ATTRIBUTE_MODIFIERS).withTooltip(false));', text,flags=re.S)
             text = text.replace('contents.addToTooltip(net.minecraft.world.item.Item.TooltipContext.EMPTY,lines::add,\n            net.minecraft.world.item.TooltipFlag.NORMAL,template);', 'contents.addPotionTooltip(lines::add,template.is(Items.TIPPED_ARROW)?0.125F:template.is(Items.LINGERING_POTION)?0.25F:1.0F,20.0F);')
     if TARGET != '26.3':
-        text = text.replace('Vanilla 26.3 only.', 'Vanilla '+TARGET+' registered items; shared verified constraints with version recipe corrections.')
+        text = text.replace('Vanilla 26.3 only.', 'Vanilla '+RELEASE+' registered items; shared verified constraints with version recipe corrections.')
         text = text.replace('LootItemFunctions.DIRECT_CODEC', 'LootItemFunctions.TYPED_CODEC')
         text = text.replace('context.getOptional(LootContextParams.THIS_ENTITY)', 'context.getOptionalParameter(LootContextParams.THIS_ENTITY)')
         text = text.replace('display.type()', 'display.getType()')
@@ -87,6 +89,7 @@ def adapt(text, relative):
         if '/client/' in str(relative).replace('\\','/'):
             text = adapt_client(text,relative.name)
         if relative.name=='StandaloneFontTest.java':
+            text=text.replace('client.getToastManager()', 'client.getToasts()')
             text=text.replace('button.onPress(new net.minecraft.client.input.MouseButtonEvent(0,0,new net.minecraft.client.input.MouseButtonInfo(0,0)))', 'button.onPress()')
             if TARGET in ('1.20.4','1.20.1'):text=text.replace('),false,null);', '),false);')
             if TARGET=='1.20.1':text=text.replace('net.minecraft.client.multiplayer.ServerData.Type.OTHER', 'false')
@@ -122,7 +125,10 @@ def adapt(text, relative):
                 text=text.replace('server.getAdvancements().get(', 'server.getAdvancements().getAdvancement(')
     if TARGET in ('1.21.1','1.21.4'):
         text = adapt_121(text,relative,TARGET)
-    override = ROOT/'ports'/TARGET/relative
+    if RELEASE != TARGET:
+        from adapt_intermediate import adapt_intermediate
+        text = adapt_intermediate(text, relative, RELEASE)
+    override = ROOT/'ports'/RELEASE/relative
     if TARGET in ('1.20.4','1.20.1') and (ROOT/'ports/shared-nbt-overrides'/relative).exists():
         text=(ROOT/'ports/shared-nbt-overrides'/relative).read_text(encoding='utf-8')
     if override.exists():
@@ -131,7 +137,7 @@ def adapt(text, relative):
 
 for environment in ('main','client','compatibilityTest','vanillaAudit','clientTest','releaseTest'):
     source=ROOT/'src'/environment/'java'
-    output=ROOT/'build'/TARGET/'generated'/environment
+    output=ROOT/'build'/RELEASE/'generated'/environment
     for path in source.rglob('*.java'):
         relative=path.relative_to(source)
         destination=output/relative
@@ -139,24 +145,24 @@ for environment in ('main','client','compatibilityTest','vanillaAudit','clientTe
         destination.write_text(adapt(path.read_text(encoding='utf-8'),relative),encoding='utf-8')
 if TARGET.startswith('1.20.') or TARGET == '1.21.1':
     for path in (ROOT/'ports/shared-1.20').rglob('*.java'):
-        destination=ROOT/'build'/TARGET/'generated/main'/path.relative_to(ROOT/'ports/shared-1.20')
+        destination=ROOT/'build'/RELEASE/'generated/main'/path.relative_to(ROOT/'ports/shared-1.20')
         destination.parent.mkdir(parents=True,exist_ok=True)
         destination.write_text(path.read_text(encoding='utf-8'),encoding='utf-8')
 if TARGET in ('1.20.4','1.20.1'):
     for path in (ROOT/'ports/shared-nbt').rglob('*.java'):
-        destination=ROOT/'build'/TARGET/'generated/main'/path.relative_to(ROOT/'ports/shared-nbt')
+        destination=ROOT/'build'/RELEASE/'generated/main'/path.relative_to(ROOT/'ports/shared-nbt')
         destination.parent.mkdir(parents=True,exist_ok=True)
         contents=path.read_text(encoding='utf-8')
-        if TARGET=='1.20.1':contents=contents.replace('PotionUtils.addPotionTooltip(stack,lines,scale,ticks)', 'PotionUtils.addPotionTooltip(stack,lines,scale)')
+        if RELEASE in ('1.20.1','1.20.2'):contents=contents.replace('PotionUtils.addPotionTooltip(stack,lines,scale,ticks)', 'PotionUtils.addPotionTooltip(stack,lines,scale)')
         destination.write_text(contents,encoding='utf-8')
-for path in (ROOT/'ports'/TARGET).rglob('*.java'):
-    relative=path.relative_to(ROOT/'ports'/TARGET)
+for path in (ROOT/'ports'/RELEASE).rglob('*.java'):
+    relative=path.relative_to(ROOT/'ports'/RELEASE)
     environment='client' if '/client/' in str(relative).replace('\\','/') else 'main'
-    destination=ROOT/'build'/TARGET/'generated'/environment/relative
+    destination=ROOT/'build'/RELEASE/'generated'/environment/relative
     destination.parent.mkdir(parents=True,exist_ok=True)
     destination.write_text(path.read_text(encoding='utf-8'),encoding='utf-8')
-if TARGET.startswith('1.20.') or TARGET in ('1.21.1','1.21.4'):
+if TARGET.startswith('1.20.') or TARGET in ('1.21.1','1.21.4') or RELEASE == '1.21.5':
     for path in (ROOT/'ports/shared-client-1.20').rglob('*.java'):
-        destination=ROOT/'build'/TARGET/'generated/client'/path.relative_to(ROOT/'ports/shared-client-1.20')
+        destination=ROOT/'build'/RELEASE/'generated/client'/path.relative_to(ROOT/'ports/shared-client-1.20')
         destination.parent.mkdir(parents=True,exist_ok=True)
         destination.write_text(path.read_text(encoding='utf-8'),encoding='utf-8')
