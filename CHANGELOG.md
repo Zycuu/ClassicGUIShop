@@ -3,6 +3,7 @@
 ## 1.4.2
 
 - Rebuilt Bulk Adjust around existing shop listings, with category tabs, search, a creative style scrollbar, and selections that persist across categories.
+- Added a Select all / Deselect all toggle for the current tab and search, including offscreen listings.
 - Added confirmed bulk removal of exact listings and variants while preserving empty categories and historical transactions.
 - Added bulk buy/sell editing for selected listings. Leave either field blank to preserve that price; use 0 to disable that side.
 - Kept all bulk changes in the editor draft until Save changes, with atomic validation and existing server safeguards.

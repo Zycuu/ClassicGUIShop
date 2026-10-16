@@ -62,7 +62,7 @@ Connected client tests also inspect the received advancement catalog and verify 
 
 `BulkListingChecks` runs inside the separate release addon. It verifies exact variants across categories, duplicate selection handling, partial prices, disabled selling, finite/size bounds, unavailable-content rejection, stale selection atomicity, category preservation, detached-draft isolation and serialization after removal.
 
-Add `-PbulkSmoke=true -PnetworkSmoke=true` to the connected font harness for the Bulk Adjust interaction fixture. It exercises category tabs, scrollbar movement, search retention, offscreen Select matches, price editing, invalid input, removal confirmation cancellation/acceptance and sibling-variant preservation. Test clients remain visible so the operator can watch. Use only the isolated test account and owned server fixture.
+Add `-PbulkSmoke=true -PnetworkSmoke=true` to the connected font harness for the Bulk Adjust interaction fixture. It exercises category tabs, scrollbar movement, search retention, offscreen Select all/Deselect all toggling, partial selections, selection preservation in other tabs, price editing, invalid input, removal confirmation cancellation/acceptance and sibling-variant preservation. Test clients remain visible so the operator can watch. Use only the isolated test account and owned server fixture.
 
 CI compiles every exact profile and runs native purchase/sale, advancement and bulk selection checks on both its minimum Loader and Loader 0.19.5. Client checks use the matching Java runtime, not only the development JDK.
 

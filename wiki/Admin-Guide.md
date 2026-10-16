@@ -32,7 +32,7 @@ Click a listing to edit its display name, description, and final buy/sell values
 **Bulk Adjust** browses existing draft listings, including disabled listings and exact automatic/custom variants. It opens on the current category when one is selected; **All listings** searches the complete shop. Category tabs, per-tab searches and a creative style scrollbar support large catalogs. Picks survive tab changes, searches and tab paging.
 
 - Click a listing to select/deselect that exact listing. Other variants or copies in another category are independent.
-- **Select matches** selects every search match in the current tab, including rows outside the visible area. **Clear selection** clears picks across all tabs.
+- **Select all** selects every search match in the current tab, including rows outside the visible area. It then becomes **Deselect all**; click again to clear those picks while preserving selections in other tabs. **Clear selection** clears picks across all tabs.
 - Enter a buy price, a sell price, or both, then **Set prices**. A blank field preserves that side; zero disables it. Both fields blank are rejected. The selected listings become manually priced.
 - **Remove selected** shows the total and category count for confirmation. Cancel preserves the listings and picks. Confirmation removes only those listings from the draft and retains empty categories.
 - **Done** or Escape returns to Shop Builder. Price changes and confirmed removals remain in the draft; **Save changes** commits them or **Discard changes** abandons them. No bulk operation edits balances, inventory or historical transactions.

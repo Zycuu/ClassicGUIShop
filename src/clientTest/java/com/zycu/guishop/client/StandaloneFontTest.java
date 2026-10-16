@@ -172,11 +172,22 @@ public final class StandaloneFontTest implements ClientModInitializer {
         press(screen,"Remove selected");press(client.gui.screen(),"Remove 2 listings");
         check(draft.config.categories.get(0).items.size()==94&&draft.config.categories.get(1).items.size()==94&&draft.config.categories.size()==12,"Exact variants removed without category/sibling deletion");
         check(((Set<?>)field(screen,"selection")).isEmpty(),"Removed listings clear selection");
-        press(screen,"Select matches");check(((Set<?>)field(screen,"selection")).size()==94,"Select matches includes offscreen matches");press(screen,"Clear selection");
-        press(screen,"Stew variants");input(screen,"Search shop listings","variant 1");press(screen,"Select matches");
-        int picked=((Set<?>)field(screen,"selection")).size();check(picked>0&&picked<94,"Select matches respects search");
+        press(screen,"Select all");check(((Set<?>)field(screen,"selection")).size()==94,"Select all includes offscreen matches");
+        press(screen,"Deselect all");check(((Set<?>)field(screen,"selection")).isEmpty(),"Second click deselects all current matches");
+        screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);press(screen,"Select all");
+        check(((Set<?>)field(screen,"selection")).size()==94,"Select all completes a partial selection");press(screen,"Clear selection");
+        press(screen,"Stew variants");input(screen,"Search shop listings","variant 1");press(screen,"Select all");
+        int picked=((Set<?>)field(screen,"selection")).size();check(picked>0&&picked<94,"Select all respects search");
         press(screen,">");check(((Set<?>)field(screen,"selection")).size()==picked,"Tab paging preserves picks");press(screen,"<");
         press(screen,"Custom food");screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);check(((Set<?>)field(screen,"selection")).size()==picked+1,"Cross-category selection remains independent");
+        press(screen,"Select all");check(((Set<?>)field(screen,"selection")).size()==picked+94,"Select all preserves picks in other tabs");
+        press(screen,"Deselect all");check(((Set<?>)field(screen,"selection")).size()==picked,"Deselect all preserves picks in other tabs");
+        input(screen,"Search shop listings","no matching listing");
+        check(!((net.minecraft.client.gui.components.Button)field(screen,"selectAll")).active,"Select all disabled for no matches");
+        press(screen,"Stew variants");press(screen,"Deselect all");check(((Set<?>)field(screen,"selection")).isEmpty(),"Filtered deselection clears only selected matches");
+        press(screen,"Select all");screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
+        check(((net.minecraft.client.gui.components.Button)field(screen,"selectAll")).getMessage().getString().equals("Select all"),"Manual deselection resets toggle label");
+        input(screen,"Search shop listings","");press(screen,"Clear selection");
         check(AdminDocument.JSON.toJson(doc).equals(untouched),"Source document unaffected by all draft changes");
         input(screen,"New buy price","12.50");input(screen,"New sell price","1.25");
     }

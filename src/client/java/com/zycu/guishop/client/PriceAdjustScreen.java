@@ -35,7 +35,7 @@ final class PriceAdjustScreen extends WorkbenchScreen {
     private int tabPage, topRow;
     private boolean initialized, scrollDragging;
     private Pick hovered;
-    private Button setPrices, remove, clearPicks, selectMatches;
+    private Button setPrices, remove, clearPicks, selectAll;
 
     PriceAdjustScreen(AdminScreen parent, ShopConfig config, String categoryId) {
         super("Bulk Adjust"); this.parent = parent; this.config = config;
@@ -65,7 +65,14 @@ final class PriceAdjustScreen extends WorkbenchScreen {
         sellField.setValue(sell); sellField.setResponder(value -> sell = value); addRenderableWidget(sellField);
         setPrices = button("Set prices", 432, 247, 136, this::setPrices);
         remove = button("Remove selected", 432, 279, 136, this::confirmRemove);
-        selectMatches = button("Select matches", 80, 311, 156, () -> { for (var pick : values) selection.add(pick.entry()); updateButtons(); });
+        selectAll = button("Select all", 80, 311, 156, () -> {
+            boolean deselect = allSelected();
+            for (var pick : values) {
+                if (deselect) selection.remove(pick.entry());
+                else selection.add(pick.entry());
+            }
+            updateButtons();
+        });
         clearPicks = button("Clear selection", 244, 311, 164, () -> { selection.clear(); updateButtons(); });
         button("Done", 472, 340, 108, this::onClose);
         filter(false); setInitialFocus(search);
@@ -93,10 +100,12 @@ final class PriceAdjustScreen extends WorkbenchScreen {
         filter(true); rebuildWidgets();
     }
     private int maxRow() { return Math.max(0, (values.size() + COLUMNS - 1) / COLUMNS - ROWS); }
+    private boolean allSelected() { return !values.isEmpty() && values.stream().allMatch(pick -> selection.contains(pick.entry())); }
     private void updateButtons() {
         if (setPrices == null) return;
         setPrices.active = remove.active = clearPicks.active = !selection.isEmpty();
-        selectMatches.active = !values.isEmpty();
+        selectAll.active = !values.isEmpty();
+        selectAll.setMessage(Component.literal(allSelected() ? "Deselect all" : "Select all"));
     }
     private static Double amount(String value) {
         if (value.isBlank()) return null;

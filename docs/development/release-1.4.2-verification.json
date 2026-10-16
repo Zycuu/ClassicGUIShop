@@ -1,8 +1,8 @@
 {
   "version": "1.4.2",
   "artifact": "ClassicGUIShop-v1.4.2.jar",
-  "bytes": 30285758,
-  "sha256": "79424e3b87499821102f53cfde26fb7b70d16affd8fc5c15c2fb9cc9f958b2d1",
+  "bytes": 30291264,
+  "sha256": "f8954e6802dcb2587f23fe1cc8cfb9a89b6adeeba65138c8e8a0b42a0e263f58",
   "singleInstallableJar": true,
   "versions": [
     {
@@ -580,9 +580,23 @@
   ],
   "clientScope": "Visible clients on minimum Loaders and Java 17/21/25, development mappings; connected servers use the universal distribution. Includes listing browser tabs/search/scroll/selection/removal/prices, shop/Adminshop/detection, advancement filtering and resource reload.",
   "nativeRecipeScope": "Version-native ordinary recipe JSON with generated release prices and unsafe-price controls. Shared world interactions, special recipes and protected merchant constraints reuse the detailed 26.3 audit; this is not an independent native replay of every older world mechanic or arbitrary modpack.",
-  "candidateComparison": "Candidate1 minimum servers/client servers are byte-identical to candidate2 except the added resource-loader v0 dependency for 1.21.9/1.21.10, which were rerun. Candidate3 corrects only audit scope strings in 14 shared-family implementations; canonicalized constant pools and all instructions matched. Candidate3 also passed three native server suites and the 15 real-save clients.",
+  "candidateComparison": "Candidate1 minimum servers/client servers are byte-identical to candidate2 except the added resource-loader v0 dependency for 1.21.9/1.21.10, which were rerun. Candidate3 corrects only audit scope strings in 14 shared-family implementations; canonicalized constant pools and all instructions matched. Candidate3 also passed three native server suites and the 15 real-save clients. Candidate4 changes only the shared Bulk Adjust selection screen and passed a focused visible 26.3 connected client run. All 23 implementations were rebuilt and compared; no full runtime matrix was repeated.",
   "liveUserWorldsModified": false,
   "previousReleasePreserved": true,
   "published": false,
-  "sourceBaseCommit": "65f3ac63fb83cbf6cfbf6d4531315be74e7ef22c"
+  "sourceBaseCommit": "65f3ac63fb83cbf6cfbf6d4531315be74e7ef22c",
+  "selectionToggleFollowUp": {
+    "version": "1.4.2",
+    "previousArtifactSha256": "79424e3b87499821102f53cfde26fb7b70d16affd8fc5c15c2fb9cc9f958b2d1",
+    "compiledTargets": 23,
+    "runtimeTestVersions": [
+      "26.3"
+    ],
+    "clientPassed": true,
+    "clientVisible": true,
+    "fullRuntimeMatrixRepeated": false,
+    "scope": "Select all / Deselect all for current tab and search, offscreen matches, partial selection, manual deselection label, empty search, preserved other-category picks. Existing bulk prices/removal checks also passed.",
+    "byteComparison": "Only PriceAdjustScreen classes differ in every nested implementation; all other release classes, resources, dependencies and metadata match the previously verified candidate3. Earlier full-matrix results apply to that unchanged code.",
+    "published": false
+  }
 }
