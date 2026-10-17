@@ -1,8 +1,8 @@
 {
   "version": "1.4.2",
   "artifact": "ClassicGUIShop-v1.4.2.jar",
-  "bytes": 30292043,
-  "sha256": "ee9f6e3202cb77c706ad440f37f4501b38f82f972b4b614d35ff3f2d71fffdf9",
+  "bytes": 30294339,
+  "sha256": "d3df0a1ac71d2d3860b21a16d1405efc654f32565458cd10e55146f3b2d57af8",
   "singleInstallableJar": true,
   "versions": [
     {
@@ -580,7 +580,7 @@
   ],
   "clientScope": "Visible clients on minimum Loaders and Java 17/21/25, development mappings; connected servers use the universal distribution. Includes listing browser tabs/search/scroll/selection/removal/prices, shop/Adminshop/detection, advancement filtering and resource reload.",
   "nativeRecipeScope": "Version-native ordinary recipe JSON with generated release prices and unsafe-price controls. Shared world interactions, special recipes and protected merchant constraints reuse the detailed 26.3 audit; this is not an independent native replay of every older world mechanic or arbitrary modpack.",
-  "candidateComparison": "Candidate1 minimum servers/client servers are byte-identical to candidate2 except the added resource-loader v0 dependency for 1.21.9/1.21.10, which were rerun. Candidate3 corrects only audit scope strings in 14 shared-family implementations; canonicalized constant pools and all instructions matched. Candidate3 also passed three native server suites and the 15 real-save clients. Candidate4 changes only the shared Bulk Adjust selection screen and passed a focused visible 26.3 connected client run. All 23 implementations were rebuilt and compared; no full runtime matrix was repeated. Candidate5 corrects selection to the entire current tab regardless of search. A focused visible 26.3 connected client check passed; comparison against candidate3 confirmed only Bulk Adjust screen classes changed in all 23 implementations.",
+  "candidateComparison": "Candidate1 minimum servers/client servers are byte-identical to candidate2 except the added resource-loader v0 dependency for 1.21.9/1.21.10, which were rerun. Candidate3 corrects only audit scope strings in 14 shared-family implementations; canonicalized constant pools and all instructions matched. Candidate3 also passed three native server suites and the 15 real-save clients. Candidate4 changes only the shared Bulk Adjust selection screen and passed a focused visible 26.3 connected client run. All 23 implementations were rebuilt and compared; no full runtime matrix was repeated. Candidate5 corrects selection to the entire current tab regardless of search. A focused visible 26.3 connected client check passed; comparison against candidate3 confirmed only Bulk Adjust screen classes changed in all 23 implementations. Candidate6 removes the All listings tab, defaults to the current/first category, labels the tab toggle Select whole tab / Deselect whole tab, and provides the explicit Select all listings header button. Visible 26.3 real mouse/default-preset and fixture checks passed. All 23 implementations compiled; only Bulk Adjust screen classes differ from candidate3.",
   "liveUserWorldsModified": false,
   "previousReleasePreserved": true,
   "published": false,
@@ -595,8 +595,23 @@
     "clientPassed": true,
     "clientVisible": true,
     "fullRuntimeMatrixRepeated": false,
-    "scope": "Select all / Deselect all selects every listing in the current tab regardless of search or scrolling. Other-category selections are preserved. Verified filtered and zero-result searches, partial/manual selections, empty categories, prices and removal.",
+    "scope": "Category-only tabs. Select whole tab / Deselect whole tab applies to the entire current category regardless of search or scrolling and preserves picks in other categories. Select all listings in the header selects the whole shop; Clear selection clears all picks. Builder home opens the first category.",
     "byteComparison": "Only PriceAdjustScreen classes differ in every nested implementation; all other release classes, resources, dependencies and metadata match the previously verified candidate3. Earlier full-matrix results apply to that unchanged code.",
     "published": false
+  },
+  "categoryButtonsFollowUp": {
+    "compiledTargets": 23,
+    "runtimeTestVersions": [
+      "26.3"
+    ],
+    "realMouseClicksPassed": true,
+    "defaultPresetBuildingBlocksAndColoredBlocksPassed": true,
+    "homeDefaultsToFirstCategory": true,
+    "allListingsTabRemoved": true,
+    "headerSelectAllListingsPassed": true,
+    "wholeTabDeselectAfterGlobalSelectionPassed": true,
+    "layoutScreenshotInspected": true,
+    "fullRuntimeMatrixRepeated": false,
+    "byteComparison": "All other release classes, resources, dependencies and metadata match the full-matrix candidate3. Only PriceAdjustScreen classes changed."
   }
 }

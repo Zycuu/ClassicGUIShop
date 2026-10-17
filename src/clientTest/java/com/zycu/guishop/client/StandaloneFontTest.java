@@ -103,7 +103,15 @@ public final class StandaloneFontTest implements ClientModInitializer {
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
     private static void press(net.minecraft.client.gui.screens.Screen screen,String name){
         for(var child:screen.children())if(child instanceof net.minecraft.client.gui.components.Button button&&button.getMessage().getString().equals(name)){
-            check(button.active,"Button inactive: "+name);button.onPress(new net.minecraft.client.input.MouseButtonEvent(0,0,new net.minecraft.client.input.MouseButtonInfo(0,0)));return;
+            check(button.active,"Button inactive: "+name);
+            if(screen instanceof PriceAdjustScreen workbench){
+                workbench.geometry();
+                double x=workbench.originX+(button.getX()+button.getWidth()/2.0)*workbench.scale;
+                double y=workbench.originY+(button.getY()+button.getHeight()/2.0)*workbench.scale;
+                var event=new net.minecraft.client.input.MouseButtonEvent(x,y,new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT,0));
+                check(workbench.mouseClicked(event,false),"Mouse click accepted: "+name);workbench.mouseReleased(event);
+            }else button.onPress(new net.minecraft.client.input.MouseButtonEvent(0,0,new net.minecraft.client.input.MouseButtonInfo(0,0)));
+            return;
         }
         throw new AssertionError("Missing button: "+name);
     }
@@ -142,6 +150,32 @@ public final class StandaloneFontTest implements ClientModInitializer {
         finish(client,true,"Bulk selection, confirmed removal, Save changes acknowledgement and refreshed server snapshot passed; native data and fonts preserved");
     }
     private static void verifyBulk(Minecraft client)throws Exception{
+        var actual=(AdminScreen)client.gui.screen();
+        var actualDraft=(AdminDocument)field(actual,"draft");
+        var building=actualDraft.config.category("building_blocks");
+        check(building!=null,"Default preset includes Building Blocks");
+        actual.geometry();
+        var categoryClick=new net.minecraft.client.input.MouseButtonEvent(actual.originX+(30+actual.contentOffsetX())*actual.scale,actual.originY+140*actual.scale,new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT,0));
+        check(actual.mouseClicked(categoryClick,false),"Builder category mouse-down accepted");actual.mouseReleased(categoryClick);
+        check(field(actual,"categoryId").equals("building_blocks"),"Builder mouse click selects Building Blocks");
+        press(actual,"Bulk Adjust");
+        var actualBulk=(PriceAdjustScreen)client.gui.screen();
+        check(field(actualBulk,"categoryId").equals("building_blocks"),"Bulk Adjust retains builder category");
+        press(actualBulk,"Select whole tab");
+        var actualSelection=(Set<?>)field(actualBulk,"selection");
+        check(actualSelection.size()==building.items.size(),"Default preset Select all count matches Building Blocks only");
+        check(actualSelection.stream().allMatch(entry->((com.zycu.guishop.admin.BulkListings.Entry)entry).category()==building),"Default preset mouse selection excludes all other categories");
+        press(actualBulk,"Colored Blocks");
+        check(((net.minecraft.client.gui.components.Button)field(actualBulk,"selectAll")).getMessage().getString().equals("Select whole tab"),"Colored Blocks remains unselected after Building Blocks Select all");
+        press(actualBulk,"Building Blocks");press(actualBulk,"Deselect whole tab");
+        check(actualSelection.isEmpty(),"Default preset current-tab deselection clears Building Blocks only");
+        press(actualBulk,"Select all listings");
+        check(actualSelection.size()==com.zycu.guishop.admin.BulkListings.entries(actualDraft.config).size(),"Explicit header button selects the entire default shop");
+        check(field(actualBulk,"categoryId").equals("building_blocks"),"Global selection retains the current category tab");
+        press(actualBulk,"Deselect whole tab");
+        check(actualSelection.stream().noneMatch(entry->((com.zycu.guishop.admin.BulkListings.Entry)entry).category()==building),"Whole-tab deselection after global selection excludes only Building Blocks");
+        press(actualBulk,"Clear selection");
+        client.gui.setScreen(actual);
         var doc=new AdminDocument();doc.config=new com.zycu.guishop.ShopConfig();
         for(int c=0;c<12;c++){
             var category=new com.zycu.guishop.ShopConfig.Category();category.id="bulk_"+c;category.name=c==0?"Stew variants":c==1?"Custom food":"Empty category "+c;category.icon="minecraft:suspicious_stew";
@@ -156,7 +190,9 @@ public final class StandaloneFontTest implements ClientModInitializer {
         String untouched=AdminDocument.JSON.toJson(doc);
         var parent=new AdminScreen(doc,"fixture");client.gui.setScreen(parent);
         var draft=(AdminDocument)field(parent,"draft");var first=draft.config.categories.get(0).items.get(0);var other=draft.config.categories.get(1).items.get(0);
-        var screen=new PriceAdjustScreen(parent,draft.config,"bulk_0");client.gui.setScreen(screen);
+        var screen=new PriceAdjustScreen(parent,draft.config,"");client.gui.setScreen(screen);
+        check(field(screen,"categoryId").equals("bulk_0"),"Opening from builder home defaults to first category");
+        check(((List<?>)field(screen,"tabs")).size()==12,"Only actual category tabs remain");
         check(((List<?>)field(screen,"values")).size()==95,"Browser contains listings in selected shop category only");
         check(screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT),"Pick exact first listing");
         screen.click(390,290,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);screen.release(390,290,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);check((int)field(screen,"topRow")>0,"Creative scrollbar scrolls listings");
@@ -172,26 +208,30 @@ public final class StandaloneFontTest implements ClientModInitializer {
         press(screen,"Remove selected");press(client.gui.screen(),"Remove 2 listings");
         check(draft.config.categories.get(0).items.size()==94&&draft.config.categories.get(1).items.size()==94&&draft.config.categories.size()==12,"Exact variants removed without category/sibling deletion");
         check(((Set<?>)field(screen,"selection")).isEmpty(),"Removed listings clear selection");
-        press(screen,"Select all");check(((Set<?>)field(screen,"selection")).size()==94,"Select all includes offscreen matches");
-        press(screen,"Deselect all");check(((Set<?>)field(screen,"selection")).isEmpty(),"Second click deselects all current matches");
-        screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);press(screen,"Select all");
+        press(screen,"Select whole tab");check(((Set<?>)field(screen,"selection")).size()==94,"Select all includes offscreen matches");
+        press(screen,"Deselect whole tab");check(((Set<?>)field(screen,"selection")).isEmpty(),"Second click deselects all current matches");
+        screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);press(screen,"Select whole tab");
         check(((Set<?>)field(screen,"selection")).size()==94,"Select all completes a partial selection");press(screen,"Clear selection");
-        press(screen,"Stew variants");input(screen,"Search shop listings","variant 1");press(screen,"Select all");
+        press(screen,"Stew variants");input(screen,"Search shop listings","variant 1");press(screen,"Select whole tab");
         int picked=((Set<?>)field(screen,"selection")).size();check(picked==94,"Select all selects the whole current category regardless of search");
         check(((Set<?>)field(screen,"selection")).stream().allMatch(entry->((com.zycu.guishop.admin.BulkListings.Entry)entry).category().id.equals("bulk_0")),"Select all never adds listings from another category");
         press(screen,">");check(((Set<?>)field(screen,"selection")).size()==picked,"Tab paging preserves picks");press(screen,"<");
         press(screen,"Custom food");screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);check(((Set<?>)field(screen,"selection")).size()==picked+1,"Cross-category selection remains independent");
-        press(screen,"Select all");check(((Set<?>)field(screen,"selection")).size()==picked+94,"Select all preserves picks in other tabs");
-        press(screen,"Deselect all");check(((Set<?>)field(screen,"selection")).size()==picked,"Deselect all preserves picks in other tabs");
+        press(screen,"Select whole tab");check(((Set<?>)field(screen,"selection")).size()==picked+94,"Select all preserves picks in other tabs");
+        press(screen,"Deselect whole tab");check(((Set<?>)field(screen,"selection")).size()==picked,"Deselect all preserves picks in other tabs");
         input(screen,"Search shop listings","no matching listing");
         check(((net.minecraft.client.gui.components.Button)field(screen,"selectAll")).active,"Whole-tab selection remains available when search has no matches");
-        press(screen,"Select all");check(((Set<?>)field(screen,"selection")).size()==188,"Select all includes current category hidden by search");
-        press(screen,"Deselect all");check(((Set<?>)field(screen,"selection")).size()==94,"Search-hidden tab deselection preserves other category");
+        press(screen,"Select whole tab");check(((Set<?>)field(screen,"selection")).size()==188,"Select all includes current category hidden by search");
+        press(screen,"Deselect whole tab");check(((Set<?>)field(screen,"selection")).size()==94,"Search-hidden tab deselection preserves other category");
         press(screen,"Empty category 2");check(!((net.minecraft.client.gui.components.Button)field(screen,"selectAll")).active,"Select all disabled for an empty category");
-        press(screen,"Stew variants");press(screen,"Deselect all");check(((Set<?>)field(screen,"selection")).isEmpty(),"Filtered deselection clears the entire current tab");
-        press(screen,"Select all");screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
-        check(((net.minecraft.client.gui.components.Button)field(screen,"selectAll")).getMessage().getString().equals("Select all"),"Manual deselection resets toggle label");
+        press(screen,"Stew variants");press(screen,"Deselect whole tab");check(((Set<?>)field(screen,"selection")).isEmpty(),"Filtered deselection clears the entire current tab");
+        press(screen,"Select whole tab");screen.click(100,156,com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
+        check(((net.minecraft.client.gui.components.Button)field(screen,"selectAll")).getMessage().getString().equals("Select whole tab"),"Manual deselection resets toggle label");
         input(screen,"Search shop listings","");press(screen,"Clear selection");
+        press(screen,"Select all listings");check(((Set<?>)field(screen,"selection")).size()==188,"Select all listings spans every category including offscreen listings");
+        check(!((net.minecraft.client.gui.components.Button)field(screen,"selectAllListings")).active,"Global button disables once all listings are selected");
+        press(screen,"Deselect whole tab");check(((Set<?>)field(screen,"selection")).size()==94,"Whole-tab deselection preserves global selections in other categories");
+        press(screen,"Clear selection");
         check(AdminDocument.JSON.toJson(doc).equals(untouched),"Source document unaffected by all draft changes");
         input(screen,"New buy price","12.50");input(screen,"New sell price","1.25");
     }

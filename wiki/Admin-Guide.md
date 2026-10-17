@@ -29,10 +29,11 @@ Create/select a category to edit its name, tooltip description, icon, and order.
 
 Click a listing to edit its display name, description, and final buy/sell values. Zero disables that side. **Move listing...** chooses another category. Removing a category also removes its listings from the draft; committing creates a backup of the prior live catalog.
 
-**Bulk Adjust** browses existing draft listings, including disabled listings and exact automatic/custom variants. It opens on the current category when one is selected; **All listings** searches the complete shop. Category tabs, per-tab searches and a creative style scrollbar support large catalogs. Picks survive tab changes, searches and tab paging.
+**Bulk Adjust** browses existing draft listings, including disabled listings and exact automatic/custom variants. It opens on the current category when one is selected, or the first category when opened from the builder home. Category tabs, per-tab searches and a creative style scrollbar support large catalogs. Picks survive tab changes, searches and tab paging.
 
 - Click a listing to select/deselect that exact listing. Other variants or copies in another category are independent.
-- **Select all** selects every listing in the current tab, including listings hidden by search or scrolling. It then becomes **Deselect all**; click again to clear that tab's picks while preserving selections in other tabs. **Clear selection** clears picks across all tabs.
+- **Select whole tab** selects every listing in the current category, including listings hidden by search or scrolling. It then becomes **Deselect whole tab**; click again to clear that tab's picks while preserving selections in other tabs.
+- **Select all listings**, in the header, explicitly selects the entire shop across all categories. **Clear selection** clears picks across all tabs.
 - Enter a buy price, a sell price, or both, then **Set prices**. A blank field preserves that side; zero disables it. Both fields blank are rejected. The selected listings become manually priced.
 - **Remove selected** shows the total and category count for confirmation. Cancel preserves the listings and picks. Confirmation removes only those listings from the draft and retains empty categories.
 - **Done** or Escape returns to Shop Builder. Price changes and confirmed removals remain in the draft; **Save changes** commits them or **Discard changes** abandons them. No bulk operation edits balances, inventory or historical transactions.

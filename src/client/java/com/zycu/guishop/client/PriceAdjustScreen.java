@@ -35,18 +35,17 @@ final class PriceAdjustScreen extends WorkbenchScreen {
     private int tabPage, topRow;
     private boolean initialized, scrollDragging;
     private Pick hovered;
-    private Button setPrices, remove, clearPicks, selectAll;
+    private Button setPrices, remove, clearPicks, selectAll, selectAllListings;
 
     PriceAdjustScreen(AdminScreen parent, ShopConfig config, String categoryId) {
         super("Bulk Adjust"); this.parent = parent; this.config = config;
-        this.categoryId = config.category(categoryId) == null ? "" : categoryId;
+        this.categoryId = config.category(categoryId) != null ? categoryId : config.categories.isEmpty() ? "" : config.categories.get(0).id;
     }
     @Override protected void init() {
         if (!initialized) {
-            tabs.add(new Tab(null, new ItemStack(Items.COMPASS)));
             for (var category : config.categories) tabs.add(new Tab(category, ShopIcons.category(category, minecraft.level.registryAccess(), category.name)));
             refreshCatalog();
-            for (int i = 0; i < tabs.size(); i++) if (tabs.get(i).category() != null && tabs.get(i).category().id.equals(categoryId)) tabPage = i / COLUMNS;
+            for (int i = 0; i < tabs.size(); i++) if (tabs.get(i).category().id.equals(categoryId)) tabPage = i / COLUMNS;
             initialized = true;
         }
         var search = new WorkbenchField(font, 80, 66, 422, Component.literal("Search shop listings"));
@@ -65,7 +64,7 @@ final class PriceAdjustScreen extends WorkbenchScreen {
         sellField.setValue(sell); sellField.setResponder(value -> sell = value); addRenderableWidget(sellField);
         setPrices = button("Set prices", 432, 247, 136, this::setPrices);
         remove = button("Remove selected", 432, 279, 136, this::confirmRemove);
-        selectAll = button("Select all", 80, 311, 156, () -> {
+        selectAll = button("Select whole tab", 80, 311, 156, () -> {
             boolean deselect = allSelected();
             for (var pick : tabValues) {
                 if (deselect) selection.remove(pick.entry());
@@ -74,6 +73,7 @@ final class PriceAdjustScreen extends WorkbenchScreen {
             updateButtons();
         });
         clearPicks = button("Clear selection", 244, 311, 164, () -> { selection.clear(); updateButtons(); });
+        selectAllListings = button("Select all listings", 420, 34, 160, () -> { selection.addAll(catalog.keySet()); updateButtons(); });
         button("Done", 472, 340, 108, this::onClose);
         filter(false); setInitialFocus(search);
     }
@@ -90,12 +90,12 @@ final class PriceAdjustScreen extends WorkbenchScreen {
     private static String searchable(String value) { return value.toLowerCase(Locale.ROOT).replace('_', ' ').replace('-', ' '); }
     private void filter(boolean reset) {
         String[] words = searchable(query).trim().split("\\s+");
-        tabValues = catalog.values().stream().filter(pick -> categoryId.isBlank() || pick.entry().category().id.equals(categoryId)).toList();
+        tabValues = catalog.values().stream().filter(pick -> pick.entry().category().id.equals(categoryId)).toList();
         values = tabValues.stream().filter(pick -> { for (String word : words) if (!pick.search().contains(word)) return false; return true; }).toList();
         topRow = reset ? 0 : Math.min(topRow, maxRow()); hovered = null; updateButtons();
     }
     private void chooseTab(Tab tab) {
-        categoryId = tab.category() == null ? "" : tab.category().id;
+        categoryId = tab.category().id;
         query = searches.getOrDefault(categoryId, ""); topRow = 0; scrollDragging = false; error = "";
         filter(true); rebuildWidgets();
     }
@@ -105,7 +105,8 @@ final class PriceAdjustScreen extends WorkbenchScreen {
         if (setPrices == null) return;
         setPrices.active = remove.active = clearPicks.active = !selection.isEmpty();
         selectAll.active = !tabValues.isEmpty();
-        selectAll.setMessage(Component.literal(allSelected() ? "Deselect all" : "Select all"));
+        selectAll.setMessage(Component.literal(allSelected() ? "Deselect whole tab" : "Select whole tab"));
+        selectAllListings.active = !catalog.isEmpty() && selection.size() < catalog.size();
     }
     private static Double amount(String value) {
         if (value.isBlank()) return null;
@@ -133,9 +134,9 @@ final class PriceAdjustScreen extends WorkbenchScreen {
     @Override protected void paint(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         panel(graphics, 62, 26, 536, 346, WorkbenchTheme.SURFACE);
         text(graphics, "Bulk Adjust", 80, 41, WorkbenchTheme.TEXT);
-        text(graphics, "Existing shop listings only", 338, 41, WorkbenchTheme.MUTED);
+        text(graphics, "Existing shop listings only", 200, 41, WorkbenchTheme.MUTED);
         var category = config.category(categoryId);
-        String label = category == null ? "All listings" : category.name;
+        String label = category == null ? "No categories" : category.name;
         text(graphics, font.plainSubstrByWidth(label + " | " + values.size() + " matches", 328), 80, 94, WorkbenchTheme.TEAL);
         panel(graphics, 420, 105, 160, 228, WorkbenchTheme.PANEL);
         text(graphics, "Selected: " + selection.size(), 432, 119, WorkbenchTheme.TEXT);
@@ -220,7 +221,9 @@ final class PriceAdjustScreen extends WorkbenchScreen {
             if (item.unavailableImport) lines.add(Component.literal("Content unavailable"));
             icon.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(lines));
             graphics.setTooltipForNextFrame(font, icon, px, py);
-        } else for (var child : children()) if (child instanceof CategoryTab tab && tab.isHovered())
+        } else if (selectAllListings != null && selectAllListings.isHovered())
+            graphics.setTooltipForNextFrame(Component.literal("Select every listing across all categories. Clear selection deselects them."), px, py);
+        else for (var child : children()) if (child instanceof CategoryTab tab && tab.isHovered())
             graphics.setTooltipForNextFrame(Component.literal(tab.getMessage().getString()), px, py);
     }
     @Override public void onClose() { minecraft.gui.setScreen(parent); }
@@ -228,11 +231,11 @@ final class PriceAdjustScreen extends WorkbenchScreen {
     private final class CategoryTab extends Button {
         private final Tab tab;
         CategoryTab(Tab tab, int x) {
-            super(x, 105, CELL, 28, Component.literal(tab.category() == null ? "All listings" : tab.category().name), ignored -> chooseTab(tab), DEFAULT_NARRATION);
+            super(x, 105, CELL, 28, Component.literal(tab.category().name), ignored -> chooseTab(tab), DEFAULT_NARRATION);
             this.tab = tab;
         }
         @Override protected void extractContents(GuiGraphicsExtractor graphics, int x, int y, float delta) {
-            boolean chosen = tab.category() == null ? categoryId.isBlank() : tab.category().id.equals(categoryId);
+            boolean chosen = tab.category().id.equals(categoryId);
             WorkbenchTheme.rounded(graphics, getX(), getY(), getWidth(), getHeight(), 4,
                 chosen ? WorkbenchTheme.SELECTED : isHoveredOrFocused() ? 0xFF344C54 : WorkbenchTheme.PANEL);
             graphics.item(tab.icon(), getX() + (getWidth() - 16) / 2, getY() + (getHeight() - 16) / 2);
