@@ -8,6 +8,8 @@ def targetMinecraft = providers.gradleProperty('targetMinecraft').getOrElse(proj
 def targetProfiles = new groovy.json.JsonSlurper().parse(file('ports/targets.json'))
 if (!targetProfiles.containsKey(targetMinecraft)) throw new GradleException("Unsupported Minecraft target: $targetMinecraft")
 def targetProfile = targetProfiles[targetMinecraft]
+def isMinecraft120 = targetMinecraft == '1.20' || targetMinecraft.startsWith('1.20.')
+def usesLegacyLeadRecipe = isMinecraft120 || targetMinecraft in ['1.21', '1.21.1', '1.21.2', '1.21.3', '1.21.4', '1.21.5']
 apply plugin: targetProfile.remap ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
 layout.buildDirectory.set(file("build/$targetMinecraft"))
 
@@ -80,7 +82,7 @@ processResources {
     inputs.property "java_version", targetProfile.java
     inputs.property "permissions_api", targetProfile.permissionsApi
     inputs.property "loader_minimum", targetProfile.loaderMinimum
-    inputs.property "legacy_lead_recipe", targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21', '1.21.1', '1.21.2', '1.21.3', '1.21.4', '1.21.5']
+    inputs.property "legacy_lead_recipe", usesLegacyLeadRecipe
     filesMatching("fabric.mod.json") {
         expand(
             "version": project.version,
@@ -92,7 +94,7 @@ processResources {
     }
     // These releases yield two leads for four string plus slime.
     // Keep the economic witness consistent with that native recipe.
-    if (targetMinecraft.startsWith('1.20.') || targetMinecraft in ['1.21', '1.21.1', '1.21.2', '1.21.3', '1.21.4', '1.21.5']) {
+    if (usesLegacyLeadRecipe) {
         filesMatching('guishop/vanilla-preset-values-26.3.json') {
             filter { line ->
                 def data = new groovy.json.JsonSlurper().parseText(line)
@@ -149,9 +151,9 @@ sourceSets {
 dependencies { compatibilityTestCompileOnly 'net.luckperms:api:5.5' }
 
 tasks.named('processReleaseTestResources') {
-    if (targetMinecraft.startsWith('1.20.')) {
+    if (isMinecraft120) {
         eachFile { details -> details.path = details.path.replace('/advancement/', '/advancements/') }
-        if (targetMinecraft in ['1.20.1', '1.20.2', '1.20.3', '1.20.4']) {
+        if (targetMinecraft in ['1.20', '1.20.1', '1.20.2', '1.20.3', '1.20.4']) {
             filesMatching('data/**/*.json') {
                 filter { line ->
                     def data = new groovy.json.JsonSlurper().parseText(line)

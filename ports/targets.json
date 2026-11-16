@@ -336,5 +336,20 @@
     "remap": true,
     "permissionsApi": "0.3.1",
     "loaderMinimum": "0.15.11"
+  },
+  "1.20": {
+    "fabricApi": "0.83.0+1.20",
+    "modules": {
+      "fabric-api-base": "0.4.29+b04edc7a27",
+      "fabric-key-binding-api-v1": "1.0.36+fb8d95da27",
+      "fabric-lifecycle-events-v1": "2.2.20+b3afc78b27",
+      "fabric-networking-api-v1": "1.3.8+b3afc78b27",
+      "fabric-resource-loader-v0": "0.11.7+f7923f6d27"
+    },
+    "java": 17,
+    "remap": true,
+    "permissionsApi": "0.3.1",
+    "loaderMinimum": "0.15.11",
+    "sourceFamily": "1.20.1"
   }
 }

@@ -8,7 +8,7 @@ A configuration parse failure deliberately refuses startup. Stop the server, pre
 
 ## F8 or `/adminshop` does not open
 
-Use the same 1.4.2 JAR on the matching administrator client and server. Check the Controls keybind. Old editor protocols cannot open/apply the current draft format. Confirm `guishop.admin`; explicit provider denial applies even to operators.
+Use the same 1.4.3 JAR on the matching administrator client and server. Check the Controls keybind. Old editor protocols cannot open/apply the current draft format. Confirm `guishop.admin`; explicit provider denial applies even to operators.
 
 ## Shop is empty
 

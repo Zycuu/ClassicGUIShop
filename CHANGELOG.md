@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3
+
+- Fixed a server crash when a shop purchase overflowed the player’s inventory on Fabric.
+- Purchased items that cannot fit now drop at the player, including when only part of a stack fits.
+- Added Minecraft 1.20, completing support for every stable Minecraft 1.20 release through 1.20.6. The universal JAR now supports 24 exact Minecraft versions.
+
 ## 1.4.2
 
 - Rebuilt Bulk Adjust around existing shop listings, with category tabs, search, a creative style scrollbar, and selections that persist across categories.

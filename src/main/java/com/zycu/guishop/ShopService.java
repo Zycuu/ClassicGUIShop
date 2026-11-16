@@ -249,7 +249,8 @@ public final class ShopService {
             int batch = Math.min(remaining, template.getMaxStackSize());
             ItemStack stack = template.copyWithCount(batch);
             remaining -= batch;
-            if (!player.getInventory().add(stack) && !stack.isEmpty()) PlayerItemDrop.drop(player, stack);
+            player.getInventory().add(stack);
+            if (!stack.isEmpty()) PlayerItemDrop.drop(player, stack);
         }
     }
 

@@ -11,6 +11,9 @@ PROFILE = json.loads((ROOT/'ports/targets.json').read_text())[RELEASE]
 TARGET = PROFILE.get('sourceFamily', RELEASE)
 
 def adapt(text, relative):
+    if relative.name == 'PlayerItemDrop.java' and TARGET != '26.3':
+        text = text.replace('import net.minecraft.util.Prediction;\n', '')
+        text = text.replace('player.drop(stack, false, Prediction.SERVER_ONLY)', 'player.drop(stack, false)')
     if TARGET not in ('26.3', '26.2'):
         text = text.replace('EntityTypes', 'EntityType')
         text = text.replace('.gui.setScreen(', '.setScreen(').replace('.gui.screen()', '.screen')
@@ -128,6 +131,8 @@ def adapt(text, relative):
     if RELEASE != TARGET:
         from adapt_intermediate import adapt_intermediate
         text = adapt_intermediate(text, relative, RELEASE)
+    if RELEASE == '1.20':
+        text = text.replace('protected void renderWidget(', 'public void renderWidget(')
     override = ROOT/'ports'/RELEASE/relative
     if TARGET in ('1.20.4','1.20.1') and (ROOT/'ports/shared-nbt-overrides'/relative).exists():
         text=(ROOT/'ports/shared-nbt-overrides'/relative).read_text(encoding='utf-8')
@@ -153,14 +158,16 @@ if TARGET in ('1.20.4','1.20.1'):
         destination=ROOT/'build'/RELEASE/'generated/main'/path.relative_to(ROOT/'ports/shared-nbt')
         destination.parent.mkdir(parents=True,exist_ok=True)
         contents=path.read_text(encoding='utf-8')
-        if RELEASE in ('1.20.1','1.20.2'):contents=contents.replace('PotionUtils.addPotionTooltip(stack,lines,scale,ticks)', 'PotionUtils.addPotionTooltip(stack,lines,scale)')
+        if RELEASE in ('1.20','1.20.1','1.20.2'):contents=contents.replace('PotionUtils.addPotionTooltip(stack,lines,scale,ticks)', 'PotionUtils.addPotionTooltip(stack,lines,scale)')
         destination.write_text(contents,encoding='utf-8')
-for path in (ROOT/'ports'/RELEASE).rglob('*.java'):
-    relative=path.relative_to(ROOT/'ports'/RELEASE)
-    environment='client' if '/client/' in str(relative).replace('\\','/') else 'main'
-    destination=ROOT/'build'/RELEASE/'generated'/environment/relative
-    destination.parent.mkdir(parents=True,exist_ok=True)
-    destination.write_text(path.read_text(encoding='utf-8'),encoding='utf-8')
+for version in dict.fromkeys((TARGET, RELEASE)):
+    port = ROOT/'ports'/version
+    for path in port.rglob('*.java'):
+        relative = path.relative_to(port)
+        environment = 'client' if '/client/' in relative.as_posix() else 'main'
+        destination = ROOT/'build'/RELEASE/'generated'/environment/relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(path.read_text(encoding='utf-8'), encoding='utf-8')
 if TARGET.startswith('1.20.') or TARGET in ('1.21.1','1.21.4') or RELEASE == '1.21.5':
     for path in (ROOT/'ports/shared-client-1.20').rglob('*.java'):
         destination=ROOT/'build'/RELEASE/'generated/client'/path.relative_to(ROOT/'ports/shared-client-1.20')

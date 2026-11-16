@@ -13,6 +13,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.*;
 import net.minecraft.resources.*;
 import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.villager.*;
 import net.minecraft.world.item.*;
 import net.minecraft.world.item.alchemy.PotionContents;
@@ -24,9 +25,34 @@ import java.util.*;
 /** Disposable-server release checks. This addon is never bundled in the release. */
 public final class ReleaseSmoke implements ModInitializer {
     private boolean ran;
-    public void onInitialize(){
-        if(!Boolean.getBoolean("guishop.disposableReleaseTest"))throw new IllegalStateException("Release test requires a disposable fixture");
-        ServerTickEvents.END_SERVER_TICK.register(server->{if(ran||server.getTickCount()<4)return;ran=true;try{run(server);}catch(Throwable error){error.printStackTrace();System.out.println("[Release smoke] FAIL: "+error);}});
+    private ItemEntity readinessProbe;
+
+    public void onInitialize() {
+        if (!Boolean.getBoolean("guishop.disposableReleaseTest")) {
+            throw new IllegalStateException("Release test requires a disposable fixture");
+        }
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (ran || server.getTickCount() < 4) return;
+            try {
+                var level = server.overworld();
+                if (readinessProbe == null) {
+                    level.setChunkForced(0, 0, true);
+                    level.getChunk(0, 0);
+                    readinessProbe = new ItemEntity(level, 8, 128, 8, new ItemStack(Items.DIRT));
+                    check(level.addFreshEntity(readinessProbe), "Could not add test chunk readiness probe");
+                    return;
+                }
+                // A loaded chunk can still be waiting for its entities to become visible.
+                if (!level.getEntitiesOfClass(ItemEntity.class, readinessProbe.getBoundingBox().inflate(1)).contains(readinessProbe)) return;
+                readinessProbe.discard();
+                ran = true;
+                run(server);
+            } catch (Throwable error) {
+                ran = true;
+                error.printStackTrace();
+                System.out.println("[Release smoke] FAIL: " + error);
+            }
+        });
     }
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
     private static void award(ServerPlayer player, net.minecraft.advancements.AdvancementHolder advancement) {
@@ -59,6 +85,41 @@ public final class ReleaseSmoke implements ModInitializer {
             ShopModes.advancement(player,hidden);check(GuiShop.ECONOMY.balance(player.getUUID())==1148,"Completed advancement does not pay twice");
         } finally {GuiShop.CONFIG.modes=prior;}
     }
+    private static void purchaseOverflow(ServerPlayer player, ServerLevel level, ShopConfig.Category category) {
+        var template = new ItemStack(Items.STONE);
+        var listing = new ShopConfig.ShopItem();
+        listing.item = "minecraft:stone";
+        listing.listingId = ItemStackData.listingId(template, level.registryAccess());
+        listing.stack = ItemStackData.encode(template, level.registryAccess());
+        listing.name = "Stone";
+        listing.buy = 10;
+        category.items.clear();
+        category.items.add(listing);
+
+        // The 36 main inventory slots are the normal destination for purchases.
+        var inventory = player.getInventory();
+        for (int slot = 0; slot < 36; slot++) {
+            inventory.setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
+        }
+        var dropArea = player.getBoundingBox().inflate(4);
+        GuiShop.ECONOMY.setBalance(player.getUUID(), 1000);
+        check(ShopService.trade(player, listing, ShopGui.Mode.BUY, 4), "Purchase with full inventory");
+        var drops = level.getEntitiesOfClass(ItemEntity.class, dropArea);
+        check(drops.size() == 1 && drops.get(0).getItem().is(Items.STONE)
+            && drops.get(0).getItem().getCount() == 4, "Full inventory drops the entire purchase");
+        check(GuiShop.ECONOMY.balance(player.getUUID()) == 960, "Full inventory purchase debits once");
+        drops.get(0).discard();
+
+        inventory.setItem(0, new ItemStack(Items.STONE, 62));
+        check(ShopService.trade(player, listing, ShopGui.Mode.BUY, 4), "Purchase with room for part of a stack");
+        drops = level.getEntitiesOfClass(ItemEntity.class, dropArea);
+        check(inventory.getItem(0).getCount() == 64 && drops.size() == 1 && drops.get(0).getItem().is(Items.STONE)
+            && drops.get(0).getItem().getCount() == 2, "Partial purchase inserts what fits and drops the remainder");
+        check(GuiShop.ECONOMY.balance(player.getUUID()) == 920, "Partial inventory purchase debits once");
+        drops.get(0).discard();
+        inventory.clearContent();
+    }
+
     private void run(net.minecraft.server.MinecraftServer server)throws Exception{
         BulkListingChecks.verify();
         var level=server.overworld();level.getChunk(0,0);
@@ -106,6 +167,7 @@ public final class ReleaseSmoke implements ModInitializer {
                 check(ShopService.trade(player,item,ShopGui.Mode.SELL,1),"Sale "+item.listingId);
                 check(player.getInventory().isEmpty()&&GuiShop.ECONOMY.balance(player.getUUID())==992,"Exact quantity and account result "+item.listingId);trades++;
             }
+            purchaseOverflow(player, level, category);
             var book=EnchantmentShopService.createBook(access.lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(ResourceKey.create(Registries.ENCHANTMENT,Identifier.withDefaultNamespace("looting"))),5);
             check(book.getOrDefault(DataComponents.STORED_ENCHANTMENTS,ItemEnchantments.EMPTY).getLevel(access.lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(ResourceKey.create(Registries.ENCHANTMENT,Identifier.withDefaultNamespace("looting"))))==5,"Above-vanilla stored level preserved");
             var map=ShopMaps.prepare(player,new ItemStack(Items.FILLED_MAP));check(map.getItem()==Items.FILLED_MAP&&MapItem.getSavedData(map,level)!=null,"World-backed filled map works");
@@ -116,7 +178,7 @@ public final class ReleaseSmoke implements ModInitializer {
             original.villagerTradeLoopFix=false;check(glass.getCostA().getCount()==1,"Turning off restores vanilla payment");original.villagerTradeLoopFix=true;check(glass.getCostA().getCount()>1,"Turning on updates existing offer immediately");
             var message="x".repeat(25000)+"💎".repeat(1000);var parts=AdminPayloads.chunks("release","apply","revision",message);var assembly=new AdminPayloads.Assembly(parts.getFirst());for(var part:parts)assembly.add(part);check(assembly.body().equals(message),"Bounded packet assembly preserves Unicode");
             for(String command:List.of("shop","adminshop","bal","econ","worth","sellhand","shopreward"))check(server.getCommands().getDispatcher().getRoot().getChild(command)!=null,"Command registered "+command);
-            var report=Map.of("passed",true,"minecraft",net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString(),"purchaseSalePairs",trades,"enchantmentPotionVariants",variants,"checks",List.of("native item identity and data","real purchases and sales","account and inventory totals","world map initialization","above-vanilla enchantments","live reversible villager costs and discounts","admin permission denial","bounded Unicode packets","command registration"));
+            var report=Map.of("passed",true,"minecraft",net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString(),"purchaseSalePairs",trades,"enchantmentPotionVariants",variants,"checks",List.of("native item identity and data","real purchases and sales","full and partial inventory overflow","account and inventory totals","world map initialization","above-vanilla enchantments","live reversible villager costs and discounts","admin permission denial","bounded Unicode packets","command registration"));
             Files.writeString(Path.of(System.getProperty("guishop.releaseReport")),AdminDocument.JSON.toJson(report));System.out.println("[Release smoke] PASS: "+trades+" purchase/sale pairs; "+variants+" variants");
         }finally{GuiShop.CONFIG=original;player.getInventory().clearContent();TradeLoopProtection.clear();}
     }

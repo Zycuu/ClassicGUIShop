@@ -101,6 +101,12 @@ public final class StandaloneFontTest implements ClientModInitializer {
         var field=object.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(object);
     }
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
+    private static void click(WorkbenchScreen screen, double x, double y, String message) {
+        int button = com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT;
+        var event = new net.minecraft.client.input.MouseButtonEvent(x, y, new net.minecraft.client.input.MouseButtonInfo(button, 0));
+        check(screen.mouseClicked(event, false), message);
+        screen.mouseReleased(event);
+    }
     private static void press(net.minecraft.client.gui.screens.Screen screen,String name){
         for(var child:screen.children())if(child instanceof net.minecraft.client.gui.components.Button button&&button.getMessage().getString().equals(name)){
             check(button.active,"Button inactive: "+name);
@@ -108,8 +114,7 @@ public final class StandaloneFontTest implements ClientModInitializer {
                 workbench.geometry();
                 double x=workbench.originX+(button.getX()+button.getWidth()/2.0)*workbench.scale;
                 double y=workbench.originY+(button.getY()+button.getHeight()/2.0)*workbench.scale;
-                var event=new net.minecraft.client.input.MouseButtonEvent(x,y,new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT,0));
-                check(workbench.mouseClicked(event,false),"Mouse click accepted: "+name);workbench.mouseReleased(event);
+                click(workbench, x, y, "Mouse click accepted: " + name);
             }else button.onPress(new net.minecraft.client.input.MouseButtonEvent(0,0,new net.minecraft.client.input.MouseButtonInfo(0,0)));
             return;
         }
@@ -155,8 +160,8 @@ public final class StandaloneFontTest implements ClientModInitializer {
         var building=actualDraft.config.category("building_blocks");
         check(building!=null,"Default preset includes Building Blocks");
         actual.geometry();
-        var categoryClick=new net.minecraft.client.input.MouseButtonEvent(actual.originX+(30+actual.contentOffsetX())*actual.scale,actual.originY+140*actual.scale,new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT,0));
-        check(actual.mouseClicked(categoryClick,false),"Builder category mouse-down accepted");actual.mouseReleased(categoryClick);
+        click(actual, actual.originX + (30 + actual.contentOffsetX()) * actual.scale,
+            actual.originY + 140 * actual.scale, "Builder category mouse-down accepted");
         check(field(actual,"categoryId").equals("building_blocks"),"Builder mouse click selects Building Blocks");
         press(actual,"Bulk Adjust");
         var actualBulk=(PriceAdjustScreen)client.gui.screen();

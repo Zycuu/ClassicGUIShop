@@ -18,6 +18,10 @@ def adapt_client(text, name, modern_graphics=False):
     if name in ('AdminScreen.java','IconPickerScreen.java','PriceAdjustScreen.java'):
         text = text.replace('mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy)', 'mouseDragged(double mouseX, double mouseY, int button, double dx, double dy)')
         text = text.replace('event.x()', 'mouseX').replace('event.y()', 'mouseY').replace('super.mouseDragged(event, dx, dy)', 'super.mouseDragged(mouseX,mouseY,button,dx,dy)')
+    if name == 'StandaloneFontTest.java':
+        text = re.sub(r'        var event = new net\.minecraft\.client\.input\.MouseButtonEvent[^\n]+\n', '', text)
+        text = text.replace('screen.mouseClicked(event, false)', 'screen.mouseClicked(x, y, button)')
+        text = text.replace('screen.mouseReleased(event)', 'screen.mouseReleased(x, y, button)')
     if name == 'WorkbenchScreen.java':
         if not modern_graphics:
             text = text.replace('parent.render(graphics, -100, -100, delta);', 'parent.render(graphics, -100, -100, delta); if(parent!=null)graphics.flush();')

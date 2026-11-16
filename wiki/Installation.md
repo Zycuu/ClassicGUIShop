@@ -2,7 +2,7 @@
 
 ## Runtime matrix
 
-Install **one** `ClassicGUIShop-v1.4.2.jar` using the version-specific requirements below.
+Install **one** `ClassicGUIShop-v1.4.3.jar` using the version-specific requirements below.
 
 | Minecraft release | Minimum Java | Minimum Fabric Loader |
 | --- | --- | --- |
@@ -29,6 +29,7 @@ Install **one** `ClassicGUIShop-v1.4.2.jar` using the version-specific requireme
 | 1.20.3 | 17 | 0.15.11 |
 | 1.20.2 | 17 | 0.15.11 |
 | 1.20.1 | 17 | 0.15.11 |
+| 1.20 | 17 | 0.15.11 |
 
 The build dependency remains Loader 0.19.5; the runtime minimum is selected from `ports/targets.json`. The outer universal wrapper uses the lowest supported minimum, and each nested implementation enforces its own stricter requirement.
 
